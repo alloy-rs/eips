@@ -1,6 +1,11 @@
 //! [EIP-2930] types.
 //!
 //! [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[allow(unused_imports)]
+#[macro_use]
+extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
