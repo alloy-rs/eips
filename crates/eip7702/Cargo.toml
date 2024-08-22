@@ -33,6 +33,7 @@ k256 = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 
 [features]
+default = ["std"]
 std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
 serde = ["dep:alloy-serde", "dep:serde", "alloy-primitives/serde"]
 arbitrary = [
