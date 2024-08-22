@@ -44,7 +44,7 @@ impl RecoveredAuthority {
 #[derive(Debug, Clone, Hash, RlpEncodable, RlpDecodable, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Authorization {
     /// The chain ID of the authorization.
     pub chain_id: U256,
