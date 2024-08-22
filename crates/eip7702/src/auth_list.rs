@@ -92,10 +92,7 @@ impl Authorization {
 
     /// Convert to a signed authorization by adding a signature.
     pub const fn into_signed(self, signature: Signature) -> SignedAuthorization {
-        SignedAuthorization {
-            inner: self,
-            signature,
-        }
+        SignedAuthorization { inner: self, signature }
     }
 }
 
@@ -162,11 +159,7 @@ impl Decodable for SignedAuthorization {
 
 impl Encodable for SignedAuthorization {
     fn encode(&self, buf: &mut dyn BufMut) {
-        Header {
-            list: true,
-            payload_length: self.fields_len(),
-        }
-        .encode(buf);
+        Header { list: true, payload_length: self.fields_len() }.encode(buf);
         self.inner.chain_id.encode(buf);
         self.inner.address.encode(buf);
         self.inner.nonce.encode(buf);
@@ -187,8 +180,7 @@ impl SignedAuthorization {
     ///
     /// Implementers should check that the authority has no code.
     pub fn recover_authority(&self) -> Result<Address, alloy_primitives::SignatureError> {
-        self.signature
-            .recover_address_from_prehash(&self.inner.signature_hash())
+        self.signature.recover_address_from_prehash(&self.inner.signature_hash())
     }
 
     /// Recover the authority and transform the signed authorization into a
@@ -198,10 +190,7 @@ impl SignedAuthorization {
         let authority =
             authority_result.map_or(RecoveredAuthority::Invalid, RecoveredAuthority::Valid);
 
-        RecoveredAuthorization {
-            inner: self.inner,
-            authority,
-        }
+        RecoveredAuthorization { inner: self.inner, authority }
     }
 }
 
