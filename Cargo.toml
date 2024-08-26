@@ -39,24 +39,12 @@ alloy-rlp = { version = "0.3", default-features = false }
 
 # serde
 alloy-serde = { version = "0.2" }
-serde = { version = "1.0", default-features = false, features = [
-    "derive",
-    "alloc",
-] }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-# kzg
-c-kzg = { version = "1.0", default-features = false }
-derive_more = "1.0.0"
-once_cell = { version = "1.19", default-features = false }
-sha2 = { version = "0.10", default-features = false }
-
-# ssz
-ethereum_ssz_derive = "0.5"
-ethereum_ssz = "0.5"
 
 # arbitrary
 arbitrary = "1.3"
 
-# for signed authorization list arbitrary
+# for 7702 signed authorization list arbitrary
 k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 rand = "0.8"

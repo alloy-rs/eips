@@ -22,15 +22,11 @@ alloy-primitives = { workspace = true, features = ["rlp"] }
 alloy-rlp = { workspace = true, features = ["derive"] }
 
 # serde
-alloy-serde = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
 # arbitrary
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 rand = { workspace = true, optional = true }
-
-# # for signed authorization list arbitrary
-# k256 = { workspace = true, optional = true }
 
 
 [dev-dependencies]
@@ -39,12 +35,5 @@ serde_json.workspace = true
 [features]
 default = ["std"]
 std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
-serde = ["dep:alloy-serde", "dep:serde", "alloy-primitives/serde"]
-arbitrary = [
-    "std",
-    "dep:arbitrary",
-    "dep:rand",
-    "alloy-primitives/arbitrary",
-    "alloy-serde?/arbitrary",
-]
-# k256 = ["alloy-primitives/k256", "dep:k256"]
+serde = ["dep:serde", "alloy-primitives/serde"]
+arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
