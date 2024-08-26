@@ -44,15 +44,10 @@ serde = { version = "1.0", default-features = false, features = [
     "alloc",
 ] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-# kzg
-c-kzg = { version = "1.0", default-features = false }
-derive_more = "1.0.0"
-once_cell = { version = "1.19", default-features = false }
-sha2 = { version = "0.10", default-features = false }
 
 # ssz
-ethereum_ssz_derive = "0.5"
-ethereum_ssz = "0.5"
+# ethereum_ssz_derive = "0.5"
+# ethereum_ssz = "0.5"
 
 # arbitrary
 arbitrary = "1.3"
