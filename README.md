@@ -1,6 +1,6 @@
 # alloy-eips
 
-External repository for housing some Ethereum Improvement Proprosal (EIP) implementations for easier maintainence.
+External repository for housing some Ethereum Improvement Proprosal (EIP) implementations for easier maintenance.
 
 Contains constants, helpers, and basic data structures for consensus EIPs.
 
