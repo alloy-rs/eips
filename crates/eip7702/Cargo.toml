@@ -1,5 +1,5 @@
 [package]
-name = "eip-7702"
+name = "alloy-eip7702"
 description = "Implementation of EIP-7702 type definitions"
 
 version.workspace = true
