@@ -51,7 +51,7 @@ pub struct Authorization {
     /// The address of the authorization.
     pub address: Address,
     /// The nonce for the authorization.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[cfg_attr(feature = "serde", serde(with = "quantity"))]
     pub nonce: u64,
 }
 
@@ -276,6 +276,28 @@ impl Deref for RecoveredAuthorization {
     }
 }
 
+#[cfg(feature = "serde")]
+mod quantity {
+    use alloy_primitives::U64;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Serializes a primitive number as a "quantity" hex string.
+    pub(crate) fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        U64::from(*value).serialize(serializer)
+    }
+
+    /// Deserializes a primitive number from a "quantity" hex string.
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        U64::deserialize(deserializer).map(|value| value.to())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,6 +341,23 @@ mod tests {
         let decoded = SignedAuthorization::decode(&mut buf.as_ref()).unwrap();
         assert_eq!(buf.len(), auth.length());
         assert_eq!(decoded, auth);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_auth_json() {
+        let sig = r#"{"r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
+        let auth = SignedAuthorization {
+            inner: Authorization {
+                chain_id: U256::from(1u64),
+                address: Address::left_padding_from(&[6]),
+                nonce: 1,
+            },
+            signature: serde_json::from_str(sig).unwrap(),
+        };
+        let val = serde_json::to_string(&auth).unwrap();
+        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
+        assert_eq!(val, s);
     }
 
     #[cfg(all(feature = "arbitrary", feature = "k256"))]
