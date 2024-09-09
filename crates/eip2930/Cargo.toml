@@ -2,7 +2,7 @@
 name = "alloy-eip2930"
 description = "Implementation of EIP-2930 type definitions"
 
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
