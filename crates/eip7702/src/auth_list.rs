@@ -399,7 +399,7 @@ pub(super) mod serde_bincode_compat {
     /// }
     /// ```
     #[derive(Debug, Serialize, Deserialize)]
-    struct SignedAuthorization<'a> {
+    pub struct SignedAuthorization<'a> {
         inner: Cow<'a, Authorization>,
         signature: Cow<'a, Signature>,
     }
