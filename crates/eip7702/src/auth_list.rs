@@ -372,3 +372,101 @@ mod tests {
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
     }
 }
+
+/// Bincode-compatible [`SignedAuthorization`] serde implementation.
+#[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
+pub(super) mod serde_bincode_compat {
+    use alloc::borrow::Cow;
+    use alloy_primitives::Signature;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde_with::{DeserializeAs, SerializeAs};
+
+    use crate::Authorization;
+
+    /// Bincode-compatible [`super::SignedAuthorization`] serde implementation.
+    ///
+    /// Intended to use with the [`serde_with::serde_as`] macro in the following way:
+    /// ```rust
+    /// use alloy_eip7702::{serde_bincode_compat, SignedAuthorization};
+    /// use serde::{Deserialize, Serialize};
+    /// use serde_with::serde_as;
+    ///
+    /// #[serde_as]
+    /// #[derive(Serialize, Deserialize)]
+    /// struct Data {
+    ///     #[serde_as(as = "serde_bincode_compat::SignedAuthorization")]
+    ///     authorization: SignedAuthorization,
+    /// }
+    /// ```
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct SignedAuthorization<'a> {
+        inner: Cow<'a, Authorization>,
+        signature: Cow<'a, Signature>,
+    }
+
+    impl<'a> From<&'a super::SignedAuthorization> for SignedAuthorization<'a> {
+        fn from(value: &'a super::SignedAuthorization) -> Self {
+            Self { inner: Cow::Borrowed(&value.inner), signature: Cow::Borrowed(&value.signature) }
+        }
+    }
+
+    impl<'a> From<SignedAuthorization<'a>> for super::SignedAuthorization {
+        fn from(value: SignedAuthorization<'a>) -> Self {
+            Self { inner: value.inner.into_owned(), signature: value.signature.into_owned() }
+        }
+    }
+
+    impl<'a> SerializeAs<super::SignedAuthorization> for SignedAuthorization<'a> {
+        fn serialize_as<S>(
+            source: &super::SignedAuthorization,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            SignedAuthorization::from(source).serialize(serializer)
+        }
+    }
+
+    impl<'de> DeserializeAs<'de, super::SignedAuthorization> for SignedAuthorization<'de> {
+        fn deserialize_as<D>(deserializer: D) -> Result<super::SignedAuthorization, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            SignedAuthorization::deserialize(deserializer).map(Into::into)
+        }
+    }
+
+    #[cfg(all(test, feature = "k256"))]
+    mod tests {
+        use arbitrary::Arbitrary;
+        use rand::Rng;
+        use serde::{Deserialize, Serialize};
+        use serde_with::serde_as;
+
+        use super::super::{serde_bincode_compat, SignedAuthorization};
+
+        #[test]
+        fn test_signed_authorization_bincode_roundtrip() {
+            #[serde_as]
+            #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+            struct Data {
+                #[serde_as(as = "serde_bincode_compat::SignedAuthorization")]
+                authorization: SignedAuthorization,
+            }
+
+            let mut bytes = [0u8; 1024];
+            rand::thread_rng().fill(bytes.as_mut_slice());
+            let data = Data {
+                authorization: SignedAuthorization::arbitrary(&mut arbitrary::Unstructured::new(
+                    &bytes,
+                ))
+                .unwrap(),
+            };
+
+            let encoded = bincode::serialize(&data).unwrap();
+            let decoded: Data = bincode::deserialize(&encoded).unwrap();
+            assert_eq!(decoded, data);
+        }
+    }
+}
