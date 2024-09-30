@@ -375,7 +375,7 @@ mod tests {
 
 /// Bincode-compatible [`SignedAuthorization`] serde implementation.
 #[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
-pub mod serde_bincode_compat {
+pub(super) mod serde_bincode_compat {
     use alloc::borrow::Cow;
     use alloy_primitives::Signature;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -400,7 +400,6 @@ pub mod serde_bincode_compat {
     /// ```
     #[derive(Debug, Serialize, Deserialize)]
     struct SignedAuthorization<'a> {
-        // Bincode doesn't support `#[serde(flatten)]`: <https://github.com/bincode-org/bincode/issues/167#issuecomment-897629039>
         inner: Cow<'a, Authorization>,
         signature: Cow<'a, Signature>,
     }

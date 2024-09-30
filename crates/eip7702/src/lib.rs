@@ -11,3 +11,15 @@ mod auth_list;
 pub use auth_list::*;
 
 pub mod constants;
+
+/// Bincode-compatible serde implementations for EIP-7702 types.
+///
+/// `bincode` crate doesn't work with `#[serde(flatten)]` attribute, but some of the EIP-7702 types
+/// require flattenning for RPC compatibility. This module makes so that all fields are
+/// non-flattenned.
+///
+/// Read more: <https://github.com/bincode-org/bincode/issues/167#issuecomment-897629039>
+#[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
+pub mod serde_bincode_compat {
+    pub use super::auth_list::serde_bincode_compat::*;
+}
