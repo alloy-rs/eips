@@ -47,7 +47,7 @@ impl RecoveredAuthority {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Authorization {
     /// The chain ID of the authorization.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[cfg_attr(feature = "serde", serde(with = "quantity"))]
     pub chain_id: u64,
     /// The address of the authorization.
     pub address: Address,
