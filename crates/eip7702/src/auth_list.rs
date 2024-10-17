@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{keccak256, Address, Signature, B256, U256};
+use alloy_primitives::{keccak256, Address, Signature, B256};
 use alloy_rlp::{
     length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
     RlpEncodable,
@@ -47,7 +47,8 @@ impl RecoveredAuthority {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Authorization {
     /// The chain ID of the authorization.
-    pub chain_id: U256,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub chain_id: u64,
     /// The address of the authorization.
     pub address: Address,
     /// The nonce for the authorization.
@@ -61,7 +62,7 @@ impl Authorization {
     /// # Note
     ///
     /// Implementers should check that this matches the current `chain_id` *or* is 0.
-    pub const fn chain_id(&self) -> U256 {
+    pub const fn chain_id(&self) -> u64 {
         self.chain_id
     }
 
@@ -316,7 +317,7 @@ mod tests {
     fn test_encode_decode_auth() {
         // fully filled
         test_encode_decode_roundtrip(Authorization {
-            chain_id: U256::from(1u64),
+            chain_id: 1u64,
             address: Address::left_padding_from(&[6]),
             nonce: 1,
         });
@@ -326,7 +327,7 @@ mod tests {
     fn test_encode_decode_signed_auth() {
         let auth = SignedAuthorization {
             inner: Authorization {
-                chain_id: U256::from(1u64),
+                chain_id: 1u64,
                 address: Address::left_padding_from(&[6]),
                 nonce: 1,
             },
@@ -349,7 +350,7 @@ mod tests {
         let sig = r#"{"r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
         let auth = SignedAuthorization {
             inner: Authorization {
-                chain_id: U256::from(1u64),
+                chain_id: 1u64,
                 address: Address::left_padding_from(&[6]),
                 nonce: 1,
             },
