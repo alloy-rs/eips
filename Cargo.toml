@@ -33,7 +33,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace.dependencies]
-alloy-primitives = { version = "0.8.0", default-features = false }
+alloy-primitives = { version = "0.8.10", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
 
 # serde

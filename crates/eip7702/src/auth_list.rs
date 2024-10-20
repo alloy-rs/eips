@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{keccak256, Address, Parity, Signature, SignatureError, B256, U256, U8};
+use alloy_primitives::{keccak256, Address, PrimitiveSignature, SignatureError, B256, U256, U8};
 use alloy_rlp::{
     length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
     RlpEncodable,
@@ -92,12 +92,12 @@ impl Authorization {
     }
 
     /// Convert to a signed authorization by adding a signature.
-    pub fn into_signed(self, signature: Signature) -> SignedAuthorization {
+    pub fn into_signed(self, signature: PrimitiveSignature) -> SignedAuthorization {
         SignedAuthorization {
             inner: self,
             r: signature.r(),
             s: signature.s(),
-            y_parity: U8::from(signature.v().y_parity() as u8),
+            y_parity: U8::from(signature.v()),
         }
     }
 }
@@ -130,9 +130,9 @@ impl SignedAuthorization {
     ///
     /// Note that this signature might still be invalid for recovery as it might have `s` value
     /// greater than [secp256k1n/2](crate::constants::SECP256K1N_HALF).
-    pub fn signature(&self) -> Result<Signature, SignatureError> {
+    pub fn signature(&self) -> Result<PrimitiveSignature, SignatureError> {
         if self.y_parity() <= 1 {
-            Ok(Signature::new(self.r, self.s, Parity::Parity(self.y_parity() == 1)))
+            Ok(PrimitiveSignature::new(self.r, self.s, self.y_parity() == 1))
         } else {
             Err(SignatureError::InvalidParity(self.y_parity() as u64))
         }
@@ -290,8 +290,8 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
 
         let (recoverable_sig, recovery_id) =
             signing_key.sign_prehash(signature_hash.as_ref()).unwrap();
-        let signature = Signature::from_signature_and_parity(recoverable_sig, recovery_id)
-            .map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        let signature =
+            PrimitiveSignature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
 
         Ok(inner.into_signed(signature))
     }
@@ -371,7 +371,7 @@ mod quantity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{hex, Signature};
+    use alloy_primitives::hex;
     use core::str::FromStr;
 
     fn test_encode_decode_roundtrip(auth: Authorization) {
@@ -397,7 +397,7 @@ mod tests {
         let auth =
             Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 };
 
-        let auth = auth.into_signed(Signature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
+        let auth = auth.into_signed(PrimitiveSignature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
         let mut buf = Vec::new();
         auth.encode(&mut buf);
 
@@ -490,7 +490,7 @@ pub(super) mod serde_bincode_compat {
         }
     }
 
-    impl<'a> SerializeAs<super::SignedAuthorization> for SignedAuthorization<'a> {
+    impl SerializeAs<super::SignedAuthorization> for SignedAuthorization<'_> {
         fn serialize_as<S>(
             source: &super::SignedAuthorization,
             serializer: S,
