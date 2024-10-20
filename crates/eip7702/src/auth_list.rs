@@ -126,7 +126,7 @@ impl SignedAuthorization {
                 address: Decodable::decode(buf)?,
                 nonce: Decodable::decode(buf)?,
             },
-            signature: Signature::decode_rlp_vrs(buf)?,
+            signature: Signature::decode_rlp_vrs(buf, bool::decode)?,
         })
     }
 
@@ -135,7 +135,8 @@ impl SignedAuthorization {
         self.inner.chain_id.length()
             + self.inner.address.length()
             + self.inner.nonce.length()
-            + self.signature.rlp_vrs_len()
+            + self.signature.rlp_rs_len()
+            + self.signature.v().length()
     }
 }
 
@@ -144,7 +145,7 @@ impl Hash for SignedAuthorization {
         self.inner.hash(state);
         self.signature.r().hash(state);
         self.signature.s().hash(state);
-        self.signature.v().to_u64().hash(state);
+        self.signature.v().hash(state);
     }
 }
 
@@ -164,7 +165,7 @@ impl Encodable for SignedAuthorization {
         self.inner.chain_id.encode(buf);
         self.inner.address.encode(buf);
         self.inner.nonce.encode(buf);
-        self.signature.write_rlp_vrs(buf)
+        self.signature.write_rlp_vrs(buf, self.signature.v())
     }
 
     fn length(&self) -> usize {
@@ -221,8 +222,8 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
 
         let (recoverable_sig, recovery_id) =
             signing_key.sign_prehash(signature_hash.as_ref()).unwrap();
-        let signature = Signature::from_signature_and_parity(recoverable_sig, recovery_id)
-            .map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        let signature =
+            Signature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
 
         Ok(Self { inner, signature })
     }
@@ -336,7 +337,7 @@ mod tests {
         let mut buf = Vec::new();
         auth.encode(&mut buf);
 
-        let expected = "f85a01940000000000000000000000000000000000000006011ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804";
+        let expected = "f85a019400000000000000000000000000000000000000060180a048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804";
         assert_eq!(hex::encode(&buf), expected);
 
         let decoded = SignedAuthorization::decode(&mut buf.as_ref()).unwrap();
