@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{keccak256, Address, Signature, B256};
+use alloy_primitives::{keccak256, Address, Parity, Signature, SignatureError, B256, U256, U8};
 use alloy_rlp::{
     length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
     RlpEncodable,
@@ -92,8 +92,13 @@ impl Authorization {
     }
 
     /// Convert to a signed authorization by adding a signature.
-    pub const fn into_signed(self, signature: Signature) -> SignedAuthorization {
-        SignedAuthorization { inner: self, signature }
+    pub fn into_signed(self, signature: Signature) -> SignedAuthorization {
+        SignedAuthorization {
+            inner: self,
+            r: signature.r(),
+            s: signature.s(),
+            v: U8::from(signature.v().y_parity() as u8),
+        }
     }
 }
 
@@ -103,19 +108,25 @@ impl Authorization {
 pub struct SignedAuthorization {
     #[cfg_attr(feature = "serde", serde(flatten))]
     inner: Authorization,
-    #[cfg_attr(feature = "serde", serde(flatten))]
-    signature: Signature,
+    v: U8,
+    r: U256,
+    s: U256,
 }
 
 impl SignedAuthorization {
-    /// Get the `signature` for the authorization.
-    pub const fn signature(&self) -> &Signature {
-        &self.signature
+    /// Gets the `signature` for the authorization. Returns [`SignatureError`] if signature could
+    /// not be constructed from vrs values.
+    pub fn signature(&self) -> Result<Signature, SignatureError> {
+        if self.v <= U8::from(1) {
+            Ok(Signature::new(self.r, self.s, Parity::Parity(self.v == U8::from(1))))
+        } else {
+            Err(SignatureError::InvalidParity(self.v.to::<u64>()))
+        }
     }
 
-    /// Splits the authorization into parts.
-    pub const fn into_parts(self) -> (Authorization, Signature) {
-        (self.inner, self.signature)
+    /// Returns the inner [`Authorization`].
+    pub const fn strip_signature(self) -> Authorization {
+        self.inner
     }
 
     /// Decodes the transaction from RLP bytes, including the signature.
@@ -126,7 +137,9 @@ impl SignedAuthorization {
                 address: Decodable::decode(buf)?,
                 nonce: Decodable::decode(buf)?,
             },
-            signature: Signature::decode_rlp_vrs(buf)?,
+            v: Decodable::decode(buf)?,
+            r: Decodable::decode(buf)?,
+            s: Decodable::decode(buf)?,
         })
     }
 
@@ -135,16 +148,18 @@ impl SignedAuthorization {
         self.inner.chain_id.length()
             + self.inner.address.length()
             + self.inner.nonce.length()
-            + self.signature.rlp_vrs_len()
+            + self.v.length()
+            + self.r.length()
+            + self.s.length()
     }
 }
 
 impl Hash for SignedAuthorization {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
-        self.signature.r().hash(state);
-        self.signature.s().hash(state);
-        self.signature.v().to_u64().hash(state);
+        self.r.hash(state);
+        self.s.hash(state);
+        self.v.hash(state);
     }
 }
 
@@ -164,7 +179,9 @@ impl Encodable for SignedAuthorization {
         self.inner.chain_id.encode(buf);
         self.inner.address.encode(buf);
         self.inner.nonce.encode(buf);
-        self.signature.write_rlp_vrs(buf)
+        self.v.encode(buf);
+        self.r.encode(buf);
+        self.s.encode(buf);
     }
 
     fn length(&self) -> usize {
@@ -181,7 +198,7 @@ impl SignedAuthorization {
     ///
     /// Implementers should check that the authority has no code.
     pub fn recover_authority(&self) -> Result<Address, alloy_primitives::SignatureError> {
-        self.signature.recover_address_from_prehash(&self.inner.signature_hash())
+        self.signature()?.recover_address_from_prehash(&self.inner.signature_hash())
     }
 
     /// Recover the authority and transform the signed authorization into a
@@ -224,7 +241,7 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
         let signature = Signature::from_signature_and_parity(recoverable_sig, recovery_id)
             .map_err(|_| arbitrary::Error::IncorrectFormat)?;
 
-        Ok(Self { inner, signature })
+        Ok(inner.into_signed(signature))
     }
 }
 
@@ -325,14 +342,10 @@ mod tests {
 
     #[test]
     fn test_encode_decode_signed_auth() {
-        let auth = SignedAuthorization {
-            inner: Authorization {
-                chain_id: 1u64,
-                address: Address::left_padding_from(&[6]),
-                nonce: 1,
-            },
-            signature: Signature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap(),
-        };
+        let auth =
+            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 };
+
+        let auth = auth.into_signed(Signature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
         let mut buf = Vec::new();
         auth.encode(&mut buf);
 
@@ -348,14 +361,9 @@ mod tests {
     #[test]
     fn test_auth_json() {
         let sig = r#"{"r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
-        let auth = SignedAuthorization {
-            inner: Authorization {
-                chain_id: 1u64,
-                address: Address::left_padding_from(&[6]),
-                nonce: 1,
-            },
-            signature: serde_json::from_str(sig).unwrap(),
-        };
+        let auth =
+            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 }
+                .into_signed(serde_json::from_str(sig).unwrap());
         let val = serde_json::to_string(&auth).unwrap();
         let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
         assert_eq!(val, s);
@@ -378,7 +386,7 @@ mod tests {
 #[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
 pub(super) mod serde_bincode_compat {
     use alloc::borrow::Cow;
-    use alloy_primitives::Signature;
+    use alloy_primitives::{U256, U8};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
@@ -402,18 +410,20 @@ pub(super) mod serde_bincode_compat {
     #[derive(Debug, Serialize, Deserialize)]
     pub struct SignedAuthorization<'a> {
         inner: Cow<'a, Authorization>,
-        signature: Cow<'a, Signature>,
+        v: U8,
+        r: U256,
+        s: U256,
     }
 
     impl<'a> From<&'a super::SignedAuthorization> for SignedAuthorization<'a> {
         fn from(value: &'a super::SignedAuthorization) -> Self {
-            Self { inner: Cow::Borrowed(&value.inner), signature: Cow::Borrowed(&value.signature) }
+            Self { inner: Cow::Borrowed(&value.inner), v: value.v, r: value.r, s: value.s }
         }
     }
 
     impl<'a> From<SignedAuthorization<'a>> for super::SignedAuthorization {
         fn from(value: SignedAuthorization<'a>) -> Self {
-            Self { inner: value.inner.into_owned(), signature: value.signature.into_owned() }
+            Self { inner: value.inner.into_owned(), v: value.v, r: value.r, s: value.s }
         }
     }
 
