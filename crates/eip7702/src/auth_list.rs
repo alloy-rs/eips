@@ -349,7 +349,7 @@ mod tests {
         let mut buf = Vec::new();
         auth.encode(&mut buf);
 
-        let expected = "f85a01940000000000000000000000000000000000000006011ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804";
+        let expected = "f85a019400000000000000000000000000000000000000060180a048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804";
         assert_eq!(hex::encode(&buf), expected);
 
         let decoded = SignedAuthorization::decode(&mut buf.as_ref()).unwrap();
@@ -365,7 +365,7 @@ mod tests {
             Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 }
                 .into_signed(serde_json::from_str(sig).unwrap());
         let val = serde_json::to_string(&auth).unwrap();
-        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
+        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","v":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05"}"#;
         assert_eq!(val, s);
     }
 
