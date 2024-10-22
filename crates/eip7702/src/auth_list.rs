@@ -97,7 +97,7 @@ impl Authorization {
             inner: self,
             r: signature.r(),
             s: signature.s(),
-            v: U8::from(signature.v().y_parity() as u8),
+            y_parity: U8::from(signature.v().y_parity() as u8),
         }
     }
 }
@@ -108,7 +108,8 @@ impl Authorization {
 pub struct SignedAuthorization {
     #[cfg_attr(feature = "serde", serde(flatten))]
     inner: Authorization,
-    v: U8,
+    #[cfg_attr(feature = "serde", serde(rename = "yParity"))]
+    y_parity: U8,
     r: U256,
     s: U256,
 }
@@ -117,10 +118,10 @@ impl SignedAuthorization {
     /// Gets the `signature` for the authorization. Returns [`SignatureError`] if signature could
     /// not be constructed from vrs values.
     pub fn signature(&self) -> Result<Signature, SignatureError> {
-        if self.v <= U8::from(1) {
-            Ok(Signature::new(self.r, self.s, Parity::Parity(self.v == U8::from(1))))
+        if self.y_parity <= U8::from(1) {
+            Ok(Signature::new(self.r, self.s, Parity::Parity(self.y_parity == U8::from(1))))
         } else {
-            Err(SignatureError::InvalidParity(self.v.to::<u64>()))
+            Err(SignatureError::InvalidParity(self.y_parity.to::<u64>()))
         }
     }
 
@@ -137,7 +138,7 @@ impl SignedAuthorization {
                 address: Decodable::decode(buf)?,
                 nonce: Decodable::decode(buf)?,
             },
-            v: Decodable::decode(buf)?,
+            y_parity: Decodable::decode(buf)?,
             r: Decodable::decode(buf)?,
             s: Decodable::decode(buf)?,
         })
@@ -148,7 +149,7 @@ impl SignedAuthorization {
         self.inner.chain_id.length()
             + self.inner.address.length()
             + self.inner.nonce.length()
-            + self.v.length()
+            + self.y_parity.length()
             + self.r.length()
             + self.s.length()
     }
@@ -159,7 +160,7 @@ impl Hash for SignedAuthorization {
         self.inner.hash(state);
         self.r.hash(state);
         self.s.hash(state);
-        self.v.hash(state);
+        self.y_parity.hash(state);
     }
 }
 
@@ -179,7 +180,7 @@ impl Encodable for SignedAuthorization {
         self.inner.chain_id.encode(buf);
         self.inner.address.encode(buf);
         self.inner.nonce.encode(buf);
-        self.v.encode(buf);
+        self.y_parity.encode(buf);
         self.r.encode(buf);
         self.s.encode(buf);
     }
@@ -365,7 +366,7 @@ mod tests {
             Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 }
                 .into_signed(serde_json::from_str(sig).unwrap());
         let val = serde_json::to_string(&auth).unwrap();
-        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","v":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05"}"#;
+        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","yParity":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05"}"#;
         assert_eq!(val, s);
     }
 
@@ -410,20 +411,31 @@ pub(super) mod serde_bincode_compat {
     #[derive(Debug, Serialize, Deserialize)]
     pub struct SignedAuthorization<'a> {
         inner: Cow<'a, Authorization>,
-        v: U8,
+        #[serde(rename = "yParity")]
+        y_parity: U8,
         r: U256,
         s: U256,
     }
 
     impl<'a> From<&'a super::SignedAuthorization> for SignedAuthorization<'a> {
         fn from(value: &'a super::SignedAuthorization) -> Self {
-            Self { inner: Cow::Borrowed(&value.inner), v: value.v, r: value.r, s: value.s }
+            Self {
+                inner: Cow::Borrowed(&value.inner),
+                y_parity: value.y_parity,
+                r: value.r,
+                s: value.s,
+            }
         }
     }
 
     impl<'a> From<SignedAuthorization<'a>> for super::SignedAuthorization {
         fn from(value: SignedAuthorization<'a>) -> Self {
-            Self { inner: value.inner.into_owned(), v: value.v, r: value.r, s: value.s }
+            Self {
+                inner: value.inner.into_owned(),
+                y_parity: value.y_parity,
+                r: value.r,
+                s: value.s,
+            }
         }
     }
 
