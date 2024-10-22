@@ -10,3 +10,13 @@ pub enum Eip7702Error {
     #[from]
     Signature(alloy_primitives::SignatureError),
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for Eip7702Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::InvalidSValue(_) => None,
+            Self::Signature(err) => Some(err),
+        }
+    }
+}
