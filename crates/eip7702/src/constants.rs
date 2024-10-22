@@ -1,6 +1,7 @@
 //! [EIP-7702] constants.
 //!
 //! [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+use alloy_primitives::{uint, U256};
 
 /// Identifier for EIP7702's set code transaction.
 ///
@@ -23,3 +24,8 @@ pub const PER_AUTH_BASE_COST: u64 = 12500;
 ///
 /// See also [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702).
 pub const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
+
+/// The order of the secp256k1 curve, divided by two. Signatures that should be checked according
+/// to EIP-2 should have an S value less than or equal to this.
+pub const SECP256K1N_HALF: U256 =
+    uint!(57896044618658097711785492504343953926418782139537452191302581570759080747168_U256);

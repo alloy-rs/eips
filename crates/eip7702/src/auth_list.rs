@@ -127,6 +127,9 @@ impl SignedAuthorization {
 
     /// Gets the `signature` for the authorization. Returns [`SignatureError`] if signature could
     /// not be constructed from vrs values.
+    ///
+    /// Note that this signature might still be invalid for recovery as it might have `s` value
+    /// greater than [`SECP256K1N_HALF`].
     pub fn signature(&self) -> Result<Signature, SignatureError> {
         if self.y_parity() <= 1 {
             Ok(Signature::new(self.r, self.s, Parity::Parity(self.y_parity() == 1)))
@@ -228,8 +231,14 @@ impl SignedAuthorization {
     /// # Note
     ///
     /// Implementers should check that the authority has no code.
-    pub fn recover_authority(&self) -> Result<Address, alloy_primitives::SignatureError> {
-        self.signature()?.recover_address_from_prehash(&self.inner.signature_hash())
+    pub fn recover_authority(&self) -> Result<Address, crate::error::Eip7702Error> {
+        let signature = self.signature()?;
+
+        if signature.s() > crate::constants::SECP256K1N_HALF {
+            return Err(crate::error::Eip7702Error::InvalidSValue(signature.s()));
+        }
+
+        Ok(signature.recover_address_from_prehash(&self.inner.signature_hash())?)
     }
 
     /// Recover the authority and transform the signed authorization into a
