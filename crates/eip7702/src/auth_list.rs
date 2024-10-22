@@ -120,6 +120,11 @@ pub struct SignedAuthorization {
 }
 
 impl SignedAuthorization {
+    /// Creates a new signed authorization from raw signature values.
+    pub fn new_unchecked(inner: Authorization, y_parity: U8, r: U256, s: U256) -> Self {
+        Self { inner, y_parity, r, s }
+    }
+
     /// Gets the `signature` for the authorization. Returns [`SignatureError`] if signature could
     /// not be constructed from vrs values.
     pub fn signature(&self) -> Result<Signature, SignatureError> {
