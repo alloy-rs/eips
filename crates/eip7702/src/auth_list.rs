@@ -129,7 +129,7 @@ impl SignedAuthorization {
     /// not be constructed from vrs values.
     ///
     /// Note that this signature might still be invalid for recovery as it might have `s` value
-    /// greater than [`SECP256K1N_HALF`].
+    /// greater than [secp256k1n/2](crate::constants::SECP256K1N_HALF).
     pub fn signature(&self) -> Result<Signature, SignatureError> {
         if self.y_parity() <= 1 {
             Ok(Signature::new(self.r, self.s, Parity::Parity(self.y_parity() == 1)))
