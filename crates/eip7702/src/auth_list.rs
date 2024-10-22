@@ -123,10 +123,10 @@ impl SignedAuthorization {
     /// Gets the `signature` for the authorization. Returns [`SignatureError`] if signature could
     /// not be constructed from vrs values.
     pub fn signature(&self) -> Result<Signature, SignatureError> {
-        if self.y_parity <= U8::from(1) {
-            Ok(Signature::new(self.r, self.s, Parity::Parity(self.y_parity == U8::from(1))))
+        if self.y_parity() <= 1 {
+            Ok(Signature::new(self.r, self.s, Parity::Parity(self.y_parity() == 1)))
         } else {
-            Err(SignatureError::InvalidParity(self.y_parity.to::<u64>()))
+            Err(SignatureError::InvalidParity(self.y_parity() as u64))
         }
     }
 
@@ -141,8 +141,8 @@ impl SignedAuthorization {
     }
 
     /// Returns the signature parity value.
-    pub const fn y_parity(&self) -> U8 {
-        self.y_parity
+    pub fn y_parity(&self) -> u8 {
+        self.y_parity.to()
     }
 
     /// Returns the signature `r` value.
