@@ -106,11 +106,16 @@ impl Authorization {
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SignedAuthorization {
+    /// Inner authorization.
     #[cfg_attr(feature = "serde", serde(flatten))]
     inner: Authorization,
+    /// Signature parity value. We allow any [`U8`] here, however, the only valid values are `0`
+    /// and `1` and anything else will result in error during recovery.
     #[cfg_attr(feature = "serde", serde(rename = "yParity"))]
     y_parity: U8,
+    /// Signature `r` value.
     r: U256,
+    /// Signature `s` value.
     s: U256,
 }
 
@@ -128,6 +133,26 @@ impl SignedAuthorization {
     /// Returns the inner [`Authorization`].
     pub const fn strip_signature(self) -> Authorization {
         self.inner
+    }
+
+    /// Returns the inner [`Authorization`].
+    pub const fn inner(&self) -> &Authorization {
+        &self.inner
+    }
+
+    /// Returns the signature parity value.
+    pub const fn y_parity(&self) -> U8 {
+        self.y_parity
+    }
+
+    /// Returns the signature `r` value.
+    pub const fn r(&self) -> U256 {
+        self.r
+    }
+
+    /// Returns the signature `s` value.
+    pub const fn s(&self) -> U256 {
+        self.s
     }
 
     /// Decodes the transaction from RLP bytes, including the signature.
