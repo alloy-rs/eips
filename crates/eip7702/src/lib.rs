@@ -12,6 +12,9 @@ pub use auth_list::*;
 
 pub mod constants;
 
+mod error;
+pub use error::Eip7702Error;
+
 /// Bincode-compatible serde implementations for EIP-7702 types.
 ///
 /// `bincode` crate doesn't work with `#[serde(flatten)]` attribute, but some of the EIP-7702 types
