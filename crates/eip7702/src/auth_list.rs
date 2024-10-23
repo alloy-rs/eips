@@ -203,7 +203,19 @@ impl Decodable for SignedAuthorization {
         if !header.list {
             return Err(alloy_rlp::Error::UnexpectedString);
         }
-        Self::decode_fields(buf)
+        let started_len = buf.len();
+
+        let this = Self::decode_fields(buf)?;
+
+        let consumed = started_len - buf.len();
+        if consumed != header.payload_length {
+            return Err(alloy_rlp::Error::ListLengthMismatch {
+                expected: header.payload_length,
+                got: consumed,
+            });
+        }
+
+        Ok(this)
     }
 }
 
