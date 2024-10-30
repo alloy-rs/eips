@@ -51,4 +51,4 @@ k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 rand = "0.8"
 
 [patch.crates-io]
-alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "e4905ac" }
+alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "237cfc4" }
