@@ -111,7 +111,7 @@ pub struct SignedAuthorization {
     inner: Authorization,
     /// Signature parity value. We allow any [`U8`] here, however, the only valid values are `0`
     /// and `1` and anything else will result in error during recovery.
-    #[cfg_attr(feature = "serde", serde(rename = "yParity", alias = "V"))]
+    #[cfg_attr(feature = "serde", serde(rename = "yParity", alias = "v"))]
     y_parity: U8,
     /// Signature `r` value.
     r: U256,
