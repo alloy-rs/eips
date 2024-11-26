@@ -368,81 +368,14 @@ mod quantity {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloy_primitives::hex;
-    use core::str::FromStr;
-
-    fn test_encode_decode_roundtrip(auth: Authorization) {
-        let mut buf = Vec::new();
-        auth.encode(&mut buf);
-        let decoded = Authorization::decode(&mut buf.as_ref()).unwrap();
-        assert_eq!(buf.len(), auth.length());
-        assert_eq!(decoded, auth);
-    }
-
-    #[test]
-    fn test_encode_decode_auth() {
-        // fully filled
-        test_encode_decode_roundtrip(Authorization {
-            chain_id: 1u64,
-            address: Address::left_padding_from(&[6]),
-            nonce: 1,
-        });
-    }
-
-    #[test]
-    fn test_encode_decode_signed_auth() {
-        let auth =
-            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 };
-
-        let auth = auth.into_signed(PrimitiveSignature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
-        let mut buf = Vec::new();
-        auth.encode(&mut buf);
-
-        let expected = "f85a019400000000000000000000000000000000000000060180a048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804";
-        assert_eq!(hex::encode(&buf), expected);
-
-        let decoded = SignedAuthorization::decode(&mut buf.as_ref()).unwrap();
-        assert_eq!(buf.len(), auth.length());
-        assert_eq!(decoded, auth);
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn test_auth_json() {
-        let sig = r#"{"r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
-        let auth =
-            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 }
-                .into_signed(serde_json::from_str(sig).unwrap());
-        let val = serde_json::to_string(&auth).unwrap();
-        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","yParity":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05"}"#;
-        assert_eq!(val, s);
-    }
-
-    #[cfg(all(feature = "arbitrary", feature = "k256"))]
-    #[test]
-    fn test_arbitrary_auth() {
-        use arbitrary::Arbitrary;
-        let mut unstructured = arbitrary::Unstructured::new(b"unstructured auth");
-        // try this multiple times
-        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
-        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
-        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
-        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
-    }
-}
-
 /// Bincode-compatible [`SignedAuthorization`] serde implementation.
 #[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
 pub(super) mod serde_bincode_compat {
+    use crate::Authorization;
     use alloc::borrow::Cow;
     use alloy_primitives::{U256, U8};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
-
-    use crate::Authorization;
 
     /// Bincode-compatible [`super::SignedAuthorization`] serde implementation.
     ///
@@ -542,5 +475,71 @@ pub(super) mod serde_bincode_compat {
             let decoded: Data = bincode::deserialize(&encoded).unwrap();
             assert_eq!(decoded, data);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::hex;
+    use core::str::FromStr;
+
+    fn test_encode_decode_roundtrip(auth: Authorization) {
+        let mut buf = Vec::new();
+        auth.encode(&mut buf);
+        let decoded = Authorization::decode(&mut buf.as_ref()).unwrap();
+        assert_eq!(buf.len(), auth.length());
+        assert_eq!(decoded, auth);
+    }
+
+    #[test]
+    fn test_encode_decode_auth() {
+        // fully filled
+        test_encode_decode_roundtrip(Authorization {
+            chain_id: 1u64,
+            address: Address::left_padding_from(&[6]),
+            nonce: 1,
+        });
+    }
+
+    #[test]
+    fn test_encode_decode_signed_auth() {
+        let auth =
+            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 };
+
+        let auth = auth.into_signed(PrimitiveSignature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
+        let mut buf = Vec::new();
+        auth.encode(&mut buf);
+
+        let expected = "f85a019400000000000000000000000000000000000000060180a048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804";
+        assert_eq!(hex::encode(&buf), expected);
+
+        let decoded = SignedAuthorization::decode(&mut buf.as_ref()).unwrap();
+        assert_eq!(buf.len(), auth.length());
+        assert_eq!(decoded, auth);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_auth_json() {
+        let sig = r#"{"r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
+        let auth =
+            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 }
+                .into_signed(serde_json::from_str(sig).unwrap());
+        let val = serde_json::to_string(&auth).unwrap();
+        let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","yParity":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05"}"#;
+        assert_eq!(val, s);
+    }
+
+    #[cfg(all(feature = "arbitrary", feature = "k256"))]
+    #[test]
+    fn test_arbitrary_auth() {
+        use arbitrary::Arbitrary;
+        let mut unstructured = arbitrary::Unstructured::new(b"unstructured auth");
+        // try this multiple times
+        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
+        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
+        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
+        let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
     }
 }
