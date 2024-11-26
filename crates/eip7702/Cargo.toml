@@ -23,7 +23,7 @@ alloy-rlp = { workspace = true, features = ["derive"] }
 
 # serde
 serde = { workspace = true, optional = true }
-serde_with = { version = "3", optional = true }
+serde_with = { version = "3", optional = true, default-features = false, features = ["macros"] }
 
 # arbitrary
 arbitrary = { workspace = true, features = ["derive"], optional = true }
