@@ -2,7 +2,7 @@
 name = "alloy-eip7702"
 description = "Implementation of EIP-7702 type definitions"
 
-version = "0.4.2"
+version = "0.5.0"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
