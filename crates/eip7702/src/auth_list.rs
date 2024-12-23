@@ -47,8 +47,7 @@ impl RecoveredAuthority {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Authorization {
     /// The chain ID of the authorization.
-    #[cfg_attr(feature = "serde", serde(with = "quantity"))]
-    pub chain_id: u64,
+    pub chain_id: U256,
     /// The address of the authorization.
     pub address: Address,
     /// The nonce for the authorization.
@@ -62,7 +61,7 @@ impl Authorization {
     /// # Note
     ///
     /// Implementers should check that this matches the current `chain_id` *or* is 0.
-    pub const fn chain_id(&self) -> u64 {
+    pub const fn chain_id(&self) -> U256 {
         self.chain_id
     }
 
@@ -496,7 +495,7 @@ mod tests {
     fn test_encode_decode_auth() {
         // fully filled
         test_encode_decode_roundtrip(Authorization {
-            chain_id: 1u64,
+            chain_id: U256::from(1),
             address: Address::left_padding_from(&[6]),
             nonce: 1,
         });
@@ -504,8 +503,11 @@ mod tests {
 
     #[test]
     fn test_encode_decode_signed_auth() {
-        let auth =
-            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 };
+        let auth = Authorization {
+            chain_id: U256::from(1),
+            address: Address::left_padding_from(&[6]),
+            nonce: 1,
+        };
 
         let auth = auth.into_signed(PrimitiveSignature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
         let mut buf = Vec::new();
@@ -523,9 +525,12 @@ mod tests {
     #[test]
     fn test_auth_json() {
         let sig = r#"{"r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05","yParity":"0x1"}"#;
-        let auth =
-            Authorization { chain_id: 1u64, address: Address::left_padding_from(&[6]), nonce: 1 }
-                .into_signed(serde_json::from_str(sig).unwrap());
+        let auth = Authorization {
+            chain_id: U256::from(1),
+            address: Address::left_padding_from(&[6]),
+            nonce: 1,
+        }
+        .into_signed(serde_json::from_str(sig).unwrap());
         let val = serde_json::to_string(&auth).unwrap();
         let s = r#"{"chainId":"0x1","address":"0x0000000000000000000000000000000000000006","nonce":"0x1","yParity":"0x1","r":"0xc569c92f176a3be1a6352dd5005bfc751dcb32f57623dd2a23693e64bf4447b0","s":"0x1a891b566d369e79b7a66eecab1e008831e22daa15f91a0a0cf4f9f28f47ee05"}"#;
         assert_eq!(val, s);
