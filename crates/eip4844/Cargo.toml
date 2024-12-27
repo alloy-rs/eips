@@ -1,0 +1,51 @@
+[package]
+name = "alloy-eip4844"
+description = "Implementation of EIP-4844 type definitions"
+
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["std", "kzg-sidecar"]
+kzg = ["kzg-sidecar", "sha2", "dep:c-kzg", "dep:once_cell"]
+kzg-sidecar = ["sha2"]
+arbitrary = [
+    "std",
+    "kzg-sidecar",
+    "dep:arbitrary",
+    "alloy-primitives/arbitrary",
+    "alloy-serde?/arbitrary",
+    "alloy-eip2930/arbitrary",
+    "alloy-eip7702/arbitrary",
+    "alloy-eip7702/k256",
+]
+
+
+[dependencies]
+alloy-primitives = { workspace = true, features = ["rlp"] }
+
+# crypto
+c-kzg = { workspace = true }
+
+# misc
+derive_more = { workspace = true, features = [
+    "as_ref",
+    "deref",
+    "deref_mut",
+    "from",
+    "into_iterator",
+], default-features = false }
+
+[dev-dependencies]
