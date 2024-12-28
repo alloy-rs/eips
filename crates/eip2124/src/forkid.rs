@@ -21,7 +21,7 @@ const TIMESTAMP_BEFORE_ETHEREUM_MAINNET: u64 = 1_300_000_000;
 
 /// `CRC32` hash of all previous forks starting from genesis block.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(any(all(test, feature = "std"), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[derive(
     Clone, Copy, PartialEq, Eq, Hash, RlpEncodableWrapper, RlpDecodableWrapper, RlpMaxEncodedLen,
 )]
@@ -102,7 +102,7 @@ impl From<ForkFilterKey> for u64 {
 /// A fork identifier as defined by EIP-2124.
 /// Serves as the chain compatibility identifier.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(any(all(test, feature = "std"), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable, RlpMaxEncodedLen)]
 pub struct ForkId {
     /// CRC32 checksum of the all fork blocks and timestamps from genesis.
