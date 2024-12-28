@@ -3,16 +3,13 @@
 //! [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[allow(unused_imports)]
-#[macro_use]
 extern crate alloc;
 
-#[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
-
 use alloy_primitives::{Address, B256, U256};
 use alloy_rlp::{RlpDecodable, RlpDecodableWrapper, RlpEncodable, RlpEncodableWrapper};
 use core::{mem, ops::Deref};
+
 /// A list of addresses and storage keys that the transaction plans to access.
 /// Accesses outside the list are possible, but become more expensive.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, RlpDecodable, RlpEncodable)]
@@ -112,9 +109,8 @@ impl AccessList {
     /// Checks if the storage keys at the given index within an account are present in the access
     /// list.
     fn contains_storage_key_at_index(&self, slot: B256, index: usize) -> bool {
-        self.get(index).map_or(false, |entry| {
-            entry.storage_keys.iter().any(|storage_key| *storage_key == slot)
-        })
+        self.get(index)
+            .is_some_and(|entry| entry.storage_keys.iter().any(|storage_key| *storage_key == slot))
     }
 
     /// Adds an address to the access list and returns `true` if the operation results in a change,
