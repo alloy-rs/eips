@@ -1,4 +1,4 @@
-use crate::eip4844::trusted_setup_points::{G1_POINTS, G2_POINTS};
+use super::trusted_setup_points::{G1_POINTS, G2_POINTS};
 use alloc::sync::Arc;
 use c_kzg::KzgSettings;
 use core::hash::{Hash, Hasher};
