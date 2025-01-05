@@ -28,10 +28,6 @@ use-self = "warn"
 option-if-let-else = "warn"
 redundant-clone = "warn"
 
-[workspace.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-
 [workspace.dependencies]
 alloy-primitives = { version = "0.8.10", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
