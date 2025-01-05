@@ -11,8 +11,8 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-alloy-eip4844 = { path = "../eip4844" }
 alloy-eip7691 = { path = "../eip7691" }
+common = { path = "../common" }
 
 [lints]
 workspace = true

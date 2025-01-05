@@ -1,14 +1,11 @@
 //! Contains constants and utility functions for [EIP-7840](https://github.com/ethereum/EIPs/tree/master/EIPS/eip-7840.md)
 
-use {
-    alloy_eip4844::{
-        fake_exponential, BLOB_GASPRICE_UPDATE_FRACTION, BLOB_TX_MIN_BLOB_GASPRICE,
-        DATA_GAS_PER_BLOB, MAX_BLOBS_PER_BLOCK, TARGET_BLOBS_PER_BLOCK,
-    },
-    alloy_eip7691::{
-        BLOB_GASPRICE_UPDATE_FRACTION_PECTRA, BLOB_TX_MIN_BLOB_GASPRICE,
-        MAX_BLOBS_PER_BLOCK_ELECTRA, TARGET_BLOBS_PER_BLOCK_ELECTRA,
-    },
+use alloy_eip7691::{
+    BLOB_GASPRICE_UPDATE_FRACTION_PECTRA, MAX_BLOBS_PER_BLOCK_ELECTRA,
+    TARGET_BLOBS_PER_BLOCK_ELECTRA,
+};
+use common::{
+    fake_exponential, BLOB_GASPRICE_UPDATE_FRACTION, BLOB_TX_MIN_BLOB_GASPRICE, DATA_GAS_PER_BLOB, MAX_BLOBS_PER_BLOCK, TARGET_BLOBS_PER_BLOCK
 };
 
 /// A single item of `blobSchedule` defined in EIP-7840.
