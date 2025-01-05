@@ -19,25 +19,26 @@ workspace = true
 
 [features]
 default = ["std", "kzg-sidecar"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std", "c-kzg?/std", "once_cell?/std"]
+sha2 = ["dep:sha2"]
 kzg = ["kzg-sidecar", "sha2", "dep:c-kzg", "dep:once_cell"]
 kzg-sidecar = ["sha2"]
+serde = ["dep:alloy-serde", "dep:serde", "alloy-primitives/serde", "c-kzg?/serde"]
 arbitrary = [
     "std",
     "kzg-sidecar",
     "dep:arbitrary",
     "alloy-primitives/arbitrary",
     "alloy-serde?/arbitrary",
-    "alloy-eip2930/arbitrary",
-    "alloy-eip7702/arbitrary",
-    "alloy-eip7702/k256",
 ]
-
 
 [dependencies]
 alloy-primitives = { workspace = true, features = ["rlp"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
 
 # crypto
-c-kzg = { workspace = true }
+sha2 = { workspace = true, optional = true }
+c-kzg = { workspace = true, optional = true }
 
 # misc
 derive_more = { workspace = true, features = [
@@ -47,5 +48,21 @@ derive_more = { workspace = true, features = [
     "from",
     "into_iterator",
 ], default-features = false }
+once_cell = { workspace = true, features = ["race", "alloc"], optional = true }
+
+# serde
+alloy-serde = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+# eips
+alloy-eip7840 = { path = "../eip7840" }
+
+arbitrary = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
+arbitrary = { workspace = true, features = ["derive"] }
+alloy-primitives = { workspace = true, features = [
+    "rand",
+    "serde",
+    "arbitrary",
+] }
