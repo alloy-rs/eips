@@ -12,7 +12,11 @@ repository.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = [
+    "-Zunstable-options",
+    "--generate-link-to-definition",
+    "--show-type-layout",
+]
 
 [lints]
 workspace = true
@@ -23,7 +27,9 @@ alloy-rlp = { workspace = true, features = ["derive"] }
 
 # serde
 serde = { workspace = true, optional = true }
-serde_with = { version = "3", optional = true, default-features = false, features = ["macros"] }
+serde_with = { version = "3", optional = true, default-features = false, features = [
+    "macros",
+] }
 
 # arbitrary
 arbitrary = { workspace = true, features = ["derive"], optional = true }
