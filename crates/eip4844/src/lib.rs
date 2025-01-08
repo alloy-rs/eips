@@ -1,6 +1,7 @@
 //! [EIP-4844] constants and helpers.
 //!
 //! [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use alloy_primitives::{b256, FixedBytes, B256, U256};
 
