@@ -1,3 +1,6 @@
+//! [EIP-4844] types, constants and helper functions.
+//!
+//! [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
 
 /// Determines the maximum rate of change for blob fee
 pub const BLOB_GASPRICE_UPDATE_FRACTION: u128 = 3_338_477u128; // 3338477

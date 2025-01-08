@@ -55,3 +55,11 @@ rand = "0.8"
 thiserror = { version = "2.0.0", default-features = false }
 derive_more = { version = "1.0.0", default-features = false }
 once_cell = { version = "1.19", default-features = false }
+
+# internal
+alloy-eip4844-core = { path = "crates/alloy_eip4844_core" }
+alloy-eip7691 = { path = "crates/eip7691" }
+alloy-eip2930 = { path = "crates/eip2930" }
+alloy-eip7702 = { path = "crates/eip7702" }
+alloy-eip7840 = { path = "crates/eip7840" }
+
