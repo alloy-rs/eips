@@ -8,5 +8,8 @@ EIP implementations apart from the ones listed below can be found in [alloy-rs/a
 
 ## Current support
 
+- [EIP-2124](https://eips.ethereum.org/EIPS/eip-2124)
 - [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)
+- [EIP-5792](https://eips.ethereum.org/EIPS/eip-5792)
+- [EIP-7547](https://eips.ethereum.org/EIPS/eip-7547)
 - [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702)
