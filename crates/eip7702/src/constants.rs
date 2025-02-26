@@ -1,7 +1,7 @@
 //! [EIP-7702] constants.
 //!
 //! [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
-use alloy_primitives::{uint, U256};
+use alloy_primitives::{hex, uint, U256};
 
 /// Identifier for EIP7702's set code transaction.
 ///
@@ -29,3 +29,10 @@ pub const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
 /// to EIP-2 should have an S value less than or equal to this.
 pub const SECP256K1N_HALF: U256 =
     uint!(57896044618658097711785492504343953926418782139537452191302581570759080747168_U256);
+
+/// The EIP-7702 delegation designator.
+pub const EIP7702_DELEGATION_DESIGNATOR: [u8; 3] = hex!("0xef0100");
+
+/// The EIP-7702 delegation designator for a cleared delegation.
+pub const EIP7702_CLEARED_DELEGATION: [u8; 23] =
+    hex!("0xef01000000000000000000000000000000000000000000");
