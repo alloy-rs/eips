@@ -1,0 +1,68 @@
+[package]
+name = "alloy-eip4844"
+description = "Implementation of EIP-4844 type definitions"
+
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["std", "kzg-sidecar"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std", "c-kzg?/std", "once_cell?/std"]
+sha2 = ["dep:sha2"]
+kzg = ["kzg-sidecar", "sha2", "dep:c-kzg", "dep:once_cell"]
+kzg-sidecar = ["sha2"]
+serde = ["dep:alloy-serde", "dep:serde", "alloy-primitives/serde", "c-kzg?/serde"]
+arbitrary = [
+    "std",
+    "kzg-sidecar",
+    "dep:arbitrary",
+    "alloy-primitives/arbitrary",
+    "alloy-serde?/arbitrary",
+]
+
+[dependencies]
+alloy-primitives = { workspace = true, features = ["rlp"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
+
+# crypto
+sha2 = { workspace = true, optional = true }
+c-kzg = { workspace = true, optional = true }
+
+# misc
+derive_more = { workspace = true, features = [
+    "as_ref",
+    "deref",
+    "deref_mut",
+    "from",
+    "into_iterator",
+], default-features = false }
+once_cell = { workspace = true, features = ["race", "alloc"], optional = true }
+
+# serde
+alloy-serde = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+# eips
+alloy-eip7840.workspace = true
+
+arbitrary = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+arbitrary = { workspace = true, features = ["derive"] }
+alloy-primitives = { workspace = true, features = [
+    "rand",
+    "serde",
+    "arbitrary",
+] }
