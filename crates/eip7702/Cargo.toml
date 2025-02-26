@@ -38,7 +38,8 @@ arbitrary = { workspace = true, features = ["derive"], optional = true }
 k256 = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 
-derive_more = { version = "1", default-features = false }
+# derive_more
+derive_more = { version = "2", default-features = false, features = ["display", "from"] }
 
 [dev-dependencies]
 bincode = "1.3"
