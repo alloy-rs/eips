@@ -109,8 +109,7 @@ impl AccessList {
     /// Checks if the storage keys at the given index within an account are present in the access
     /// list.
     fn contains_storage_key_at_index(&self, slot: B256, index: usize) -> bool {
-        self.get(index)
-            .is_some_and(|entry| entry.storage_keys.iter().any(|storage_key| *storage_key == slot))
+        self.get(index).is_some_and(|entry| entry.storage_keys.contains(&slot))
     }
 
     /// Adds an address to the access list and returns `true` if the operation results in a change,
