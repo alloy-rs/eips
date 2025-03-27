@@ -29,7 +29,7 @@ option-if-let-else = "warn"
 redundant-clone = "warn"
 
 [workspace.dependencies]
-alloy-primitives = { version = "0.8.17", default-features = false }
+alloy-primitives = { version = "=1.0.0-rc.1", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
 
 # serde
