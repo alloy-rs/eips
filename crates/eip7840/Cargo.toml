@@ -1,0 +1,31 @@
+[package]
+name = "alloy-eip7840"
+description = "Implementation of EIP-7840 type definitions"
+
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+alloy-primitives = { workspace = true, optional = true }
+c-kzg = { workspace = true, optional = true }
+
+# serde
+alloy-serde = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+# internal
+alloy-eip7691.workspace = true
+alloy-eip4844-core.workspace = true
+
+[features]
+default = ["std"]
+std = ["alloy-primitives/std", "serde?/std"]
+serde = ["dep:serde", "alloy-primitives/serde"]
+
+[lints]
+workspace = true
