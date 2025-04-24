@@ -31,6 +31,7 @@ redundant-clone = "warn"
 [workspace.dependencies]
 alloy-primitives = { version = "1.0", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
+alloy-serde = { version = "0.8", default-features = false }
 
 # serde
 serde = { version = "1.0", default-features = false, features = [
@@ -38,6 +39,10 @@ serde = { version = "1.0", default-features = false, features = [
     "alloc",
 ] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+
+# crypto
+c-kzg = { version = "1.0", default-features = false }
+sha2 = { version = "0.10", default-features = false }
 
 # arbitrary
 arbitrary = "1.3"
@@ -48,3 +53,12 @@ rand = "0.8"
 
 # misc
 thiserror = { version = "2.0.0", default-features = false }
+derive_more = { version = "1.0.0", default-features = false }
+once_cell = { version = "1.19", default-features = false }
+
+# internal
+alloy-eip4844-core = { path = "crates/alloy_eip4844_core" }
+alloy-eip7691 = { path = "crates/eip7691" }
+alloy-eip2930 = { path = "crates/eip2930" }
+alloy-eip7702 = { path = "crates/eip7702" }
+alloy-eip7840 = { path = "crates/eip7840" }
