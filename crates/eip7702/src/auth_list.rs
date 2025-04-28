@@ -278,7 +278,7 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
             ecdsa::{signature::hazmat::PrehashSigner, SigningKey},
             NonZeroScalar,
         };
-        use rand::{rngs::StdRng, SeedableRng};
+        use rand_08::{rngs::StdRng, SeedableRng};
 
         let rng_seed = u.arbitrary::<[u8; 32]>()?;
         let mut rand_gen = StdRng::from_seed(rng_seed);
@@ -462,7 +462,7 @@ pub(super) mod serde_bincode_compat {
             }
 
             let mut bytes = [0u8; 1024];
-            rand::thread_rng().fill(bytes.as_mut_slice());
+            rand::rng().fill(bytes.as_mut_slice());
             let data = Data {
                 authorization: SignedAuthorization::arbitrary(&mut arbitrary::Unstructured::new(
                     &bytes,
