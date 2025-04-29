@@ -35,8 +35,10 @@ impl AccessListItem {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, RlpDecodableWrapper, RlpEncodableWrapper)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(default))]
-pub struct AccessList(pub Vec<AccessListItem>);
+pub struct AccessList(
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_null_or_empty"))]
+    pub  Vec<AccessListItem>,
+);
 
 impl From<Vec<AccessListItem>> for AccessList {
     fn from(list: Vec<AccessListItem>) -> Self {
@@ -178,6 +180,16 @@ impl AccessListResult {
     pub const fn is_err(&self) -> bool {
         self.error.is_some()
     }
+}
+
+#[cfg(feature = "serde")]
+fn deserialize_null_or_empty<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    use serde::Deserialize;
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 #[cfg(all(test, feature = "serde"))]
