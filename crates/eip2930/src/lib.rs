@@ -93,6 +93,11 @@ impl AccessList {
         self.iter().position(|item| item.address == address)
     }
 
+    /// Returns the total number of storage keys in this access list.
+    pub fn storage_keys_count(&self) -> usize {
+        self.iter().map(|i| i.storage_keys.len()).sum::<usize>()
+    }
+
     /// Checks if a specific storage slot within an account is present in the access list.
     ///
     /// Returns a tuple with flags for the presence of the account and the slot.
