@@ -208,6 +208,13 @@ mod tests {
     }
 
     #[test]
+    fn access_list_de_null() {
+        let null_list_str = "null";
+        let list = serde_json::from_str::<AccessList>(null_list_str).unwrap();
+        assert_eq!(list, AccessList::default());
+    }
+
+    #[test]
     fn access_list_with_gas_used() {
         let list = AccessListResult {
             access_list: AccessList(vec![
