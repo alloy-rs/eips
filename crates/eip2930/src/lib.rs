@@ -209,8 +209,14 @@ mod tests {
 
     #[test]
     fn access_list_de_null() {
-        let null_list_str = "null";
-        let list = serde_json::from_str::<AccessList>(null_list_str).unwrap();
+        let non_null_str = "a non-null value";
+        assert!(serde_json::from_str::<AccessList>(non_null_str).is_err());
+
+        let malformed_array = r#"["some malformed array"]"#;
+        assert!(serde_json::from_str::<AccessList>(malformed_array).is_err());
+
+        let null_str = "null";
+        let list = serde_json::from_str::<AccessList>(null_str).unwrap();
         assert_eq!(list, AccessList::default());
     }
 
