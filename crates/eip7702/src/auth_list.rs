@@ -622,4 +622,21 @@ mod tests {
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
     }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn deserde_signed_auth_with_duplicate_fields() {
+        let s = r#"{
+                    "chainId": "0x2105",
+                    "address": "0x000000004F43C49e93C970E84001853a70923B03",
+                    "nonce": "0x0",
+                    "r": "0xb3fdb76993ec6787313ab8b54129200032dfb9ce683fa9f7693129421e6a3185",
+                    "s": "0x210b3350107a5687b532a346a90e7cc9a799b995743e2b79698bedba7bd779ae",
+                    "v": "0x1b",
+                    "yParity": "0x0"
+                }"#;
+
+        let auth: SignedAuthorization = serde_json::from_str(s).unwrap();
+
+    }
 }
