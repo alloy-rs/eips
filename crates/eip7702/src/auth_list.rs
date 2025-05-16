@@ -103,7 +103,7 @@ impl Authorization {
 
 /// A signed EIP-7702 authorization.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SignedAuthorization {
     /// Inner authorization.
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -293,6 +293,33 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
             Signature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
 
         Ok(inner.into_signed(signature))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for SignedAuthorization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Helper {
+            #[cfg_attr(feature = "serde", serde(flatten))]
+            inner: Authorization,
+            r: U256,
+            s: U256,
+            #[serde(rename = "yParity")]
+            y_parity: Option<U8>,
+            v: Option<U8>,
+        }
+
+        let Helper { inner, r, s, y_parity, v } = Helper::deserialize(deserializer)?;
+
+        // Attempt to deserialize `yParity` or `v` value, preferring the former.
+        let y_parity =
+            y_parity.or(v).ok_or_else(|| serde::de::Error::custom("missing `yParity` or `v`"))?;
+
+        Ok(Self { inner, r, s, y_parity })
     }
 }
 
@@ -546,5 +573,22 @@ mod tests {
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn deserde_signed_auth_with_duplicate_fields() {
+        let s = r#"{
+                    "chainId": "0x2105",
+                    "address": "0x000000004F43C49e93C970E84001853a70923B03",
+                    "nonce": "0x0",
+                    "r": "0xb3fdb76993ec6787313ab8b54129200032dfb9ce683fa9f7693129421e6a3185",
+                    "s": "0x210b3350107a5687b532a346a90e7cc9a799b995743e2b79698bedba7bd779ae",
+                    "v": "0x1b",
+                    "yParity": "0x0"
+                }"#;
+
+        let auth: SignedAuthorization = serde_json::from_str(s).unwrap();
+        assert!(auth.y_parity.is_zero());
     }
 }
