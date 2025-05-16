@@ -2,9 +2,7 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{
-    keccak256, normalize_v, Address, Signature, SignatureError, B256, U256, U8,
-};
+use alloy_primitives::{keccak256, Address, Signature, SignatureError, B256, U256, U8};
 use alloy_rlp::{
     length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
     RlpEncodable,
@@ -317,13 +315,9 @@ impl<'de> serde::Deserialize<'de> for SignedAuthorization {
 
         let Helper { inner, r, s, y_parity, v } = Helper::deserialize(deserializer)?;
 
-        let y_parity = if let Some(y_parity) = y_parity {
-            y_parity
-        } else if let Some(v) = v {
-            U8::from(normalize_v(v.to()).ok_or(serde::de::Error::custom("invalid v"))?)
-        } else {
-            return Err(serde::de::Error::custom("missing `yParity` or `v`"));
-        };
+        // Attempt to deserialize `yParity` or `v` value, preferring the former.
+        let y_parity =
+            y_parity.or(v).ok_or_else(|| serde::de::Error::custom("missing `yParity` or `v`"))?;
 
         Ok(Self { inner, r, s, y_parity })
     }
