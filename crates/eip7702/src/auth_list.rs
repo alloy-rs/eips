@@ -103,7 +103,7 @@ impl Authorization {
 
 /// A signed EIP-7702 authorization.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct SignedAuthorization {
     /// Inner authorization.
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -293,6 +293,81 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
             Signature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
 
         Ok(inner.into_signed(signature))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for SignedAuthorization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>
+    {
+        use serde::{Deserialize, Deserializer, Serialize};
+
+        #[derive(Serialize, Deserialize)]
+        struct HumanReadableRepr {
+            r: U256,
+            s: U256,
+            #[serde(rename = "yParity")]
+            y_parity: Option<U8>,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            v: Option<U64>,
+        }
+
+        type NonHumanReadableRepr = (U256, U256, U64);
+
+        impl Serialize for Signature {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                // if the serializer is human readable, serialize as a map, otherwise as a tuple
+                if serializer.is_human_readable() {
+                    HumanReadableRepr {
+                        y_parity: Some(U64::from(self.y_parity as u64)),
+                        v: Some(U64::from(self.y_parity as u64)),
+                        r: self.r,
+                        s: self.s,
+                    }
+                        .serialize(serializer)
+                } else {
+                    let repr: NonHumanReadableRepr = (self.r, self.s, U64::from(self.y_parity as u64));
+                    repr.serialize(serializer)
+                }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for Signature {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let (y_parity, v, r, s) = if deserializer.is_human_readable() {
+                    let HumanReadableRepr { y_parity, v, r, s } = <_>::deserialize(deserializer)?;
+                    (y_parity, v, r, s)
+                } else {
+                    let (r, s, y_parity) = NonHumanReadableRepr::deserialize(deserializer)?;
+                    (Some(y_parity), None, r, s)
+                };
+
+                // Attempt to extract `y_parity` bit from either `yParity` key or `v` value.
+                let y_parity = if let Some(y_parity) = y_parity {
+                    match y_parity.to::<u64>() {
+                        0 => false,
+                        1 => true,
+                        _ => return Err(serde::de::Error::custom("invalid yParity")),
+                    }
+                } else if let Some(v) = v {
+                    normalize_v(v.to()).ok_or(serde::de::Error::custom("invalid v"))?
+                } else {
+                    return Err(serde::de::Error::custom("missing `yParity` or `v`"));
+                };
+
+                Ok(Self::new(r, s, y_parity))
+            }
+        }
+        
+        todo!()
     }
 }
 
