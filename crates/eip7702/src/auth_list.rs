@@ -2,7 +2,9 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{keccak256, Address, Signature, SignatureError, B256, U256, U8};
+use alloy_primitives::{
+    keccak256, normalize_v, Address, Signature, SignatureError, B256, U256, U8,
+};
 use alloy_rlp::{
     length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
     RlpEncodable,
@@ -300,74 +302,30 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
 impl<'de> serde::Deserialize<'de> for SignedAuthorization {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::de::Deserializer<'de>
+        D: serde::de::Deserializer<'de>,
     {
-        use serde::{Deserialize, Deserializer, Serialize};
-
-        #[derive(Serialize, Deserialize)]
-        struct HumanReadableRepr {
+        #[derive(serde::Deserialize)]
+        struct Helper {
+            #[cfg_attr(feature = "serde", serde(flatten))]
+            inner: Authorization,
             r: U256,
             s: U256,
             #[serde(rename = "yParity")]
             y_parity: Option<U8>,
-            #[serde(default, skip_serializing_if = "Option::is_none")]
-            v: Option<U64>,
+            v: Option<U8>,
         }
 
-        type NonHumanReadableRepr = (U256, U256, U64);
+        let Helper { inner, r, s, y_parity, v } = Helper::deserialize(deserializer)?;
 
-        impl Serialize for Signature {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: serde::Serializer,
-            {
-                // if the serializer is human readable, serialize as a map, otherwise as a tuple
-                if serializer.is_human_readable() {
-                    HumanReadableRepr {
-                        y_parity: Some(U64::from(self.y_parity as u64)),
-                        v: Some(U64::from(self.y_parity as u64)),
-                        r: self.r,
-                        s: self.s,
-                    }
-                        .serialize(serializer)
-                } else {
-                    let repr: NonHumanReadableRepr = (self.r, self.s, U64::from(self.y_parity as u64));
-                    repr.serialize(serializer)
-                }
-            }
-        }
+        let y_parity = if let Some(y_parity) = y_parity {
+            y_parity
+        } else if let Some(v) = v {
+            U8::from(normalize_v(v.to()).ok_or(serde::de::Error::custom("invalid v"))?)
+        } else {
+            return Err(serde::de::Error::custom("missing `yParity` or `v`"));
+        };
 
-        impl<'de> Deserialize<'de> for Signature {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                let (y_parity, v, r, s) = if deserializer.is_human_readable() {
-                    let HumanReadableRepr { y_parity, v, r, s } = <_>::deserialize(deserializer)?;
-                    (y_parity, v, r, s)
-                } else {
-                    let (r, s, y_parity) = NonHumanReadableRepr::deserialize(deserializer)?;
-                    (Some(y_parity), None, r, s)
-                };
-
-                // Attempt to extract `y_parity` bit from either `yParity` key or `v` value.
-                let y_parity = if let Some(y_parity) = y_parity {
-                    match y_parity.to::<u64>() {
-                        0 => false,
-                        1 => true,
-                        _ => return Err(serde::de::Error::custom("invalid yParity")),
-                    }
-                } else if let Some(v) = v {
-                    normalize_v(v.to()).ok_or(serde::de::Error::custom("invalid v"))?
-                } else {
-                    return Err(serde::de::Error::custom("missing `yParity` or `v`"));
-                };
-
-                Ok(Self::new(r, s, y_parity))
-            }
-        }
-        
-        todo!()
+        Ok(Self { inner, r, s, y_parity })
     }
 }
 
@@ -637,6 +595,6 @@ mod tests {
                 }"#;
 
         let auth: SignedAuthorization = serde_json::from_str(s).unwrap();
-
+        assert!(auth.y_parity.is_zero());
     }
 }
