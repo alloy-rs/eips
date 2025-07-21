@@ -39,6 +39,12 @@ impl From<B256> for ForkHash {
     }
 }
 
+impl From<&[u8]> for ForkHash {
+    fn from(value: &[u8]) -> Self {
+        Self(CRC_32_IEEE.checksum(value).to_be_bytes())
+    }
+}
+
 impl<T> AddAssign<T> for ForkHash
 where
     T: Into<u64>,
