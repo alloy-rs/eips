@@ -35,7 +35,7 @@ rand = { workspace = true, optional = true }
 
 
 [features]
-default = ["std", "serde", "arbitrary"]
+default = ["std"]
 std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
 serde = ["dep:serde", "alloy-primitives/serde"]
 arbitrary = ["std", "dep:arbitrary", "alloy-primitives/arbitrary"]
