@@ -9,6 +9,9 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
+alloy-primitives = { workspace = true, features = ["rlp","serde","map"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true
