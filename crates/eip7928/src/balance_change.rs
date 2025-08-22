@@ -1,16 +1,15 @@
 //! Contains the `BalanceChange` struct, which represents a post balance for an account.
 //! Single balance change: `tx_index` -> `post_balance`
 
+use crate::BlockAccessIndex;
 use alloy_primitives::U256;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use serde::{Deserialize, Serialize};
-
-use crate::BlockAccessIndex;
 
 /// This struct is used to track the balance changes of accounts in a block.
-#[derive(
-    Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BalanceChange {
     /// The index of bal that stores balance change.
     pub block_access_index: BlockAccessIndex,

@@ -1,15 +1,14 @@
 //! Contains the `CodeChange` struct, which represents a new code for an account.
 //! Single code change: `tx_index` -> `new_code`
+use crate::BlockAccessIndex;
 use alloy_primitives::Bytes;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use serde::{Deserialize, Serialize};
-
-use crate::BlockAccessIndex;
 
 /// This struct is used to track the new codes of accounts in a block.
-#[derive(
-    Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct CodeChange {
     /// The index of bal that stores this code change.
     pub block_access_index: BlockAccessIndex,

@@ -1,16 +1,16 @@
 //! Contains the `SlotChanges` struct, which represents all changes made to a single storage slot
 //! across
 
-use crate::{StorageChange, MAX_TXS};
+use crate::StorageChange;
 use alloc::vec::Vec;
 use alloy_primitives::StorageKey;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use serde::{Deserialize, Serialize};
 
 /// Represents all changes made to a single storage slot across multiple transactions.
-#[derive(
-    Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct SlotChanges {
     /// The storage slot key being modified.
     pub slot: StorageKey,
@@ -23,8 +23,8 @@ impl SlotChanges {
     ///
     /// Preallocates capacity for up to 300,000 changes.
     #[inline]
-    pub fn new(slot: StorageKey) -> Self {
-        Self { slot, changes: Vec::with_capacity(MAX_TXS) }
+    pub fn new(slot: StorageKey, changes: Vec<StorageChange>) -> Self {
+        Self { slot, changes }
     }
 
     /// Appends a storage change to the list.

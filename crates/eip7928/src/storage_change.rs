@@ -1,16 +1,15 @@
 //! Contains the `StorageChange` struct, which represents a single storage write operation within a
 //! transaction.
 
+use crate::BlockAccessIndex;
 use alloy_primitives::StorageValue;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use serde::{Deserialize, Serialize};
-
-use crate::BlockAccessIndex;
 
 /// Represents a single storage write operation within a transaction.
-#[derive(
-    Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChange {
     /// Index of the bal that stores the performed write.
     pub block_access_index: BlockAccessIndex,
