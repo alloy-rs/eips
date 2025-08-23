@@ -8,13 +8,13 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloy_primitives::{Address, StorageKey};
-use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 /// This struct is used to track the changes across accounts in a block.
-#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct AccountChanges {
     /// The address of the account whoose changes are stored.
     pub address: Address,
