@@ -1,7 +1,7 @@
 //! Constants for eip-7928. Chosen to support a 630 million gas limit.
 
 /// Maximum number of transactions per block.
-pub const MAX_TXS: usize = 30_000;
+pub const MAX_TXS_PER_BLOCK: usize = 30_000;
 
 /// Maximum number of unique storage slots modified in a block.
 pub const MAX_SLOTS: usize = 300_000;

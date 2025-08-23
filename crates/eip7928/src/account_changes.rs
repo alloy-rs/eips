@@ -4,7 +4,6 @@
 
 use crate::{
     balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange, SlotChanges,
-    MAX_SLOTS, MAX_TXS,
 };
 use alloc::vec::Vec;
 use alloy_primitives::{Address, StorageKey};
@@ -31,15 +30,27 @@ pub struct AccountChanges {
 }
 
 impl AccountChanges {
-    /// Creates a new [`AccountChanges`] instance for the given address with max capacity.
-    pub fn with_max_capacity(address: Address) -> Self {
+    /// Creates a new [`AccountChanges`] instance for the given address with empty vectors.
+    pub fn new(address: Address) -> Self {
         Self {
             address,
-            storage_changes: Vec::with_capacity(MAX_SLOTS),
-            storage_reads: Vec::with_capacity(MAX_SLOTS),
-            balance_changes: Vec::with_capacity(MAX_TXS),
-            nonce_changes: Vec::with_capacity(MAX_TXS),
-            code_changes: Vec::with_capacity(MAX_TXS),
+            storage_changes: Vec::new(),
+            storage_reads: Vec::new(),
+            balance_changes: Vec::new(),
+            nonce_changes: Vec::new(),
+            code_changes: Vec::new(),
+        }
+    }
+
+    /// Creates a new [`AccountChanges`] instance for the given address with specified capacity.
+    pub fn with_capacity(address: Address, capacity: usize) -> Self {
+        Self {
+            address,
+            storage_changes: Vec::with_capacity(capacity),
+            storage_reads: Vec::with_capacity(capacity),
+            balance_changes: Vec::with_capacity(capacity),
+            nonce_changes: Vec::with_capacity(capacity),
+            code_changes: Vec::with_capacity(capacity),
         }
     }
 
