@@ -1,15 +1,15 @@
-//! Contains the `BalanceChange` struct, which represents a post balance for an account.
+//! Contains the [`BalanceChange`] struct, which represents a post balance for an account.
 //! Single balance change: `tx_index` -> `post_balance`
 
 use crate::BlockAccessIndex;
 use alloy_primitives::U256;
-use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 /// This struct is used to track the balance changes of accounts in a block.
-#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BalanceChange {
     /// The index of bal that stores balance change.
     pub block_access_index: BlockAccessIndex,
@@ -18,7 +18,7 @@ pub struct BalanceChange {
 }
 
 impl BalanceChange {
-    /// Creates a new `BalanceChange`.
+    /// Creates a new [`BalanceChange`].
     pub const fn new(block_access_index: BlockAccessIndex, post_balance: U256) -> Self {
         Self { block_access_index, post_balance }
     }

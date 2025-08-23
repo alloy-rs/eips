@@ -1,14 +1,14 @@
-//! Contains the `NonceChange` struct, which represents a new nonce for an account.
+//! Contains the [`NonceChange`] struct, which represents a new nonce for an account.
 //! Single code change: `tx_index` -> `new_nonce`
 
 use crate::BlockAccessIndex;
-use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 /// This struct is used to track the new nonce of accounts in a block.
-#[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct NonceChange {
     /// The index of bal that stores this nonce change.
     pub block_access_index: BlockAccessIndex,
@@ -17,7 +17,7 @@ pub struct NonceChange {
 }
 
 impl NonceChange {
-    /// Creates a new `NonceChange`.
+    /// Creates a new [`NonceChange`].
     pub const fn new(block_access_index: BlockAccessIndex, new_nonce: u64) -> Self {
         Self { block_access_index, new_nonce }
     }

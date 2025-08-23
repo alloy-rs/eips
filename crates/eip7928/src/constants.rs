@@ -1,5 +1,4 @@
-
-/// Chosen to support a 630 million gas limit.
+//! Constants for eip-7928. Chosen to support a 630 million gas limit.
 
 /// Maximum number of transactions per block.
 pub const MAX_TXS: usize = 30_000;

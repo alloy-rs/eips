@@ -1,15 +1,14 @@
-//! Contains the `AccountChanges` struct, which represents storage, balance, nonce, code changes and
-//! read for the account. All changes for a single account, grouped by field type.
+//! Contains the [`AccountChanges`] struct, which represents storage writes, balance, nonce, code
+//! changes and read for the account. All changes for a single account, grouped by field type.
 //! This eliminates address redundancy across different change types.
-
-use alloc::vec::Vec;
-use alloy_primitives::{Address, StorageKey};
-use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 use crate::{
     balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange, SlotChanges,
     MAX_SLOTS, MAX_TXS,
 };
+use alloc::vec::Vec;
+use alloy_primitives::{Address, StorageKey};
+use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 /// This struct is used to track the changes across accounts in a block.
 #[derive(Debug, Clone, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
@@ -32,9 +31,8 @@ pub struct AccountChanges {
 }
 
 impl AccountChanges {
-    /// Creates a new `AccountChanges` instance for the given address.
-    /// TODO! Needs appropriate method to populate
-    pub fn new(address: Address) -> Self {
+    /// Creates a new [`AccountChanges`] instance for the given address with max capacity.
+    pub fn with_max_capacity(address: Address) -> Self {
         Self {
             address,
             storage_changes: Vec::with_capacity(MAX_SLOTS),

@@ -1,4 +1,4 @@
-//! Contains the `BlockAccessList` type, which represents a simple list of account changes.
+//! Contains the [`BlockAccessList`] type, which represents a simple list of account changes.
 
 use crate::account_changes::AccountChanges;
 use alloc::vec::Vec;
