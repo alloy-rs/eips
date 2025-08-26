@@ -5,7 +5,10 @@ description = "Implementation of EIP-7928 type definitions"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
-authors.workspace = true
+authors = [
+    "Ishika Choudhury <ishikac720@gmail.com>",
+    "Soubhik Singha Mahapatra <soubhiksinghamahapatra@gmail.com>",
+]
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
