@@ -34,9 +34,3 @@ pub use account_changes::*;
 /// Module for managing block access lists.
 pub mod block_access_list;
 pub use block_access_list::*;
-
-/// Computes the hash of the given block access list.
-#[cfg(feature = "rlp")]
-pub fn compute_block_access_list_hash(bal: &BlockAccessList) -> alloy_primitives::B256 {
-    alloy_primitives::keccak256(alloy_rlp::encode(bal))
-}
