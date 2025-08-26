@@ -8,6 +8,6 @@ pub type BlockAccessList = Vec<AccountChanges>;
 
 /// Computes the hash of the given block access list.
 #[cfg(feature = "rlp")]
-pub fn compute_block_access_list_hash(bal: &BlockAccessList) -> alloy_primitives::B256 {
+pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitives::B256 {
     alloy_primitives::keccak256(alloy_rlp::encode(bal))
 }
