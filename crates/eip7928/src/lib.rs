@@ -20,12 +20,15 @@ pub use slot_changes::*;
 
 /// Module for handling balance changes within a block.
 pub mod balance_change;
+pub use balance_change::*;
 
 /// Module for handling nonce changes within a block.
 pub mod nonce_change;
+pub use nonce_change::*;
 
 /// Module for handling code changes within a block.
 pub mod code_change;
+pub use code_change::*;
 
 /// Module for managing account changes within a block.
 pub mod account_changes;
