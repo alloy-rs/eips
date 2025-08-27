@@ -11,8 +11,8 @@ use alloy_primitives::{Address, StorageKey};
 /// This struct is used to track the changes across accounts in a block.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct AccountChanges {
     /// The address of the account whoose changes are stored.
@@ -31,7 +31,7 @@ pub struct AccountChanges {
 
 impl AccountChanges {
     /// Creates a new [`AccountChanges`] instance for the given address with empty vectors.
-    pub fn new(address: Address) -> Self {
+    pub const fn new(address: Address) -> Self {
         Self {
             address,
             storage_changes: Vec::new(),

@@ -8,8 +8,8 @@ use alloy_primitives::StorageKey;
 /// Represents all changes made to a single storage slot across multiple transactions.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SlotChanges {
     /// The storage slot key being modified.
@@ -23,7 +23,7 @@ impl SlotChanges {
     ///
     /// Preallocates capacity for up to 300,000 changes.
     #[inline]
-    pub fn new(slot: StorageKey, changes: Vec<StorageChange>) -> Self {
+    pub const fn new(slot: StorageKey, changes: Vec<StorageChange>) -> Self {
         Self { slot, changes }
     }
 
