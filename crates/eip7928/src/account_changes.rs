@@ -3,7 +3,7 @@
 //! This eliminates address redundancy across different change types.
 
 use crate::{
-    balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange, SlotChanges,
+    SlotChanges, balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange,
 };
 use alloc::vec::Vec;
 use alloy_primitives::{Address, StorageKey};
@@ -91,7 +91,7 @@ impl AccountChanges {
     }
 
     /// Set the address.
-    pub fn with_address(mut self, address: Address) -> Self {
+    pub const fn with_address(mut self, address: Address) -> Self {
         self.address = address;
         self
     }
