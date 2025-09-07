@@ -2,10 +2,10 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{keccak256, Address, Signature, SignatureError, B256, U256, U8};
+use alloy_primitives::{Address, B256, Signature, SignatureError, U8, U256, keccak256};
 use alloy_rlp::{
-    length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
-    RlpEncodable,
+    BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable, RlpEncodable,
+    length_of_length,
 };
 use core::hash::{Hash, Hasher};
 
@@ -275,10 +275,10 @@ impl Deref for SignedAuthorization {
 impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         use k256::{
-            ecdsa::{signature::hazmat::PrehashSigner, SigningKey},
             NonZeroScalar,
+            ecdsa::{SigningKey, signature::hazmat::PrehashSigner},
         };
-        use rand::{rngs::StdRng, SeedableRng};
+        use rand::{SeedableRng, rngs::StdRng};
 
         let rng_seed = u.arbitrary::<[u8; 32]>()?;
         let mut rand_gen = StdRng::from_seed(rng_seed);
@@ -399,7 +399,7 @@ mod quantity {
 pub(super) mod serde_bincode_compat {
     use crate::Authorization;
     use alloc::borrow::Cow;
-    use alloy_primitives::{U256, U8};
+    use alloy_primitives::{U8, U256};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
@@ -407,7 +407,7 @@ pub(super) mod serde_bincode_compat {
     ///
     /// Intended to use with the [`serde_with::serde_as`] macro in the following way:
     /// ```rust
-    /// use alloy_eip7702::{serde_bincode_compat, SignedAuthorization};
+    /// use alloy_eip7702::{SignedAuthorization, serde_bincode_compat};
     /// use serde::{Deserialize, Serialize};
     /// use serde_with::serde_as;
     ///
@@ -477,7 +477,7 @@ pub(super) mod serde_bincode_compat {
         use serde::{Deserialize, Serialize};
         use serde_with::serde_as;
 
-        use super::super::{serde_bincode_compat, SignedAuthorization};
+        use super::super::{SignedAuthorization, serde_bincode_compat};
 
         #[test]
         fn test_signed_authorization_bincode_roundtrip() {

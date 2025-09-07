@@ -1,7 +1,7 @@
 //! [EIP-7702] constants.
 //!
 //! [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
-use alloy_primitives::{hex, uint, U256};
+use alloy_primitives::{U256, hex, uint};
 
 /// Identifier for EIP7702's set code transaction.
 ///

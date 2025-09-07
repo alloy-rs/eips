@@ -26,7 +26,7 @@ pub struct AccessListItem {
 impl AccessListItem {
     /// Calculates a heuristic for the in-memory size of the [AccessListItem].
     #[inline]
-    pub fn size(&self) -> usize {
+    pub const fn size(&self) -> usize {
         mem::size_of::<Address>() + self.storage_keys.capacity() * mem::size_of::<B256>()
     }
 }
