@@ -1,0 +1,45 @@
+[package]
+name = "alloy-eip7928"
+description = "Implementation of EIP-7928 type definitions"
+
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors = [
+    "Ishika Choudhury <ishikac720@gmail.com>",
+    "Soubhik Singha Mahapatra <soubhiksinghamahapatra@gmail.com>",
+]
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+    "-Zunstable-options",
+    "--generate-link-to-definition",
+    "--show-type-layout",
+]
+
+[lints]
+workspace = true
+
+
+[dependencies]
+alloy-primitives = { workspace = true, features = ["map"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
+
+# serde
+serde = { workspace = true, optional = true }
+
+# arbitrary
+arbitrary = { workspace = true, features = ["derive"], optional = true }
+rand = { workspace = true, optional = true }
+
+
+[features]
+default = ["std"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
+rlp = ["alloy-primitives/rlp"]
+serde = ["dep:serde", "alloy-primitives/serde"]
+arbitrary = ["std", "dep:arbitrary", "alloy-primitives/arbitrary"]
