@@ -1,5 +1,5 @@
 //! Block-level access lists for Reth.
-//! [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+//! [EIP-7928]: <https://eips.ethereum.org/EIPS/eip-7928>
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[allow(unused_imports)]
