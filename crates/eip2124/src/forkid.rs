@@ -7,7 +7,7 @@ use alloc::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
 };
-use alloy_primitives::{hex, BlockNumber, B256};
+use alloy_primitives::{B256, BlockNumber, hex};
 use alloy_rlp::{Error as RlpError, *};
 use core::{
     cmp::Ordering,
@@ -183,7 +183,9 @@ pub enum ValidationError {
         remote: ForkId,
     },
     /// Local node is on an incompatible chain or needs a software update.
-    #[error("local node is on an incompatible chain or needs a software update: local={local:?}, remote={remote:?}")]
+    #[error(
+        "local node is on an incompatible chain or needs a software update: local={local:?}, remote={remote:?}"
+    )]
     LocalIncompatibleOrStale {
         /// locally configured forkId
         local: ForkId,
@@ -290,7 +292,7 @@ impl ForkFilter {
     /// Caution: this disregards all configured fork filters and is reset on the next head update.
     /// This is useful for testing or to connect to networks over p2p where only the latest forkid
     /// is known.
-    pub fn set_current_fork_id(&mut self, fork_id: ForkId) {
+    pub const fn set_current_fork_id(&mut self, fork_id: ForkId) {
         self.cache.fork_id = fork_id;
     }
 

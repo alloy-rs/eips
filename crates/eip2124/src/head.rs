@@ -1,4 +1,4 @@
-use alloy_primitives::{BlockNumber, B256, U256};
+use alloy_primitives::{B256, BlockNumber, U256};
 use core::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ impl Head {
     }
 
     /// Updates the head block with new information.
-    pub fn update(
+    pub const fn update(
         &mut self,
         number: BlockNumber,
         hash: B256,
