@@ -15,11 +15,12 @@ pub struct SlotChanges {
     /// The storage slot key being modified.
     pub slot: StorageKey,
     /// A list of write operations to this slot, ordered by transaction index.
+    #[cfg_attr(feature = "serde", serde(alias = "slotChanges"))]
     pub changes: Vec<StorageChange>,
 }
 
 impl SlotChanges {
-    /// Creates a new [`SlotChanges`] instance for the given slot key.
+    /// Creates a new [`SlotChanges`] instance for the given slot key and changes.
     ///
     /// Preallocates capacity for up to 300,000 changes.
     #[inline]

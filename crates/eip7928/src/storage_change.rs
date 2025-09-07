@@ -2,7 +2,7 @@
 //! a transaction.
 
 use crate::BlockAccessIndex;
-use alloy_primitives::U256;
+use alloy_primitives::B256;
 
 /// Represents a single storage write operation within a transaction.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -12,15 +12,17 @@ use alloy_primitives::U256;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct StorageChange {
     /// Index of the bal that stores the performed write.
+    #[cfg_attr(feature = "serde", serde(alias = "txIndex", with = "crate::quantity"))]
     pub block_access_index: BlockAccessIndex,
     /// The new value written to the storage slot.
-    pub new_value: U256,
+    #[cfg_attr(feature = "serde", serde(alias = "postValue"))]
+    pub new_value: B256,
 }
 
 impl StorageChange {
     /// Creates a new `StorageChange`.
     #[inline]
-    pub const fn new(block_access_index: BlockAccessIndex, new_value: U256) -> Self {
+    pub const fn new(block_access_index: BlockAccessIndex, new_value: B256) -> Self {
         Self { block_access_index, new_value }
     }
 
@@ -38,7 +40,7 @@ impl StorageChange {
 
     /// Returns a copy with a different storage value.
     #[inline]
-    pub const fn with_value(&self, value: U256) -> Self {
+    pub const fn with_value(&self, value: B256) -> Self {
         Self { block_access_index: self.block_access_index, new_value: value }
     }
 }

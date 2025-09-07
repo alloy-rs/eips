@@ -37,3 +37,26 @@ pub use account_changes::*;
 /// Module for managing block access lists.
 pub mod block_access_list;
 pub use block_access_list::*;
+
+/// Serde for quantity types.
+#[cfg(feature = "serde")]
+mod quantity {
+    use alloy_primitives::U64;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Serializes a primitive number as a "quantity" hex string.
+    pub(crate) fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        U64::from(*value).serialize(serializer)
+    }
+
+    /// Deserializes a primitive number from a "quantity" hex string.
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        U64::deserialize(deserializer).map(|value| value.to())
+    }
+}

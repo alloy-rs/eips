@@ -12,6 +12,7 @@ use alloy_primitives::U256;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct BalanceChange {
     /// The index of bal that stores balance change.
+    #[cfg_attr(feature = "serde", serde(alias = "txIndex", with = "crate::quantity"))]
     pub block_access_index: BlockAccessIndex,
     /// The post-transaction balance of the account.
     pub post_balance: U256,
