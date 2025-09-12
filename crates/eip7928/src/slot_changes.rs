@@ -3,7 +3,7 @@
 
 use crate::StorageChange;
 use alloc::vec::Vec;
-use alloy_primitives::StorageKey;
+use alloy_primitives::{B256, StorageKey};
 
 /// Represents all changes made to a single storage slot across multiple transactions.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -44,5 +44,19 @@ impl SlotChanges {
     #[inline]
     pub const fn len(&self) -> usize {
         self.changes.len()
+    }
+
+    /// Creates a new `SlotChanges` for the given slot.
+    #[inline]
+    pub const fn with_slot(mut self, slot: B256) -> Self {
+        self.slot = slot;
+        self
+    }
+
+    /// Creates a new `SlotChanges` with the given change appended.
+    #[inline]
+    pub fn with_change(mut self, change: StorageChange) -> Self {
+        self.changes.push(change);
+        self
     }
 }
