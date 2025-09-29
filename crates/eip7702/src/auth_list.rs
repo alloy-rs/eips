@@ -13,6 +13,7 @@ use core::hash::{Hash, Hasher};
 /// It can either be valid (containing an [`Address`]) or invalid (indicating recovery failure).
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub enum RecoveredAuthority {
     /// Indicates a successfully recovered authority address.
     Valid(Address),
@@ -45,6 +46,7 @@ impl RecoveredAuthority {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct Authorization {
     /// The chain ID of the authorization.
     pub chain_id: U256,
@@ -104,6 +106,7 @@ impl Authorization {
 /// A signed EIP-7702 authorization.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct SignedAuthorization {
     /// Inner authorization.
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -326,6 +329,7 @@ impl<'de> serde::Deserialize<'de> for SignedAuthorization {
 /// A recovered authorization.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct RecoveredAuthorization {
     #[cfg_attr(feature = "serde", serde(flatten))]
     inner: Authorization,

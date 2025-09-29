@@ -28,6 +28,9 @@ alloy-rlp = { workspace = true, features = ["derive"] }
 # serde
 serde = { workspace = true, optional = true }
 
+# borsh
+borsh = { workspace = true, optional = true, features = ["derive"] }
+
 # arbitrary
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 rand = { workspace = true, optional = true }
@@ -40,3 +43,7 @@ default = ["std"]
 std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
 serde = ["dep:serde", "alloy-primitives/serde"]
 arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
+borsh = [
+	"dep:borsh",
+	"alloy-primitives/borsh",
+]
