@@ -40,7 +40,7 @@ serde_json.workspace = true
 
 [features]
 default = ["std"]
-std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std", "borsh?/std"]
 serde = ["dep:serde", "alloy-primitives/serde"]
 arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
 borsh = [
