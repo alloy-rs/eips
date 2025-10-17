@@ -58,4 +58,5 @@ arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
 k256 = ["alloy-primitives/k256", "dep:k256"]
 borsh = [
 	"dep:borsh",
+    "alloy-primitives/borsh",
 ]
