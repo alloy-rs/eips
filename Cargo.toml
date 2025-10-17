@@ -29,7 +29,7 @@ option-if-let-else = "warn"
 redundant-clone = "warn"
 
 [workspace.dependencies]
-alloy-primitives = { version = "1.0", default-features = false }
+alloy-primitives = { version = "1.4", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
 
 # serde
@@ -38,6 +38,9 @@ serde = { version = "1.0", default-features = false, features = [
     "alloc",
 ] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+
+# borsh
+borsh = { version = "1.5", default-features = false }
 
 # arbitrary
 arbitrary = "1.3"
