@@ -33,8 +33,8 @@ impl RecoveredAuthority {
     /// Consumes the type and returns the valid address if any.
     pub fn into_address(self) -> Option<Address> {
         match self {
-            RecoveredAuthority::Valid(address) => Some(address),
-            RecoveredAuthority::Invalid => None,
+            Self::Valid(address) => Some(address),
+            Self::Invalid => None,
         }
     }
 
