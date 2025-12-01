@@ -41,6 +41,12 @@ impl RecoveredAuthority {
     }
 }
 
+impl From<Address> for RecoveredAuthority {
+    fn from(address: Address) -> Self {
+        Self::Valid(address)
+    }
+}
+
 /// An unsigned EIP-7702 authorization.
 #[derive(Debug, Clone, Hash, RlpEncodable, RlpDecodable, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
