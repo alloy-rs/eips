@@ -41,7 +41,7 @@ impl IntoIterator for BlockAccessList {
 
 impl BlockAccessList {
     /// Creates a new [`BlockAccessList`] from the provided account changes.
-    pub fn new(account_changes: Vec<AccountChanges>) -> Self {
+    pub const fn new(account_changes: Vec<AccountChanges>) -> Self {
         Self(account_changes)
     }
 
@@ -52,13 +52,13 @@ impl BlockAccessList {
 
     /// Returns `true` if the list contains no elements.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Returns the number of account change entries contained in the list.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
 
@@ -70,7 +70,7 @@ impl BlockAccessList {
 
     /// Returns a slice of the contained [`AccountChanges`].
     #[inline]
-    pub fn as_slice(&self) -> &[AccountChanges] {
+    pub const fn as_slice(&self) -> &[AccountChanges] {
         self.0.as_slice()
     }
 }
