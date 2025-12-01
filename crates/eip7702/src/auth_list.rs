@@ -30,6 +30,14 @@ impl RecoveredAuthority {
         }
     }
 
+    /// Consumes the type and returns the valid address if any.
+    pub fn into_address(self) -> Option<Address> {
+        match self {
+            RecoveredAuthority::Valid(address) => Some(address),
+            RecoveredAuthority::Invalid => None,
+        }
+    }
+
     /// Returns true if the authority is valid.
     pub const fn is_valid(&self) -> bool {
         matches!(self, Self::Valid(_))
