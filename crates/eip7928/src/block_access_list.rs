@@ -7,8 +7,7 @@ use core::{ops::Deref, slice::Iter};
 /// Represents the full set of [`AccountChanges`] for a block.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-
+#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
 pub struct BlockAccessList(Vec<AccountChanges>);
 
 impl From<BlockAccessList> for Vec<AccountChanges> {
@@ -78,8 +77,8 @@ impl BlockAccessList {
 
 /// Computes the hash of the given block access list.
 #[cfg(feature = "rlp")]
-pub fn compute_block_access_list_hash(bal: &BlockAccessList) -> alloy_primitives::B256 {
+pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitives::B256 {
     let mut buf = Vec::new();
-    alloy_rlp::encode_list(bal.as_slice(), &mut buf);
+    alloy_rlp::encode_list(bal, &mut buf);
     alloy_primitives::keccak256(&buf)
 }
