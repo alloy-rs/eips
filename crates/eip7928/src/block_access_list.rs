@@ -3,6 +3,7 @@
 use crate::account_changes::AccountChanges;
 use alloc::vec::{IntoIter, Vec};
 use core::{ops::Deref, slice::Iter};
+use std::ops::DerefMut;
 
 /// Represents the full set of [`AccountChanges`] for a block.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -30,12 +31,24 @@ impl Deref for BlockAccessList {
     }
 }
 
+impl DerefMut for BlockAccessList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl IntoIterator for BlockAccessList {
     type Item = AccountChanges;
     type IntoIter = IntoIter<AccountChanges>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl FromIterator<AccountChanges> for BlockAccessList {
+    fn from_iter<I: IntoIterator<Item = AccountChanges>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -72,6 +85,11 @@ impl BlockAccessList {
     #[inline]
     pub const fn as_slice(&self) -> &[AccountChanges] {
         self.0.as_slice()
+    }
+
+    /// Returns a vector of [`AccountChanges`].
+    pub fn into_inner(self) -> Vec<AccountChanges> {
+        self.0
     }
 }
 
