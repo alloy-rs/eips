@@ -6,7 +6,7 @@ use crate::{
     SlotChanges, balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange,
 };
 use alloc::vec::Vec;
-use alloy_primitives::{Address, StorageKey};
+use alloy_primitives::{Address, U256};
 
 /// This struct is used to track the changes across accounts in a block.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -21,7 +21,7 @@ pub struct AccountChanges {
     /// List of slot changes for this account.
     pub storage_changes: Vec<SlotChanges>,
     /// List of storage reads for this account.
-    pub storage_reads: Vec<StorageKey>,
+    pub storage_reads: Vec<U256>,
     /// List of balance changes for this account.
     pub balance_changes: Vec<BalanceChange>,
     /// List of nonce changes for this account.
@@ -69,7 +69,7 @@ impl AccountChanges {
 
     /// Returns the storage reads for this account.
     #[inline]
-    pub fn storage_reads(&self) -> &[StorageKey] {
+    pub fn storage_reads(&self) -> &[U256] {
         &self.storage_reads
     }
 
@@ -98,7 +98,7 @@ impl AccountChanges {
     }
 
     /// Add a storage read slot.
-    pub fn with_storage_read(mut self, key: StorageKey) -> Self {
+    pub fn with_storage_read(mut self, key: U256) -> Self {
         self.storage_reads.push(key);
         self
     }
@@ -130,7 +130,7 @@ impl AccountChanges {
     /// Add multiple storage reads at once.
     pub fn extend_storage_reads<I>(mut self, iter: I) -> Self
     where
-        I: IntoIterator<Item = StorageKey>,
+        I: IntoIterator<Item = U256>,
     {
         self.storage_reads.extend(iter);
         self
