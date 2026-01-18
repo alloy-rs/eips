@@ -1,6 +1,10 @@
 [advisories]
 version = 2
 yanked = "warn"
+ignore = [
+    # https://rustsec.org/advisories/RUSTSEC-2024-0436
+    "RUSTSEC-2024-0436",
+]
 
 [bans]
 multiple-versions = "warn"
@@ -23,6 +27,7 @@ allow = [
     "Unicode-DFS-2016",
     "Unlicense",
     "MPL-2.0",
+    "Zlib",
     # https://github.com/briansmith/ring/issues/902
     "LicenseRef-ring",
 ]

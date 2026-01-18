@@ -2,7 +2,7 @@
 name = "alloy-eip2930"
 description = "Implementation of EIP-2930 type definitions"
 
-version = "0.1.0"
+version = "0.2.3"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -28,6 +28,9 @@ alloy-rlp = { workspace = true, features = ["derive"] }
 # serde
 serde = { workspace = true, optional = true }
 
+# borsh
+borsh = { workspace = true, optional = true, features = ["derive"] }
+
 # arbitrary
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 rand = { workspace = true, optional = true }
@@ -37,6 +40,10 @@ serde_json.workspace = true
 
 [features]
 default = ["std"]
-std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std", "borsh?/std"]
 serde = ["dep:serde", "alloy-primitives/serde"]
 arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
+borsh = [
+	"dep:borsh",
+	"alloy-primitives/borsh",
+]

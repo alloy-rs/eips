@@ -16,6 +16,7 @@ use core::{mem, ops::Deref};
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct AccessListItem {
     /// Account addresses that would be loaded at the start of execution
     pub address: Address,
@@ -26,7 +27,7 @@ pub struct AccessListItem {
 impl AccessListItem {
     /// Calculates a heuristic for the in-memory size of the [AccessListItem].
     #[inline]
-    pub fn size(&self) -> usize {
+    pub const fn size(&self) -> usize {
         mem::size_of::<Address>() + self.storage_keys.capacity() * mem::size_of::<B256>()
     }
 }
@@ -35,6 +36,7 @@ impl AccessListItem {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, RlpDecodableWrapper, RlpEncodableWrapper)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct AccessList(pub Vec<AccessListItem>);
 
 impl From<Vec<AccessListItem>> for AccessList {
@@ -93,6 +95,11 @@ impl AccessList {
         self.iter().position(|item| item.address == address)
     }
 
+    /// Returns the total number of storage keys in this access list.
+    pub fn storage_keys_count(&self) -> usize {
+        self.iter().map(|i| i.storage_keys.len()).sum::<usize>()
+    }
+
     /// Checks if a specific storage slot within an account is present in the access list.
     ///
     /// Returns a tuple with flags for the presence of the account and the slot.
@@ -134,6 +141,7 @@ impl AccessList {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct AccessListWithGasUsed {
     /// List with accounts accessed during transaction.
     pub access_list: AccessList,
@@ -145,6 +153,7 @@ pub struct AccessListWithGasUsed {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct AccessListResult {
     /// List with accounts accessed during transaction.
     pub access_list: AccessList,

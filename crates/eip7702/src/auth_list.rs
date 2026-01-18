@@ -2,10 +2,10 @@ use core::ops::Deref;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use alloy_primitives::{keccak256, Address, PrimitiveSignature, SignatureError, B256, U256, U8};
+use alloy_primitives::{Address, B256, Signature, SignatureError, U8, U256, keccak256};
 use alloy_rlp::{
-    length_of_length, BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable,
-    RlpEncodable,
+    BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable, RlpEncodable,
+    length_of_length,
 };
 use core::hash::{Hash, Hasher};
 
@@ -13,6 +13,7 @@ use core::hash::{Hash, Hasher};
 /// It can either be valid (containing an [`Address`]) or invalid (indicating recovery failure).
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub enum RecoveredAuthority {
     /// Indicates a successfully recovered authority address.
     Valid(Address),
@@ -29,6 +30,14 @@ impl RecoveredAuthority {
         }
     }
 
+    /// Consumes the type and returns the valid address if any.
+    pub const fn into_address(self) -> Option<Address> {
+        match self {
+            Self::Valid(address) => Some(address),
+            Self::Invalid => None,
+        }
+    }
+
     /// Returns true if the authority is valid.
     pub const fn is_valid(&self) -> bool {
         matches!(self, Self::Valid(_))
@@ -40,11 +49,18 @@ impl RecoveredAuthority {
     }
 }
 
+impl From<Address> for RecoveredAuthority {
+    fn from(address: Address) -> Self {
+        Self::Valid(address)
+    }
+}
+
 /// An unsigned EIP-7702 authorization.
 #[derive(Debug, Clone, Hash, RlpEncodable, RlpDecodable, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct Authorization {
     /// The chain ID of the authorization.
     pub chain_id: U256,
@@ -91,7 +107,7 @@ impl Authorization {
     }
 
     /// Convert to a signed authorization by adding a signature.
-    pub fn into_signed(self, signature: PrimitiveSignature) -> SignedAuthorization {
+    pub fn into_signed(self, signature: Signature) -> SignedAuthorization {
         SignedAuthorization {
             inner: self,
             r: signature.r(),
@@ -103,7 +119,8 @@ impl Authorization {
 
 /// A signed EIP-7702 authorization.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct SignedAuthorization {
     /// Inner authorization.
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -129,9 +146,9 @@ impl SignedAuthorization {
     ///
     /// Note that this signature might still be invalid for recovery as it might have `s` value
     /// greater than [secp256k1n/2](crate::constants::SECP256K1N_HALF).
-    pub fn signature(&self) -> Result<PrimitiveSignature, SignatureError> {
+    pub fn signature(&self) -> Result<Signature, SignatureError> {
         if self.y_parity() <= 1 {
-            Ok(PrimitiveSignature::new(self.r, self.s, self.y_parity() == 1))
+            Ok(Signature::new(self.r, self.s, self.y_parity() == 1))
         } else {
             Err(SignatureError::InvalidParity(self.y_parity() as u64))
         }
@@ -275,10 +292,10 @@ impl Deref for SignedAuthorization {
 impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         use k256::{
-            ecdsa::{signature::hazmat::PrehashSigner, SigningKey},
             NonZeroScalar,
+            ecdsa::{SigningKey, signature::hazmat::PrehashSigner},
         };
-        use rand::{rngs::StdRng, SeedableRng};
+        use rand::{SeedableRng, rngs::StdRng};
 
         let rng_seed = u.arbitrary::<[u8; 32]>()?;
         let mut rand_gen = StdRng::from_seed(rng_seed);
@@ -290,15 +307,43 @@ impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
         let (recoverable_sig, recovery_id) =
             signing_key.sign_prehash(signature_hash.as_ref()).unwrap();
         let signature =
-            PrimitiveSignature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
+            Signature::from_signature_and_parity(recoverable_sig, recovery_id.is_y_odd());
 
         Ok(inner.into_signed(signature))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for SignedAuthorization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Helper {
+            #[cfg_attr(feature = "serde", serde(flatten))]
+            inner: Authorization,
+            r: U256,
+            s: U256,
+            #[serde(rename = "yParity")]
+            y_parity: Option<U8>,
+            v: Option<U8>,
+        }
+
+        let Helper { inner, r, s, y_parity, v } = Helper::deserialize(deserializer)?;
+
+        // Attempt to deserialize `yParity` or `v` value, preferring the former.
+        let y_parity =
+            y_parity.or(v).ok_or_else(|| serde::de::Error::custom("missing `yParity` or `v`"))?;
+
+        Ok(Self { inner, r, s, y_parity })
     }
 }
 
 /// A recovered authorization.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct RecoveredAuthorization {
     #[cfg_attr(feature = "serde", serde(flatten))]
     inner: Authorization,
@@ -372,7 +417,7 @@ mod quantity {
 pub(super) mod serde_bincode_compat {
     use crate::Authorization;
     use alloc::borrow::Cow;
-    use alloy_primitives::{U256, U8};
+    use alloy_primitives::{U8, U256};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
@@ -380,7 +425,7 @@ pub(super) mod serde_bincode_compat {
     ///
     /// Intended to use with the [`serde_with::serde_as`] macro in the following way:
     /// ```rust
-    /// use alloy_eip7702::{serde_bincode_compat, SignedAuthorization};
+    /// use alloy_eip7702::{SignedAuthorization, serde_bincode_compat};
     /// use serde::{Deserialize, Serialize};
     /// use serde_with::serde_as;
     ///
@@ -450,7 +495,7 @@ pub(super) mod serde_bincode_compat {
         use serde::{Deserialize, Serialize};
         use serde_with::serde_as;
 
-        use super::super::{serde_bincode_compat, SignedAuthorization};
+        use super::super::{SignedAuthorization, serde_bincode_compat};
 
         #[test]
         fn test_signed_authorization_bincode_roundtrip() {
@@ -509,7 +554,7 @@ mod tests {
             nonce: 1,
         };
 
-        let auth = auth.into_signed(PrimitiveSignature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
+        let auth = auth.into_signed(Signature::from_str("48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c8041b").unwrap());
         let mut buf = Vec::new();
         auth.encode(&mut buf);
 
@@ -546,5 +591,22 @@ mod tests {
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
         let _auth = SignedAuthorization::arbitrary(&mut unstructured).unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn deserde_signed_auth_with_duplicate_fields() {
+        let s = r#"{
+                    "chainId": "0x2105",
+                    "address": "0x000000004F43C49e93C970E84001853a70923B03",
+                    "nonce": "0x0",
+                    "r": "0xb3fdb76993ec6787313ab8b54129200032dfb9ce683fa9f7693129421e6a3185",
+                    "s": "0x210b3350107a5687b532a346a90e7cc9a799b995743e2b79698bedba7bd779ae",
+                    "v": "0x1b",
+                    "yParity": "0x0"
+                }"#;
+
+        let auth: SignedAuthorization = serde_json::from_str(s).unwrap();
+        assert!(auth.y_parity.is_zero());
     }
 }

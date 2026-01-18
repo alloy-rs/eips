@@ -1,11 +1,14 @@
 [package]
-name = "alloy-eip2124"
-description = "Fork identifier for chain compatibility checks"
+name = "alloy-eip7928"
+description = "Implementation of EIP-7928 type definitions"
 
-version = "0.2.0"
+version = "0.3.0"
 edition.workspace = true
 rust-version.workspace = true
-authors.workspace = true
+authors = [
+    "Ishika Choudhury <ishikac720@gmail.com>",
+    "Soubhik Singha Mahapatra <soubhiksinghamahapatra@gmail.com>",
+]
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
@@ -21,28 +24,26 @@ rustdoc-args = [
 [lints]
 workspace = true
 
+
 [dependencies]
-alloy-primitives = { workspace = true, features = ["rlp"] }
+alloy-primitives = { workspace = true, features = ["map"] }
 alloy-rlp = { workspace = true, features = ["derive"] }
 
 # serde
 serde = { workspace = true, optional = true }
 
-# used for forkid
-crc = "3"
+# borsh
+borsh = { workspace = true, optional = true, features = ["derive"] }
 
 # arbitrary
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 rand = { workspace = true, optional = true }
 
-thiserror.workspace = true
-
-[dev-dependencies]
-arbitrary = { workspace = true, features = ["derive"] }
-alloy-rlp = { workspace = true, features = ["arrayvec"] }
 
 [features]
 default = ["std"]
-std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std", "thiserror/std"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "serde?/std", "borsh?/std"]
+borsh = ["dep:borsh", "alloy-primitives/borsh"]
+rlp = ["alloy-primitives/rlp"]
 serde = ["dep:serde", "alloy-primitives/serde"]
-arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
+arbitrary = ["std", "dep:arbitrary", "alloy-primitives/arbitrary"]
