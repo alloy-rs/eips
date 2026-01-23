@@ -18,7 +18,10 @@ pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitive
 pub mod bal {
     use crate::account_changes::AccountChanges;
     use alloc::vec::{IntoIter, Vec};
-    use core::{ops::Deref, slice::Iter};
+    use core::{
+        ops::{Deref, Index},
+        slice::Iter,
+    };
 
     /// A wrapper around [`Vec<AccountChanges>`] that provides helper methods for
     /// computing metrics and statistics about the block access list.
@@ -71,6 +74,18 @@ pub mod bal {
     impl FromIterator<AccountChanges> for Bal {
         fn from_iter<I: IntoIterator<Item = AccountChanges>>(iter: I) -> Self {
             Self(iter.into_iter().collect())
+        }
+    }
+
+    impl<I> Index<I> for Bal
+    where
+        I: core::slice::SliceIndex<[AccountChanges]>,
+    {
+        type Output = I::Output;
+
+        #[inline]
+        fn index(&self, index: I) -> &Self::Output {
+            &self.0[index]
         }
     }
 
