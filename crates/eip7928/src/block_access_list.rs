@@ -125,6 +125,16 @@ pub mod bal {
             self.0.iter().map(|a| a.storage_changes.len()).sum()
         }
 
+        /// Returns the total number of storage reads across all accounts.
+        pub fn total_storage_reads(&self) -> usize {
+            self.0.iter().map(|a| a.storage_reads.len()).sum()
+        }
+
+        /// Returns the total number of storage slots (both changes and reads) across all accounts.
+        pub fn total_slots(&self) -> usize {
+            self.0.iter().map(|a| a.storage_changes.len() + a.storage_reads.len()).sum()
+        }
+
         /// Returns the total number of balance changes across all accounts.
         pub fn total_balance_changes(&self) -> usize {
             self.0.iter().map(|a| a.balance_changes.len()).sum()
