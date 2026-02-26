@@ -14,6 +14,9 @@ pub const MAX_ACCOUNTS: usize = 300_000;
 /// Maximum contract bytecode size in bytes.
 pub const MAX_CODE_SIZE: usize = 24_576;
 
+/// Item cost for block access list.
+pub const ITEM_COST: usize = 2000;
+
 /// Type alias for block index for eip-7928.
 pub type BlockAccessIndex = u64;
 
