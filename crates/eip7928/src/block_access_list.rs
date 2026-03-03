@@ -14,6 +14,32 @@ pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitive
     alloy_primitives::keccak256(&buf)
 }
 
+/// Computes the total number of items in the block access list, counting each account and unique
+/// storage slot.
+pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
+    let mut bal_items: u64 = 0;
+
+    for account in bal {
+        // Count address
+        bal_items += 1;
+
+        // Collect unique storage slots across reads + writes
+        let mut unique_slots = alloy_primitives::map::HashSet::new();
+
+        for change in account.storage_changes() {
+            unique_slots.insert(change.slot);
+        }
+
+        for slot in account.storage_reads() {
+            unique_slots.insert(*slot);
+        }
+
+        // Count unique storage keys
+        bal_items += unique_slots.len() as u64;
+    }
+    bal_items
+}
+
 /// Block-Level Access List wrapper type with helper methods for metrics and validation.
 pub mod bal {
     use crate::account_changes::AccountChanges;
@@ -179,6 +205,12 @@ pub mod bal {
                 counts.code += account.code_changes.len();
             }
             counts
+        }
+
+        /// Computes the total number of items in this block access list, counting each account and
+        /// unique storage slot.
+        pub fn total_bal_items(&self) -> u64 {
+            super::total_bal_items(&self.0)
         }
 
         /// Computes the hash of this block access list.
