@@ -217,6 +217,9 @@ pub mod bal {
         /// Computes the hash of this block access list.
         #[cfg(feature = "rlp")]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
+            if self.0.is_empty() {
+                return crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH;
+            }
             super::compute_block_access_list_hash(&self.0)
         }
     }
