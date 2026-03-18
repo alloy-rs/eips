@@ -57,6 +57,7 @@ pub mod bal {
     #[derive(Clone, Debug, Default, PartialEq, Eq)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
+    #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
     pub struct Bal(Vec<AccountChanges>);
 
     impl From<Bal> for Vec<AccountChanges> {
@@ -216,6 +217,9 @@ pub mod bal {
         /// Computes the hash of this block access list.
         #[cfg(feature = "rlp")]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
+            if self.0.is_empty() {
+                return crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH;
+            }
             super::compute_block_access_list_hash(&self.0)
         }
     }
