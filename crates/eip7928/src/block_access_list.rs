@@ -201,7 +201,6 @@ pub mod bal {
             for account in &self.0 {
                 counts.accounts += 1;
                 counts.storage += account.storage_changes.len();
-                counts.reads += account.storage_reads.len();
                 counts.balance += account.balance_changes.len();
                 counts.nonce += account.nonce_changes.len();
                 counts.code += account.code_changes.len();
@@ -215,26 +214,9 @@ pub mod bal {
             super::total_bal_items(&self.0)
         }
 
-        /// The hash of an empty [`Bal`], i.e. `keccak256(rlp.encode([]))`.
-        ///
-        /// This is the value stored in the block header `block_access_list_hash`
-        /// field when no state changes occurred during block execution.
-        ///
-        /// Defined in [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928).
-        #[cfg(feature = "rlp")]
-        pub const EMPTY_HASH: alloy_primitives::B256 = alloy_primitives::b256!(
-            "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
-        );
-
         /// Computes the hash of this block access list.
-        ///
-        /// Returns [`EMPTY_HASH`](Self::EMPTY_HASH) immediately if the list is
-        /// empty, avoiding an unnecessary allocation.
         #[cfg(feature = "rlp")]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
-            if self.0.is_empty() {
-                return Self::EMPTY_HASH;
-            }
             super::compute_block_access_list_hash(&self.0)
         }
     }
@@ -244,10 +226,8 @@ pub mod bal {
     pub struct BalChangeCounts {
         /// Number of accounts with changes.
         pub accounts: usize,
-        /// Total number of storage changes (writes).
+        /// Total number of storage changes.
         pub storage: usize,
-        /// Total number of storage reads.
-        pub reads: usize,
         /// Total number of balance changes.
         pub balance: usize,
         /// Total number of nonce changes.
