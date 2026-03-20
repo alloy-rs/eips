@@ -162,18 +162,18 @@ mod tests {
             storage_changes: vec![SlotChanges {
                 slot: U256::from(1),
                 changes: vec![StorageChange {
-                    block_access_index: 0u64.into(),
+                    block_access_index: 0u64,
                     new_value: U256::from(100),
                 }],
             }],
             storage_reads: vec![U256::from(2)],
             balance_changes: vec![BalanceChange {
-                block_access_index: 1u64.into(),
+                block_access_index: 1u64,
                 post_balance: U256::from(1000),
             }],
-            nonce_changes: vec![NonceChange { block_access_index: 2u64.into(), new_nonce: 42 }],
+            nonce_changes: vec![NonceChange { block_access_index: 2u64, new_nonce: 42 }],
             code_changes: vec![CodeChange {
-                block_access_index: 3u64.into(),
+                block_access_index: 3u64,
                 new_code: Bytes::from(vec![0x60, 0x00]),
             }],
         };
@@ -189,7 +189,7 @@ mod tests {
         let acc1 = AccountChanges::new(Address::from([0x11; 20]))
             .with_storage_read(U256::from(1))
             .with_balance_change(BalanceChange {
-                block_access_index: 0u64.into(),
+                block_access_index: 0u64,
                 post_balance: U256::from(100),
             });
 
@@ -197,14 +197,14 @@ mod tests {
             .with_storage_change(SlotChanges {
                 slot: U256::from(2),
                 changes: vec![StorageChange {
-                    block_access_index: 1u64.into(),
+                    block_access_index: 1u64,
                     new_value: U256::from(200),
                 }],
             })
-            .with_nonce_change(NonceChange { block_access_index: 2u64.into(), new_nonce: 42 });
+            .with_nonce_change(NonceChange { block_access_index: 2u64, new_nonce: 42 });
 
         let acc3 = AccountChanges::new(Address::from([0x33; 20])).with_code_change(CodeChange {
-            block_access_index: 3u64.into(),
+            block_access_index: 3u64,
             new_code: Bytes::from(vec![0x60, 0x00]),
         });
 
