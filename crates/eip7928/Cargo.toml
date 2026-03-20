@@ -39,6 +39,9 @@ borsh = { workspace = true, optional = true, features = ["derive"] }
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 rand = { workspace = true, optional = true }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 
 [features]
 default = ["std"]

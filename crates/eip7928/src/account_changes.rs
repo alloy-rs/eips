@@ -145,3 +145,74 @@ impl AccountChanges {
         self
     }
 }
+
+#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
+mod tests {
+    use crate::StorageChange;
+
+    use super::*;
+    use alloy_primitives::Bytes;
+    use serde_json;
+
+    #[test]
+    fn test_account_changes_serde() {
+        let acc = AccountChanges {
+            address: Address::from([0x11; 20]),
+            storage_changes: vec![SlotChanges {
+                slot: U256::from(1),
+                changes: vec![StorageChange {
+                    block_access_index: 0u64.into(),
+                    new_value: U256::from(100),
+                }],
+            }],
+            storage_reads: vec![U256::from(2)],
+            balance_changes: vec![BalanceChange {
+                block_access_index: 1u64.into(),
+                post_balance: U256::from(1000),
+            }],
+            nonce_changes: vec![NonceChange { block_access_index: 2u64.into(), new_nonce: 42 }],
+            code_changes: vec![CodeChange {
+                block_access_index: 3u64.into(),
+                new_code: Bytes::from(vec![0x60, 0x00]),
+            }],
+        };
+
+        let json = serde_json::to_string(&acc).unwrap();
+        let decoded: AccountChanges = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(acc, decoded);
+    }
+
+    #[test]
+    fn test_vec_account_changes_serde() {
+        let acc1 = AccountChanges::new(Address::from([0x11; 20]))
+            .with_storage_read(U256::from(1))
+            .with_balance_change(BalanceChange {
+                block_access_index: 0u64.into(),
+                post_balance: U256::from(100),
+            });
+
+        let acc2 = AccountChanges::new(Address::from([0x22; 20]))
+            .with_storage_change(SlotChanges {
+                slot: U256::from(2),
+                changes: vec![StorageChange {
+                    block_access_index: 1u64.into(),
+                    new_value: U256::from(200),
+                }],
+            })
+            .with_nonce_change(NonceChange { block_access_index: 2u64.into(), new_nonce: 42 });
+
+        let acc3 = AccountChanges::new(Address::from([0x33; 20])).with_code_change(CodeChange {
+            block_access_index: 3u64.into(),
+            new_code: Bytes::from(vec![0x60, 0x00]),
+        });
+
+        let vec_acc = vec![acc1, acc2, acc3];
+
+        let json = serde_json::to_string(&vec_acc).unwrap();
+        let decoded: Vec<AccountChanges> = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(vec_acc, decoded);
+    }
+}
