@@ -1,5 +1,5 @@
 //! Contains the [`SlotChanges`] struct, which represents all changes made to a single storage slot
-//! across
+//! across multiple transactions.
 
 use crate::StorageChange;
 use alloc::vec::Vec;
@@ -22,11 +22,15 @@ pub struct SlotChanges {
 
 impl SlotChanges {
     /// Creates a new [`SlotChanges`] instance for the given slot key and changes.
-    ///
-    /// Preallocates capacity for up to 300,000 changes.
     #[inline]
     pub const fn new(slot: U256, changes: Vec<StorageChange>) -> Self {
         Self { slot, changes }
+    }
+
+    /// Creates a new [`SlotChanges`] with preallocated capacity for the given number of changes.
+    #[inline]
+    pub fn with_capacity(slot: U256, capacity: usize) -> Self {
+        Self { slot, changes: Vec::with_capacity(capacity) }
     }
 
     /// Appends a storage change to the list.

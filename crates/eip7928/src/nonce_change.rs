@@ -1,5 +1,5 @@
 //! Contains the [`NonceChange`] struct, which represents a new nonce for an account.
-//! Single code change: `tx_index` -> `new_nonce`
+//! Single nonce change: `tx_index` -> `new_nonce`
 
 use crate::BlockAccessIndex;
 
@@ -14,7 +14,7 @@ pub struct NonceChange {
     /// The index of bal that stores this nonce change.
     #[cfg_attr(feature = "serde", serde(alias = "txIndex", with = "crate::quantity"))]
     pub block_access_index: BlockAccessIndex,
-    /// The new code of the account.
+    /// The new nonce of the account.
     #[cfg_attr(feature = "serde", serde(alias = "postNonce", with = "crate::quantity"))]
     pub new_nonce: u64,
 }
