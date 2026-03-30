@@ -147,7 +147,6 @@ impl AccountChanges {
 }
 
 #[cfg(all(test, feature = "serde"))]
-#[cfg(test)]
 mod tests {
     use crate::StorageChange;
 
