@@ -193,9 +193,6 @@ pub mod bal {
         }
 
         /// Returns a summary of all change counts for metrics reporting.
-        ///
-        /// Returns a tuple of (account_changes, storage_changes, balance_changes, nonce_changes,
-        /// code_changes).
         pub fn change_counts(&self) -> BalChangeCounts {
             let mut counts = BalChangeCounts::default();
             for account in &self.0 {
