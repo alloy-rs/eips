@@ -181,12 +181,60 @@ impl AccessListResult {
     pub const fn is_err(&self) -> bool {
         self.error.is_some()
     }
+
+    /// Returns `true` if there is no error in the result.
+    #[inline]
+    pub const fn is_ok(&self) -> bool {
+        self.error.is_none()
+    }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
+    use alloy_rlp::{Decodable, Encodable};
 
+    #[test]
+    fn access_list_item_rlp_roundtrip() {
+        let item = AccessListItem {
+            address: Address::left_padding_from(&[1]),
+            storage_keys: vec![B256::with_last_byte(2)],
+        };
+        let mut buf = Vec::new();
+        item.encode(&mut buf);
+        let decoded = AccessListItem::decode(&mut buf.as_ref()).unwrap();
+        assert_eq!(buf.len(), item.length());
+        assert_eq!(decoded, item);
+    }
+
+    #[test]
+    fn access_list_rlp_roundtrip() {
+        let list = AccessList(vec![
+            AccessListItem {
+                address: Address::left_padding_from(&[1]),
+                storage_keys: vec![B256::with_last_byte(2), B256::with_last_byte(3)],
+            },
+            AccessListItem { address: Address::left_padding_from(&[4]), storage_keys: vec![] },
+        ]);
+        let mut buf = Vec::new();
+        list.encode(&mut buf);
+        let decoded = AccessList::decode(&mut buf.as_ref()).unwrap();
+        assert_eq!(buf.len(), list.length());
+        assert_eq!(decoded, list);
+    }
+
+    #[test]
+    fn empty_access_list_rlp_roundtrip() {
+        let list = AccessList::default();
+        let mut buf = Vec::new();
+        list.encode(&mut buf);
+        let decoded = AccessList::decode(&mut buf.as_ref()).unwrap();
+        assert_eq!(buf.len(), list.length());
+        assert_eq!(decoded, list);
+    }
+
+    #[cfg(feature = "serde")]
     #[test]
     fn access_list_serde() {
         let list = AccessList(vec![
@@ -198,6 +246,7 @@ mod tests {
         assert_eq!(list, list2);
     }
 
+    #[cfg(feature = "serde")]
     #[test]
     fn access_list_with_gas_used() {
         let list = AccessListResult {
