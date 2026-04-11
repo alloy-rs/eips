@@ -18,9 +18,10 @@ pub const MAGIC: u8 = 0x05;
 /// See also [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702).
 pub const PER_AUTH_BASE_COST: u64 = 12500;
 
-/// A gas refund for EIP7702 transactions if the authority account already exists in the trie.
+/// The gas cost charged per authorization list item for EIP-7702 transactions.
 ///
-/// The refund is `PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST`.
+/// If the authority account already exists in the trie,
+/// `PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST` is added to the global refund counter.
 ///
 /// See also [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702).
 pub const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
