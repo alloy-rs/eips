@@ -21,6 +21,7 @@ pub struct AccessListItem {
     /// Account addresses that would be loaded at the start of execution
     pub address: Address,
     /// Keys of storage that would be loaded at the start of execution
+    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "deserialize_null_default"))]
     pub storage_keys: Vec<B256>,
 }
 
@@ -137,6 +138,17 @@ impl AccessList {
     }
 }
 
+/// Deserializes a `Vec<T>`, treating `null` as an empty vector.
+#[cfg(feature = "serde")]
+fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    use serde::Deserialize;
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 /// Access list with gas used appended.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -244,6 +256,16 @@ mod tests {
         let json = serde_json::to_string(&list).unwrap();
         let list2 = serde_json::from_str::<AccessList>(&json).unwrap();
         assert_eq!(list, list2);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn access_list_null_storage_keys() {
+        let json =
+            r#"[{"address":"0x0000000000000000000000000000000000000000","storageKeys":null}]"#;
+        let list: AccessList = serde_json::from_str(json).unwrap();
+        assert_eq!(list.0.len(), 1);
+        assert!(list.0[0].storage_keys.is_empty());
     }
 
     #[cfg(feature = "serde")]
