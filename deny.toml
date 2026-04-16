@@ -7,6 +7,8 @@ ignore = [
     # bincode is unmaintained, only used in dev-dependencies for tests
     # https://rustsec.org/advisories/RUSTSEC-2025-0141
     "RUSTSEC-2025-0141",
+    # https://rustsec.org/advisories/RUSTSEC-2026-0097 rand unsoundness requires a custom logger calling rand::rng()
+    "RUSTSEC-2026-0097",
 ]
 
 [bans]
