@@ -66,7 +66,10 @@ pub mod bal {
     /// underlying data while providing additional utility methods for BAL analysis.
     #[derive(Clone, Debug, Default, PartialEq, Eq)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
+    #[cfg_attr(
+        feature = "rlp",
+        derive(alloy_rlp::RlpEncodableWrapper, alloy_rlp::RlpDecodableWrapper)
+    )]
     #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
     #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
     pub struct Bal(Vec<AccountChanges>);
@@ -256,7 +259,8 @@ pub mod bal {
 
     /// A decoded block access list with lazy hash computation.
     ///
-    /// This type wraps a decoded [`Bal`] along with the original raw RLP bytes.
+    /// This type wraps a decoded [`Bal`] along with the original raw RLP bytes,
+    /// allowing efficient hash computation on demand without re-encoding.
     #[derive(Clone, Debug, PartialEq, Eq)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct DecodedBal {
@@ -334,7 +338,7 @@ pub mod bal {
         /// The hash is computed lazily on first call and cached for subsequent calls.
         #[cfg(feature = "rlp")]
         pub fn hash(&self) -> alloy_primitives::B256 {
-            *self.hash.get_or_init(|| self.decoded.compute_hash())
+            *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()))
         }
     }
 
@@ -414,6 +418,7 @@ mod tests {
         assert_eq!(decoded.as_bal(), &bal);
         assert_eq!(decoded.as_raw(), &raw);
         assert_eq!(decoded.hash(), bal.compute_hash());
+        assert_eq!(decoded.hash(), alloy_primitives::keccak256(raw.as_ref()));
         assert_eq!(decoded.as_sealed_bal().hash(), bal.compute_hash());
         assert_eq!(decoded.as_sealed_bal().inner(), &decoded.as_bal());
 
