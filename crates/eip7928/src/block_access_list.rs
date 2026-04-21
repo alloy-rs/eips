@@ -3,9 +3,8 @@
 use crate::account_changes::AccountChanges;
 use alloc::vec::Vec;
 
-use once_cell as _;
 #[cfg(not(feature = "std"))]
-use once_cell::sync::OnceCell as OnceLock;
+use once_cell::race::OnceBox as OnceLock;
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
 
@@ -259,7 +258,7 @@ pub mod bal {
     ///
     /// This type wraps a decoded [`Bal`] along with the original raw RLP bytes,
     /// allowing efficient hash computation on demand without re-encoding.
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct DecodedBal {
         /// The decoded block access list.
@@ -270,6 +269,14 @@ pub mod bal {
         #[cfg_attr(feature = "serde", serde(skip, default))]
         hash: OnceLock<alloy_primitives::B256>,
     }
+
+    impl PartialEq for DecodedBal {
+        fn eq(&self, other: &Self) -> bool {
+            self.decoded == other.decoded && self.raw == other.raw
+        }
+    }
+
+    impl Eq for DecodedBal {}
 
     impl DecodedBal {
         /// Creates a new [`DecodedBal`] from decoded data and raw bytes.
@@ -328,7 +335,7 @@ pub mod bal {
         ///
         /// The hash is computed lazily on first call and cached for subsequent calls.
         pub fn hash(&self) -> alloy_primitives::B256 {
-            *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()))
+            *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()).into())
         }
     }
 
