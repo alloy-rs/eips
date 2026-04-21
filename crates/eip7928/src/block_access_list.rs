@@ -312,16 +312,16 @@ pub mod bal {
             alloy_primitives::Sealable::seal_ref_unchecked(&self.decoded, self.hash())
         }
 
-        /// Consumes this struct and returns the decoded block access list and raw bytes.
-        pub fn into_inner(self) -> (Bal, Bytes) {
+        /// Splits this struct into the decoded BAL and raw bytes.
+        pub fn split(self) -> (Bal, Bytes) {
             (self.decoded, self.raw)
         }
 
         /// Splits this struct into the decoded BAL, raw bytes, and hash.
         #[cfg(feature = "rlp")]
-        pub fn split(self) -> (Bal, Bytes, alloy_primitives::B256) {
+        pub fn into_parts(self) -> (Bal, Bytes, alloy_primitives::B256) {
             let hash = self.hash();
-            let (decoded, raw) = self.into_inner();
+            let (decoded, raw) = self.split();
             (decoded, raw, hash)
         }
 
@@ -329,7 +329,7 @@ pub mod bal {
         #[cfg(feature = "rlp")]
         pub fn into_sealed(self) -> alloy_primitives::Sealed<Bal> {
             let seal = self.hash();
-            let (decoded, _) = self.into_inner();
+            let (decoded, _) = self.split();
             alloy_primitives::Sealable::seal_unchecked(decoded, seal)
         }
 
@@ -422,7 +422,11 @@ mod tests {
         assert_eq!(decoded.as_sealed_bal().hash(), bal.compute_hash());
         assert_eq!(decoded.as_sealed_bal().inner(), &decoded.as_bal());
 
-        let (split_bal, split_raw, split_hash) = decoded.clone().split();
+        let (split_bal, split_raw) = decoded.clone().split();
+        assert_eq!(split_bal, bal);
+        assert_eq!(split_raw, raw);
+
+        let (split_bal, split_raw, split_hash) = decoded.clone().into_parts();
         assert_eq!(split_bal, bal);
         assert_eq!(split_raw, raw);
         assert_eq!(split_hash, bal.compute_hash());
