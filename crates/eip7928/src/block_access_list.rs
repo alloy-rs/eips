@@ -3,11 +3,10 @@
 use crate::account_changes::AccountChanges;
 use alloc::vec::Vec;
 
-#[cfg(feature = "rlp")]
 use once_cell as _;
-#[cfg(all(feature = "rlp", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use once_cell::sync::OnceCell as OnceLock;
-#[cfg(all(feature = "rlp", feature = "std"))]
+#[cfg(feature = "std")]
 use std::sync::OnceLock;
 
 /// This struct is used to store `account_changes` in a block.
@@ -49,7 +48,6 @@ pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
 
 /// Block-Level Access List wrapper type with helper methods for metrics and validation.
 pub mod bal {
-    #[cfg(feature = "rlp")]
     use super::OnceLock;
     use crate::account_changes::AccountChanges;
     use alloc::vec::{IntoIter, Vec};
@@ -269,7 +267,6 @@ pub mod bal {
         /// The original raw RLP bytes.
         raw: Bytes,
         /// Lazily computed hash of the block access list.
-        #[cfg(feature = "rlp")]
         #[cfg_attr(feature = "serde", serde(skip, default))]
         hash: OnceLock<alloy_primitives::B256>,
     }
@@ -277,12 +274,7 @@ pub mod bal {
     impl DecodedBal {
         /// Creates a new [`DecodedBal`] from decoded data and raw bytes.
         pub const fn new(decoded: Bal, raw: Bytes) -> Self {
-            Self {
-                decoded,
-                raw,
-                #[cfg(feature = "rlp")]
-                hash: OnceLock::new(),
-            }
+            Self { decoded, raw, hash: OnceLock::new() }
         }
 
         /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes.
@@ -318,7 +310,6 @@ pub mod bal {
         }
 
         /// Splits this struct into the decoded BAL, raw bytes, and hash.
-        #[cfg(feature = "rlp")]
         pub fn into_parts(self) -> (Bal, Bytes, alloy_primitives::B256) {
             let hash = self.hash();
             let (decoded, raw) = self.split();
@@ -336,7 +327,6 @@ pub mod bal {
         /// Returns the hash of this block access list.
         ///
         /// The hash is computed lazily on first call and cached for subsequent calls.
-        #[cfg(feature = "rlp")]
         pub fn hash(&self) -> alloy_primitives::B256 {
             *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()))
         }
@@ -362,6 +352,25 @@ pub mod bal {
         fn length(&self) -> usize {
             self.raw.len()
         }
+    }
+}
+
+#[cfg(test)]
+mod hash_tests {
+    use super::bal::{Bal, DecodedBal};
+    use alloy_primitives::Bytes;
+
+    #[test]
+    fn decoded_bal_hash_uses_raw_bytes_without_rlp_feature() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let decoded = DecodedBal::new(Bal::default(), raw.clone());
+
+        assert_eq!(decoded.hash(), alloy_primitives::keccak256(raw.as_ref()));
+
+        let (bal, split_raw, split_hash) = decoded.into_parts();
+        assert!(bal.is_empty());
+        assert_eq!(split_raw, raw);
+        assert_eq!(split_hash, alloy_primitives::keccak256(raw.as_ref()));
     }
 }
 
