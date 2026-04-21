@@ -45,8 +45,6 @@ pub mod bal {
     use crate::account_changes::AccountChanges;
     use alloc::vec::{IntoIter, Vec};
     use alloy_primitives::Bytes;
-    #[cfg(feature = "rlp")]
-    use alloy_primitives::{Sealable, Sealed};
     use core::{
         ops::{Deref, Index},
         slice::Iter,
@@ -77,7 +75,7 @@ pub mod bal {
     }
 
     #[cfg(feature = "rlp")]
-    impl Sealable for Bal {
+    impl alloy_primitives::Sealable for Bal {
         fn hash_slow(&self) -> alloy_primitives::B256 {
             self.compute_hash()
         }
@@ -298,8 +296,8 @@ pub mod bal {
 
         /// Returns the decoded BAL as a sealed borrowed value.
         #[cfg(feature = "rlp")]
-        pub fn as_sealed_bal(&self) -> Sealed<&Bal> {
-            self.decoded.seal_ref_unchecked(self.hash())
+        pub fn as_sealed_bal(&self) -> alloy_primitives::Sealed<&Bal> {
+            alloy_primitives::Sealable::seal_ref_unchecked(&self.decoded, self.hash())
         }
 
         /// Consumes this struct and returns the decoded block access list and raw bytes.
@@ -309,10 +307,10 @@ pub mod bal {
 
         /// Consumes this struct and returns the decoded BAL together with its hash.
         #[cfg(feature = "rlp")]
-        pub fn into_sealed(self) -> Sealed<Bal> {
+        pub fn into_sealed(self) -> alloy_primitives::Sealed<Bal> {
             let seal = self.hash();
             let (decoded, _) = self.into_inner();
-            decoded.seal_unchecked(seal)
+            alloy_primitives::Sealable::seal_unchecked(decoded, seal)
         }
 
         /// Returns the hash of this block access list.
