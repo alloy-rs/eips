@@ -44,6 +44,7 @@ pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
 pub mod bal {
     use crate::account_changes::AccountChanges;
     use alloc::vec::{IntoIter, Vec};
+    use alloy_primitives::Bytes;
     use core::{
         ops::{Deref, Index},
         slice::Iter,
@@ -70,6 +71,13 @@ pub mod bal {
     impl From<Vec<AccountChanges>> for Bal {
         fn from(list: Vec<AccountChanges>) -> Self {
             Self(list)
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    impl alloy_primitives::Sealable for Bal {
+        fn hash_slow(&self) -> alloy_primitives::B256 {
+            self.compute_hash()
         }
     }
 
@@ -235,5 +243,159 @@ pub mod bal {
         pub nonce: usize,
         /// Total number of code changes.
         pub code: usize,
+    }
+
+    /// A decoded block access list with lazy hash computation.
+    ///
+    /// This type wraps a decoded [`Bal`] along with the original raw RLP bytes,
+    /// allowing efficient hash computation on demand without re-encoding.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub struct DecodedBal {
+        /// The decoded block access list.
+        decoded: Bal,
+        /// The original raw RLP bytes.
+        raw: Bytes,
+        /// Lazily computed hash of the block access list.
+        #[cfg(feature = "rlp")]
+        #[cfg_attr(feature = "serde", serde(skip, default))]
+        hash: core::cell::OnceCell<alloy_primitives::B256>,
+    }
+
+    impl DecodedBal {
+        /// Creates a new [`DecodedBal`] from decoded data and raw bytes.
+        pub fn new(decoded: Bal, raw: Bytes) -> Self {
+            Self {
+                decoded,
+                raw,
+                #[cfg(feature = "rlp")]
+                hash: core::cell::OnceCell::new(),
+            }
+        }
+
+        /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes.
+        #[cfg(feature = "rlp")]
+        pub fn from_rlp_bytes(raw: Bytes) -> Result<Self, alloy_rlp::Error> {
+            let mut slice = raw.as_ref();
+            let decoded = <Bal as alloy_rlp::Decodable>::decode(&mut slice)?;
+            if !slice.is_empty() {
+                return Err(alloy_rlp::Error::UnexpectedLength);
+            }
+            Ok(Self::new(decoded, raw))
+        }
+
+        /// Returns a reference to the decoded block access list.
+        pub fn as_bal(&self) -> &Bal {
+            &self.decoded
+        }
+
+        /// Returns the original raw RLP bytes.
+        pub fn as_raw(&self) -> &Bytes {
+            &self.raw
+        }
+
+        /// Consumes this struct and returns the decoded block access list and raw bytes.
+        pub fn into_inner(self) -> (Bal, Bytes) {
+            (self.decoded, self.raw)
+        }
+
+        /// Returns the hash of this block access list.
+        ///
+        /// The hash is computed lazily on first call and cached for subsequent calls.
+        #[cfg(feature = "rlp")]
+        pub fn hash(&self) -> alloy_primitives::B256 {
+            *self.hash.get_or_init(|| self.decoded.compute_hash())
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    impl alloy_rlp::Decodable for DecodedBal {
+        fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
+            let original = *buf;
+            let decoded = <Bal as alloy_rlp::Decodable>::decode(buf)?;
+            let consumed = original.len() - buf.len();
+            let raw = Bytes::copy_from_slice(&original[..consumed]);
+            Ok(Self::new(decoded, raw))
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    impl alloy_rlp::Encodable for DecodedBal {
+        fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+            out.put_slice(&self.raw);
+        }
+
+        fn length(&self) -> usize {
+            self.raw.len()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rlp"))]
+mod tests {
+    use super::bal::{Bal, DecodedBal};
+    use crate::{
+        AccountChanges, BalanceChange, CodeChange, NonceChange, SlotChanges, StorageChange,
+        constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
+    };
+    use alloy_primitives::{Address, Bytes, U256};
+
+    fn sample_bal() -> Bal {
+        Bal::new(vec![
+            AccountChanges::new(Address::from([0x11; 20]))
+                .with_storage_read(U256::from(0x10))
+                .with_storage_change(SlotChanges::new(
+                    U256::from(0x01),
+                    vec![StorageChange::new(0, U256::from(0xaa))],
+                ))
+                .with_balance_change(BalanceChange::new(1, U256::from(1_000)))
+                .with_nonce_change(NonceChange::new(2, 7))
+                .with_code_change(CodeChange::new(3, Bytes::from(vec![0x60, 0x00]))),
+            AccountChanges::new(Address::from([0x22; 20]))
+                .with_storage_read(U256::from(0x20))
+                .with_storage_change(SlotChanges::new(
+                    U256::from(0x02),
+                    vec![StorageChange::new(4, U256::from(0xbb))],
+                )),
+        ])
+    }
+
+    #[test]
+    fn bal_compute_hash_returns_empty_hash_for_empty_bal() {
+        let bal = Bal::default();
+
+        assert_eq!(bal.compute_hash(), EMPTY_BLOCK_ACCESS_LIST_HASH);
+    }
+
+    #[test]
+    fn bal_compute_hash_matches_free_function_for_non_empty_bal() {
+        let bal = sample_bal();
+
+        assert_eq!(bal.compute_hash(), super::compute_block_access_list_hash(bal.as_slice()));
+        assert_ne!(bal.compute_hash(), EMPTY_BLOCK_ACCESS_LIST_HASH);
+    }
+
+    #[test]
+    fn decoded_bal_from_rlp_bytes_preserves_raw_and_hash() {
+        let bal = sample_bal();
+        let raw = Bytes::from(alloy_rlp::encode(&bal));
+        let decoded = DecodedBal::from_rlp_bytes(raw.clone()).unwrap();
+
+        assert_eq!(decoded.as_bal(), &bal);
+        assert_eq!(decoded.as_raw(), &raw);
+        assert_eq!(decoded.hash(), bal.compute_hash());
+    }
+
+    #[test]
+    fn decoded_bal_decode_consumes_exact_raw_rlp_item() {
+        let bal = sample_bal();
+        let raw = alloy_rlp::encode(&bal);
+        let mut buf = raw.as_ref();
+        let decoded = <DecodedBal as alloy_rlp::Decodable>::decode(&mut buf).unwrap();
+
+        assert!(buf.is_empty());
+        assert_eq!(decoded.as_bal(), &bal);
+        assert_eq!(decoded.as_raw().as_ref(), raw.as_slice());
+        assert_eq!(alloy_rlp::encode(&decoded), raw);
     }
 }
