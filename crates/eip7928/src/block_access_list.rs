@@ -335,6 +335,7 @@ pub mod bal {
         ///
         /// The hash is computed lazily on first call and cached for subsequent calls.
         pub fn hash(&self) -> alloy_primitives::B256 {
+            #[allow(clippy::useless_conversion)]
             *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()).into())
         }
     }
