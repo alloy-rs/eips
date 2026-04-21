@@ -264,7 +264,7 @@ pub mod bal {
 
     impl DecodedBal {
         /// Creates a new [`DecodedBal`] from decoded data and raw bytes.
-        pub fn new(decoded: Bal, raw: Bytes) -> Self {
+        pub const fn new(decoded: Bal, raw: Bytes) -> Self {
             Self {
                 decoded,
                 raw,
@@ -285,12 +285,12 @@ pub mod bal {
         }
 
         /// Returns a reference to the decoded block access list.
-        pub fn as_bal(&self) -> &Bal {
+        pub const fn as_bal(&self) -> &Bal {
             &self.decoded
         }
 
         /// Returns the original raw RLP bytes.
-        pub fn as_raw(&self) -> &Bytes {
+        pub const fn as_raw(&self) -> &Bytes {
             &self.raw
         }
 
