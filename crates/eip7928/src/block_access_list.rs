@@ -3,6 +3,13 @@
 use crate::account_changes::AccountChanges;
 use alloc::vec::Vec;
 
+#[cfg(feature = "rlp")]
+use once_cell as _;
+#[cfg(all(feature = "rlp", not(feature = "std")))]
+use once_cell::sync::OnceCell as OnceLock;
+#[cfg(all(feature = "rlp", feature = "std"))]
+use std::sync::OnceLock;
+
 /// This struct is used to store `account_changes` in a block.
 pub type BlockAccessList = Vec<AccountChanges>;
 
@@ -42,6 +49,8 @@ pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
 
 /// Block-Level Access List wrapper type with helper methods for metrics and validation.
 pub mod bal {
+    #[cfg(feature = "rlp")]
+    use super::OnceLock;
     use crate::account_changes::AccountChanges;
     use alloc::vec::{IntoIter, Vec};
     use alloy_primitives::Bytes;
@@ -247,8 +256,7 @@ pub mod bal {
 
     /// A decoded block access list with lazy hash computation.
     ///
-    /// This type wraps a decoded [`Bal`] along with the original raw RLP bytes,
-    /// allowing efficient hash computation on demand without re-encoding.
+    /// This type wraps a decoded [`Bal`] along with the original raw RLP bytes.
     #[derive(Clone, Debug, PartialEq, Eq)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct DecodedBal {
@@ -259,7 +267,7 @@ pub mod bal {
         /// Lazily computed hash of the block access list.
         #[cfg(feature = "rlp")]
         #[cfg_attr(feature = "serde", serde(skip, default))]
-        hash: core::cell::OnceCell<alloy_primitives::B256>,
+        hash: OnceLock<alloy_primitives::B256>,
     }
 
     impl DecodedBal {
@@ -269,7 +277,7 @@ pub mod bal {
                 decoded,
                 raw,
                 #[cfg(feature = "rlp")]
-                hash: core::cell::OnceCell::new(),
+                hash: OnceLock::new(),
             }
         }
 
@@ -303,6 +311,14 @@ pub mod bal {
         /// Consumes this struct and returns the decoded block access list and raw bytes.
         pub fn into_inner(self) -> (Bal, Bytes) {
             (self.decoded, self.raw)
+        }
+
+        /// Splits this struct into the decoded BAL, raw bytes, and hash.
+        #[cfg(feature = "rlp")]
+        pub fn split(self) -> (Bal, Bytes, alloy_primitives::B256) {
+            let hash = self.hash();
+            let (decoded, raw) = self.into_inner();
+            (decoded, raw, hash)
         }
 
         /// Consumes this struct and returns the decoded BAL together with its hash.
@@ -400,6 +416,11 @@ mod tests {
         assert_eq!(decoded.hash(), bal.compute_hash());
         assert_eq!(decoded.as_sealed_bal().hash(), bal.compute_hash());
         assert_eq!(decoded.as_sealed_bal().inner(), &decoded.as_bal());
+
+        let (split_bal, split_raw, split_hash) = decoded.clone().split();
+        assert_eq!(split_bal, bal);
+        assert_eq!(split_raw, raw);
+        assert_eq!(split_hash, bal.compute_hash());
 
         let sealed = decoded.into_sealed();
         assert_eq!(sealed.hash(), bal.compute_hash());

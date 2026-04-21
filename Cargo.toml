@@ -31,6 +31,7 @@ redundant-clone = "warn"
 [workspace.dependencies]
 alloy-primitives = { version = "1.4", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
+once_cell = { version = "1.20", default-features = false, features = ["critical-section"] }
 
 # serde
 serde = { version = "1.0", default-features = false, features = [
