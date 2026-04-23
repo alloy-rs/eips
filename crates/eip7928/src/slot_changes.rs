@@ -78,15 +78,16 @@ impl SlotChanges {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::BlockAccessIndex;
 
     #[test]
     fn sort_orders_changes_by_block_access_index() {
         let mut slot_changes = SlotChanges::new(
             U256::from(1),
             vec![
-                StorageChange::new(8, U256::from(0x80)),
-                StorageChange::new(2, U256::from(0x20)),
-                StorageChange::new(5, U256::from(0x50)),
+                StorageChange::new(BlockAccessIndex::new(8), U256::from(0x80)),
+                StorageChange::new(BlockAccessIndex::new(2), U256::from(0x20)),
+                StorageChange::new(BlockAccessIndex::new(5), U256::from(0x50)),
             ],
         );
 
@@ -94,7 +95,7 @@ mod tests {
 
         assert_eq!(
             slot_changes.changes.iter().map(|change| change.block_access_index).collect::<Vec<_>>(),
-            vec![2, 5, 8]
+            vec![BlockAccessIndex::new(2), BlockAccessIndex::new(5), BlockAccessIndex::new(8)]
         );
     }
 }

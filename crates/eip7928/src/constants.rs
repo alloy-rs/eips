@@ -26,9 +26,6 @@ pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 3_533;
 pub const BAL_RETENTION_PERIOD_SLOTS: u64 =
     BAL_RETENTION_PERIOD_EPOCHS * ETHEREUM_MAINNET_SLOTS_PER_EPOCH;
 
-/// Type alias for block index for eip-7928.
-pub type BlockAccessIndex = u64;
-
 /// The empty block access list hash.
 pub const EMPTY_BLOCK_ACCESS_LIST_HASH: B256 =
     b256!("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");

@@ -186,7 +186,7 @@ impl AccountChanges {
 
 #[cfg(test)]
 mod sort_tests {
-    use crate::StorageChange;
+    use crate::{BlockAccessIndex, StorageChange};
 
     use super::*;
     use alloy_primitives::Bytes;
@@ -199,27 +199,30 @@ mod sort_tests {
                 SlotChanges::new(
                     U256::from(3),
                     vec![
-                        StorageChange::new(8, U256::from(0x80)),
-                        StorageChange::new(2, U256::from(0x20)),
+                        StorageChange::new(BlockAccessIndex::new(8), U256::from(0x80)),
+                        StorageChange::new(BlockAccessIndex::new(2), U256::from(0x20)),
                     ],
                 ),
                 SlotChanges::new(
                     U256::from(1),
                     vec![
-                        StorageChange::new(5, U256::from(0x50)),
-                        StorageChange::new(1, U256::from(0x10)),
+                        StorageChange::new(BlockAccessIndex::new(5), U256::from(0x50)),
+                        StorageChange::new(BlockAccessIndex::new(1), U256::from(0x10)),
                     ],
                 ),
             ],
             storage_reads: vec![U256::from(4), U256::from(2)],
             balance_changes: vec![
-                BalanceChange::new(6, U256::from(600)),
-                BalanceChange::new(3, U256::from(300)),
+                BalanceChange::new(BlockAccessIndex::new(6), U256::from(600)),
+                BalanceChange::new(BlockAccessIndex::new(3), U256::from(300)),
             ],
-            nonce_changes: vec![NonceChange::new(7, 70), NonceChange::new(4, 40)],
+            nonce_changes: vec![
+                NonceChange::new(BlockAccessIndex::new(7), 70),
+                NonceChange::new(BlockAccessIndex::new(4), 40),
+            ],
             code_changes: vec![
-                CodeChange::new(9, Bytes::from_static(&[0x60, 0x09])),
-                CodeChange::new(5, Bytes::from_static(&[0x60, 0x05])),
+                CodeChange::new(BlockAccessIndex::new(9), Bytes::from_static(&[0x60, 0x09])),
+                CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[0x60, 0x05])),
             ],
         };
 
@@ -235,7 +238,7 @@ mod sort_tests {
                 .iter()
                 .map(|change| change.block_access_index)
                 .collect::<Vec<_>>(),
-            vec![1, 5]
+            vec![BlockAccessIndex::new(1), BlockAccessIndex::new(5)]
         );
         assert_eq!(
             account.storage_changes[1]
@@ -243,7 +246,7 @@ mod sort_tests {
                 .iter()
                 .map(|change| change.block_access_index)
                 .collect::<Vec<_>>(),
-            vec![2, 8]
+            vec![BlockAccessIndex::new(2), BlockAccessIndex::new(8)]
         );
         assert_eq!(account.storage_reads, vec![U256::from(2), U256::from(4)]);
         assert_eq!(
@@ -252,7 +255,7 @@ mod sort_tests {
                 .iter()
                 .map(|change| change.block_access_index)
                 .collect::<Vec<_>>(),
-            vec![3, 6]
+            vec![BlockAccessIndex::new(3), BlockAccessIndex::new(6)]
         );
         assert_eq!(
             account
@@ -260,18 +263,18 @@ mod sort_tests {
                 .iter()
                 .map(|change| change.block_access_index)
                 .collect::<Vec<_>>(),
-            vec![4, 7]
+            vec![BlockAccessIndex::new(4), BlockAccessIndex::new(7)]
         );
         assert_eq!(
             account.code_changes.iter().map(|change| change.block_access_index).collect::<Vec<_>>(),
-            vec![5, 9]
+            vec![BlockAccessIndex::new(5), BlockAccessIndex::new(9)]
         );
     }
 }
 
 #[cfg(test)]
 mod post_state_tests {
-    use crate::StorageChange;
+    use crate::{BlockAccessIndex, StorageChange};
 
     use super::*;
 
@@ -281,15 +284,15 @@ mod post_state_tests {
             .with_storage_change(SlotChanges::new(
                 U256::from(1),
                 vec![
-                    StorageChange::new(0, U256::from(0xaa)),
-                    StorageChange::new(2, U256::from(0xbb)),
+                    StorageChange::new(BlockAccessIndex::new(0), U256::from(0xaa)),
+                    StorageChange::new(BlockAccessIndex::new(2), U256::from(0xbb)),
                 ],
             ))
             .with_storage_change(SlotChanges::new(
                 U256::from(3),
                 vec![
-                    StorageChange::new(1, U256::from(0xcc)),
-                    StorageChange::new(3, U256::from(0xdd)),
+                    StorageChange::new(BlockAccessIndex::new(1), U256::from(0xcc)),
+                    StorageChange::new(BlockAccessIndex::new(3), U256::from(0xdd)),
                 ],
             ));
 
@@ -304,7 +307,7 @@ mod post_state_tests {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
-    use crate::StorageChange;
+    use crate::{BlockAccessIndex, StorageChange};
 
     use super::*;
     use alloy_primitives::Bytes;
@@ -317,18 +320,21 @@ mod tests {
             storage_changes: vec![SlotChanges {
                 slot: U256::from(1),
                 changes: vec![StorageChange {
-                    block_access_index: 0u64,
+                    block_access_index: BlockAccessIndex::new(0),
                     new_value: U256::from(100),
                 }],
             }],
             storage_reads: vec![U256::from(2)],
             balance_changes: vec![BalanceChange {
-                block_access_index: 1u64,
+                block_access_index: BlockAccessIndex::new(1),
                 post_balance: U256::from(1000),
             }],
-            nonce_changes: vec![NonceChange { block_access_index: 2u64, new_nonce: 42 }],
+            nonce_changes: vec![NonceChange {
+                block_access_index: BlockAccessIndex::new(2),
+                new_nonce: 42,
+            }],
             code_changes: vec![CodeChange {
-                block_access_index: 3u64,
+                block_access_index: BlockAccessIndex::new(3),
                 new_code: Bytes::from(vec![0x60, 0x00]),
             }],
         };
@@ -344,7 +350,7 @@ mod tests {
         let acc1 = AccountChanges::new(Address::from([0x11; 20]))
             .with_storage_read(U256::from(1))
             .with_balance_change(BalanceChange {
-                block_access_index: 0u64,
+                block_access_index: BlockAccessIndex::new(0),
                 post_balance: U256::from(100),
             });
 
@@ -352,14 +358,17 @@ mod tests {
             .with_storage_change(SlotChanges {
                 slot: U256::from(2),
                 changes: vec![StorageChange {
-                    block_access_index: 1u64,
+                    block_access_index: BlockAccessIndex::new(1),
                     new_value: U256::from(200),
                 }],
             })
-            .with_nonce_change(NonceChange { block_access_index: 2u64, new_nonce: 42 });
+            .with_nonce_change(NonceChange {
+                block_access_index: BlockAccessIndex::new(2),
+                new_nonce: 42,
+            });
 
         let acc3 = AccountChanges::new(Address::from([0x33; 20])).with_code_change(CodeChange {
-            block_access_index: 3u64,
+            block_access_index: BlockAccessIndex::new(3),
             new_code: Bytes::from(vec![0x60, 0x00]),
         });
 

@@ -12,7 +12,7 @@ use alloy_primitives::Bytes;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct CodeChange {
     /// The index of bal that stores this code change.
-    #[cfg_attr(feature = "serde", serde(alias = "txIndex", with = "crate::quantity"))]
+    #[cfg_attr(feature = "serde", serde(alias = "txIndex"))]
     pub block_access_index: BlockAccessIndex,
     /// The new code of the account.
     pub new_code: Bytes,

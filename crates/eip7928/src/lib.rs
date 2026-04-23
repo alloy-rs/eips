@@ -11,6 +11,10 @@ extern crate alloc;
 pub mod constants;
 pub use constants::*;
 
+/// Module for the [`BlockAccessIndex`] newtype.
+pub mod block_access_index;
+pub use block_access_index::*;
+
 /// Module for handling storage changes within a block.
 pub mod storage_change;
 pub use storage_change::*;
