@@ -57,7 +57,7 @@ impl SlotChanges {
     /// section of EIP-7928. It only canonicalizes ordering and does not enforce uniqueness of block
     /// access indexes.
     pub fn sort(&mut self) {
-        self.changes.sort_by_key(|change| change.block_access_index);
+        self.changes.sort_unstable_by_key(|change| change.block_access_index);
     }
 
     /// Creates a new `SlotChanges` for the given slot.

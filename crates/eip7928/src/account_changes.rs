@@ -108,15 +108,15 @@ impl AccountChanges {
     /// This method only canonicalizes ordering for a single account. It does not enforce the
     /// EIP-7928 uniqueness constraints for storage keys or block access indexes.
     pub fn sort(&mut self) {
-        self.storage_changes.sort_by_key(|changes| changes.slot);
+        self.storage_changes.sort_unstable_by_key(|changes| changes.slot);
         for slot_changes in &mut self.storage_changes {
             slot_changes.sort();
         }
 
-        self.storage_reads.sort();
-        self.balance_changes.sort_by_key(|change| change.block_access_index);
-        self.nonce_changes.sort_by_key(|change| change.block_access_index);
-        self.code_changes.sort_by_key(|change| change.block_access_index);
+        self.storage_reads.sort_unstable();
+        self.balance_changes.sort_unstable_by_key(|change| change.block_access_index);
+        self.nonce_changes.sort_unstable_by_key(|change| change.block_access_index);
+        self.code_changes.sort_unstable_by_key(|change| change.block_access_index);
     }
 
     /// Set the address.

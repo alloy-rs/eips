@@ -193,7 +193,7 @@ pub mod bal {
         /// This method only canonicalizes ordering. It does not enforce the EIP-7928 uniqueness
         /// constraints for accounts, storage keys, or block access indexes.
         pub fn sort(&mut self) {
-            self.0.sort_by_key(|account| account.address);
+            self.0.sort_unstable_by_key(|account| account.address);
 
             for account in &mut self.0 {
                 account.sort();
