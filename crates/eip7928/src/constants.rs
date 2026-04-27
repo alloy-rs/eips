@@ -17,6 +17,15 @@ pub const MAX_CODE_SIZE: usize = 24_576;
 /// Item cost for block access list.
 pub const ITEM_COST: usize = 2000;
 
+const ETHEREUM_MAINNET_SLOTS_PER_EPOCH: u64 = 32;
+
+/// Number of epochs the execution layer must retain block access lists for.
+pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 3_533;
+
+/// Number of slots corresponding to [`BAL_RETENTION_PERIOD_EPOCHS`].
+pub const BAL_RETENTION_PERIOD_SLOTS: u64 =
+    BAL_RETENTION_PERIOD_EPOCHS * ETHEREUM_MAINNET_SLOTS_PER_EPOCH;
+
 /// Type alias for block index for eip-7928.
 pub type BlockAccessIndex = u64;
 
