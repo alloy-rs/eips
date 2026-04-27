@@ -187,21 +187,16 @@ pub mod bal {
         /// - `balance_changes`, `nonce_changes`, and `code_changes` are sorted by block access
         ///   index in ascending order
         ///
+        /// The account-local ordering is delegated to [`AccountChanges::sort`], so callers may
+        /// sort account internals independently when a parallel sort strategy is useful.
+        ///
         /// This method only canonicalizes ordering. It does not enforce the EIP-7928 uniqueness
         /// constraints for accounts, storage keys, or block access indexes.
         pub fn sort(&mut self) {
             self.0.sort_by_key(|account| account.address);
 
             for account in &mut self.0 {
-                account.storage_changes.sort_by_key(|changes| changes.slot);
-                for slot_changes in &mut account.storage_changes {
-                    slot_changes.changes.sort_by_key(|change| change.block_access_index);
-                }
-
-                account.storage_reads.sort();
-                account.balance_changes.sort_by_key(|change| change.block_access_index);
-                account.nonce_changes.sort_by_key(|change| change.block_access_index);
-                account.code_changes.sort_by_key(|change| change.block_access_index);
+                account.sort();
             }
         }
 
