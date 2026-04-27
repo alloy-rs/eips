@@ -174,6 +174,37 @@ pub mod bal {
             self.0
         }
 
+        /// Sorts this block access list in-place according to the canonical EIP-7928 ordering
+        /// rules.
+        ///
+        /// This applies the ordering required by the "Ordering, Uniqueness and Determinism"
+        /// section of EIP-7928:
+        ///
+        /// - accounts are sorted lexicographically by address
+        /// - `storage_changes` are sorted lexicographically by storage key
+        /// - each per-slot `StorageChange` list is sorted by block access index in ascending order
+        /// - `storage_reads` are sorted lexicographically by storage key
+        /// - `balance_changes`, `nonce_changes`, and `code_changes` are sorted by block access
+        ///   index in ascending order
+        ///
+        /// This method only canonicalizes ordering. It does not enforce the EIP-7928 uniqueness
+        /// constraints for accounts, storage keys, or block access indexes.
+        pub fn sort(&mut self) {
+            self.0.sort_by_key(|account| account.address);
+
+            for account in &mut self.0 {
+                account.storage_changes.sort_by_key(|changes| changes.slot);
+                for slot_changes in &mut account.storage_changes {
+                    slot_changes.changes.sort_by_key(|change| change.block_access_index);
+                }
+
+                account.storage_reads.sort();
+                account.balance_changes.sort_by_key(|change| change.block_access_index);
+                account.nonce_changes.sort_by_key(|change| change.block_access_index);
+                account.code_changes.sort_by_key(|change| change.block_access_index);
+            }
+        }
+
         /// Returns the total number of accounts with changes in this BAL.
         #[inline]
         pub const fn account_count(&self) -> usize {
@@ -366,7 +397,10 @@ pub mod bal {
 #[cfg(test)]
 mod hash_tests {
     use super::bal::{Bal, DecodedBal};
-    use alloy_primitives::Bytes;
+    use crate::{
+        AccountChanges, BalanceChange, CodeChange, NonceChange, SlotChanges, StorageChange,
+    };
+    use alloy_primitives::{Address, Bytes, U256};
 
     #[test]
     fn decoded_bal_hash_uses_raw_bytes_without_rlp_feature() {
@@ -379,6 +413,109 @@ mod hash_tests {
         assert!(bal.is_empty());
         assert_eq!(split_raw, raw);
         assert_eq!(split_hash, alloy_primitives::keccak256(raw.as_ref()));
+    }
+
+    #[test]
+    fn bal_sort_orders_all_eip7928_lists() {
+        let address_1 = Address::from([0x11; 20]);
+        let address_2 = Address::from([0x22; 20]);
+        let mut bal = Bal::new(vec![
+            AccountChanges {
+                address: address_2,
+                storage_changes: vec![
+                    SlotChanges::new(
+                        U256::from(3),
+                        vec![
+                            StorageChange::new(8, U256::from(0x80)),
+                            StorageChange::new(2, U256::from(0x20)),
+                        ],
+                    ),
+                    SlotChanges::new(
+                        U256::from(1),
+                        vec![
+                            StorageChange::new(5, U256::from(0x50)),
+                            StorageChange::new(1, U256::from(0x10)),
+                        ],
+                    ),
+                ],
+                storage_reads: vec![U256::from(4), U256::from(2)],
+                balance_changes: vec![
+                    BalanceChange::new(6, U256::from(600)),
+                    BalanceChange::new(3, U256::from(300)),
+                ],
+                nonce_changes: vec![NonceChange::new(7, 70), NonceChange::new(4, 40)],
+                code_changes: vec![
+                    CodeChange::new(9, Bytes::from_static(&[0x60, 0x09])),
+                    CodeChange::new(5, Bytes::from_static(&[0x60, 0x05])),
+                ],
+            },
+            AccountChanges {
+                address: address_1,
+                storage_changes: vec![
+                    SlotChanges::new(
+                        U256::from(2),
+                        vec![
+                            StorageChange::new(4, U256::from(0x40)),
+                            StorageChange::new(0, U256::from(0x00)),
+                        ],
+                    ),
+                    SlotChanges::new(
+                        U256::from(1),
+                        vec![
+                            StorageChange::new(3, U256::from(0x30)),
+                            StorageChange::new(1, U256::from(0x10)),
+                        ],
+                    ),
+                ],
+                storage_reads: vec![U256::from(5), U256::from(3)],
+                balance_changes: vec![
+                    BalanceChange::new(5, U256::from(500)),
+                    BalanceChange::new(2, U256::from(200)),
+                ],
+                nonce_changes: vec![NonceChange::new(8, 80), NonceChange::new(1, 10)],
+                code_changes: vec![
+                    CodeChange::new(4, Bytes::from_static(&[0x60, 0x04])),
+                    CodeChange::new(2, Bytes::from_static(&[0x60, 0x02])),
+                ],
+            },
+        ]);
+
+        bal.sort();
+
+        assert_eq!(bal[0].address, address_1);
+        assert_eq!(bal[1].address, address_2);
+
+        for account in bal.iter() {
+            assert!(account.storage_changes.windows(2).all(|slots| slots[0].slot <= slots[1].slot));
+            for slot_changes in &account.storage_changes {
+                assert!(
+                    slot_changes
+                        .changes
+                        .windows(2)
+                        .all(|changes| changes[0].block_access_index
+                            <= changes[1].block_access_index)
+                );
+            }
+            assert!(account.storage_reads.windows(2).all(|slots| slots[0] <= slots[1]));
+            assert!(
+                account
+                    .balance_changes
+                    .windows(2)
+                    .all(|changes| changes[0].block_access_index <= changes[1].block_access_index)
+            );
+            assert!(
+                account
+                    .nonce_changes
+                    .windows(2)
+                    .all(|changes| changes[0].block_access_index <= changes[1].block_access_index)
+            );
+            assert!(
+                account
+                    .code_changes
+                    .windows(2)
+                    .all(|changes| changes[0].block_access_index <= changes[1].block_access_index)
+            );
+        }
     }
 }
 
