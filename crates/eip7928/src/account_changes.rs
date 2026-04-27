@@ -67,6 +67,16 @@ impl AccountChanges {
         &self.storage_changes
     }
 
+    /// Returns an iterator over the post-state value for each changed storage slot.
+    ///
+    /// The post-state value is taken from the last recorded change for each slot.
+    #[inline]
+    pub fn storage_post_states(&self) -> impl Iterator<Item = (U256, U256)> + '_ {
+        self.storage_changes.iter().filter_map(|changes| {
+            changes.changes.last().map(|change| (changes.slot, change.new_value))
+        })
+    }
+
     /// Returns the storage reads for this account.
     #[inline]
     pub fn storage_reads(&self) -> &[U256] {
@@ -255,6 +265,39 @@ mod sort_tests {
         assert_eq!(
             account.code_changes.iter().map(|change| change.block_access_index).collect::<Vec<_>>(),
             vec![5, 9]
+        );
+    }
+}
+
+#[cfg(test)]
+mod post_state_tests {
+    use crate::StorageChange;
+
+    use super::*;
+
+    #[test]
+    fn storage_post_states_yields_last_change_per_slot() {
+        let account = AccountChanges::new(Address::from([0x11; 20]))
+            .with_storage_change(SlotChanges::new(
+                U256::from(1),
+                vec![
+                    StorageChange::new(0, U256::from(0xaa)),
+                    StorageChange::new(2, U256::from(0xbb)),
+                ],
+            ))
+            .with_storage_change(SlotChanges::new(
+                U256::from(3),
+                vec![
+                    StorageChange::new(1, U256::from(0xcc)),
+                    StorageChange::new(3, U256::from(0xdd)),
+                ],
+            ));
+
+        let post_states = account.storage_post_states().collect::<Vec<_>>();
+
+        assert_eq!(
+            post_states,
+            vec![(U256::from(1), U256::from(0xbb)), (U256::from(3), U256::from(0xdd))]
         );
     }
 }
