@@ -103,12 +103,14 @@ impl AccountChanges {
     /// - `balance_changes`, `nonce_changes`, and `code_changes` are sorted by block access index in
     ///   ascending order
     ///
+    /// Per-slot storage change ordering is delegated to [`SlotChanges::sort`].
+    ///
     /// This method only canonicalizes ordering for a single account. It does not enforce the
     /// EIP-7928 uniqueness constraints for storage keys or block access indexes.
     pub fn sort(&mut self) {
         self.storage_changes.sort_by_key(|changes| changes.slot);
         for slot_changes in &mut self.storage_changes {
-            slot_changes.changes.sort_by_key(|change| change.block_access_index);
+            slot_changes.sort();
         }
 
         self.storage_reads.sort();

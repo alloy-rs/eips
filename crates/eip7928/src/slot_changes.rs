@@ -51,6 +51,15 @@ impl SlotChanges {
         self.changes.len()
     }
 
+    /// Sorts this slot's storage changes by block access index in ascending order.
+    ///
+    /// This applies the per-slot ordering required by the "Ordering, Uniqueness and Determinism"
+    /// section of EIP-7928. It only canonicalizes ordering and does not enforce uniqueness of block
+    /// access indexes.
+    pub fn sort(&mut self) {
+        self.changes.sort_by_key(|change| change.block_access_index);
+    }
+
     /// Creates a new `SlotChanges` for the given slot.
     #[inline]
     pub const fn with_slot(mut self, slot: U256) -> Self {
@@ -63,5 +72,29 @@ impl SlotChanges {
     pub fn with_change(mut self, change: StorageChange) -> Self {
         self.changes.push(change);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sort_orders_changes_by_block_access_index() {
+        let mut slot_changes = SlotChanges::new(
+            U256::from(1),
+            vec![
+                StorageChange::new(8, U256::from(0x80)),
+                StorageChange::new(2, U256::from(0x20)),
+                StorageChange::new(5, U256::from(0x50)),
+            ],
+        );
+
+        slot_changes.sort();
+
+        assert_eq!(
+            slot_changes.changes.iter().map(|change| change.block_access_index).collect::<Vec<_>>(),
+            vec![2, 5, 8]
+        );
     }
 }
