@@ -91,6 +91,34 @@ impl AccountChanges {
         &self.code_changes
     }
 
+    /// Sorts this account's changes in-place according to the account-local EIP-7928 ordering
+    /// rules.
+    ///
+    /// This applies the account-local ordering required by the "Ordering, Uniqueness and
+    /// Determinism" section of EIP-7928:
+    ///
+    /// - `storage_changes` are sorted lexicographically by storage key
+    /// - each per-slot `StorageChange` list is sorted by block access index in ascending order
+    /// - `storage_reads` are sorted lexicographically by storage key
+    /// - `balance_changes`, `nonce_changes`, and `code_changes` are sorted by block access index in
+    ///   ascending order
+    ///
+    /// Per-slot storage change ordering is delegated to [`SlotChanges::sort`].
+    ///
+    /// This method only canonicalizes ordering for a single account. It does not enforce the
+    /// EIP-7928 uniqueness constraints for storage keys or block access indexes.
+    pub fn sort(&mut self) {
+        self.storage_changes.sort_unstable_by_key(|changes| changes.slot);
+        for slot_changes in &mut self.storage_changes {
+            slot_changes.sort();
+        }
+
+        self.storage_reads.sort_unstable();
+        self.balance_changes.sort_unstable_by_key(|change| change.block_access_index);
+        self.nonce_changes.sort_unstable_by_key(|change| change.block_access_index);
+        self.code_changes.sort_unstable_by_key(|change| change.block_access_index);
+    }
+
     /// Set the address.
     pub const fn with_address(mut self, address: Address) -> Self {
         self.address = address;
@@ -143,6 +171,91 @@ impl AccountChanges {
     {
         self.storage_changes.extend(iter);
         self
+    }
+}
+
+#[cfg(test)]
+mod sort_tests {
+    use crate::StorageChange;
+
+    use super::*;
+    use alloy_primitives::Bytes;
+
+    #[test]
+    fn sort_orders_account_local_eip7928_lists() {
+        let mut account = AccountChanges {
+            address: Address::from([0x11; 20]),
+            storage_changes: vec![
+                SlotChanges::new(
+                    U256::from(3),
+                    vec![
+                        StorageChange::new(8, U256::from(0x80)),
+                        StorageChange::new(2, U256::from(0x20)),
+                    ],
+                ),
+                SlotChanges::new(
+                    U256::from(1),
+                    vec![
+                        StorageChange::new(5, U256::from(0x50)),
+                        StorageChange::new(1, U256::from(0x10)),
+                    ],
+                ),
+            ],
+            storage_reads: vec![U256::from(4), U256::from(2)],
+            balance_changes: vec![
+                BalanceChange::new(6, U256::from(600)),
+                BalanceChange::new(3, U256::from(300)),
+            ],
+            nonce_changes: vec![NonceChange::new(7, 70), NonceChange::new(4, 40)],
+            code_changes: vec![
+                CodeChange::new(9, Bytes::from_static(&[0x60, 0x09])),
+                CodeChange::new(5, Bytes::from_static(&[0x60, 0x05])),
+            ],
+        };
+
+        account.sort();
+
+        assert_eq!(
+            account.storage_changes.iter().map(|changes| changes.slot).collect::<Vec<_>>(),
+            vec![U256::from(1), U256::from(3)]
+        );
+        assert_eq!(
+            account.storage_changes[0]
+                .changes
+                .iter()
+                .map(|change| change.block_access_index)
+                .collect::<Vec<_>>(),
+            vec![1, 5]
+        );
+        assert_eq!(
+            account.storage_changes[1]
+                .changes
+                .iter()
+                .map(|change| change.block_access_index)
+                .collect::<Vec<_>>(),
+            vec![2, 8]
+        );
+        assert_eq!(account.storage_reads, vec![U256::from(2), U256::from(4)]);
+        assert_eq!(
+            account
+                .balance_changes
+                .iter()
+                .map(|change| change.block_access_index)
+                .collect::<Vec<_>>(),
+            vec![3, 6]
+        );
+        assert_eq!(
+            account
+                .nonce_changes
+                .iter()
+                .map(|change| change.block_access_index)
+                .collect::<Vec<_>>(),
+            vec![4, 7]
+        );
+        assert_eq!(
+            account.code_changes.iter().map(|change| change.block_access_index).collect::<Vec<_>>(),
+            vec![5, 9]
+        );
     }
 }
 
