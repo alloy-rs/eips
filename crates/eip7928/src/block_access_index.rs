@@ -16,10 +16,7 @@ use core::fmt;
 /// serializes as a hex `"quantity"` string (e.g. `"0x1a"`), matching the previous
 /// `BlockAccessIndex = u64` alias behavior when paired with the `crate::quantity` module.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(
-    feature = "rlp",
-    derive(alloy_rlp::RlpEncodableWrapper, alloy_rlp::RlpDecodableWrapper)
-)]
+#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodableWrapper, alloy_rlp::RlpDecodableWrapper))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[repr(transparent)]
@@ -52,11 +49,11 @@ impl BlockAccessIndex {
     ///
     /// Returns:
     /// - `Some(BlockAccessPhase::PreExecution)` when the index is `0`.
-    /// - `Some(BlockAccessPhase::Transaction(i))` when the index is in `1..=tx_len`, with
-    ///   `i = index - 1` as a 0-based transaction index.
+    /// - `Some(BlockAccessPhase::Transaction(i))` when the index is in `1..=tx_len`, with `i =
+    ///   index - 1` as a 0-based transaction index.
     /// - `Some(BlockAccessPhase::PostExecution)` when the index is exactly `tx_len + 1`.
-    /// - `None` when the index is strictly greater than `tx_len + 1` (out of range
-    ///   for a block with `tx_len` transactions).
+    /// - `None` when the index is strictly greater than `tx_len + 1` (out of range for a block with
+    ///   `tx_len` transactions).
     #[inline]
     pub const fn phase(self, tx_len: usize) -> Option<BlockAccessPhase> {
         // Widen `tx_len` to `u64` to compare against the index without risking
@@ -127,10 +124,7 @@ mod tests {
     fn pre_execution_is_index_zero() {
         assert_eq!(BlockAccessIndex::new(0).phase(0), Some(BlockAccessPhase::PreExecution));
         assert_eq!(BlockAccessIndex::new(0).phase(5), Some(BlockAccessPhase::PreExecution));
-        assert_eq!(
-            BlockAccessIndex::PRE_EXECUTION.phase(5),
-            Some(BlockAccessPhase::PreExecution)
-        );
+        assert_eq!(BlockAccessIndex::PRE_EXECUTION.phase(5), Some(BlockAccessPhase::PreExecution));
     }
 
     #[test]
