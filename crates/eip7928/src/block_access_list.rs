@@ -48,7 +48,7 @@ pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
 /// Block-Level Access List wrapper type with helper methods for metrics and validation.
 pub mod bal {
     use super::OnceLock;
-    use crate::account_changes::AccountChanges;
+    use crate::{BlockAccessListGasError, account_changes::AccountChanges};
     use alloc::vec::{IntoIter, Vec};
     use alloy_primitives::Bytes;
     use core::{
@@ -255,6 +255,18 @@ pub mod bal {
             super::total_bal_items(&self.0)
         }
 
+        /// Validates this block access list against the block gas limit.
+        ///
+        /// EIP-7928 specifies that the total cost of the block access list items must not exceed
+        /// the gas limit. Each item costs [`crate::constants::ITEM_COST`] gas.
+        pub fn validate_gas_limit(&self, gas_limit: u64) -> Result<(), BlockAccessListGasError> {
+            let items = self.total_bal_items();
+            if items > gas_limit / crate::constants::ITEM_COST as u64 {
+                return Err(BlockAccessListGasError::new(items, gas_limit));
+            }
+            Ok(())
+        }
+
         /// Computes the hash of this block access list.
         #[cfg(feature = "rlp")]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
@@ -394,7 +406,7 @@ mod hash_tests {
     use super::bal::{Bal, DecodedBal};
     use crate::{
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
-        StorageChange,
+        StorageChange, constants::ITEM_COST,
     };
     use alloy_primitives::{Address, Bytes, U256};
 
@@ -519,6 +531,37 @@ mod hash_tests {
             );
         }
     }
+
+    #[test]
+    fn bal_validate_gas_limit_accepts_exact_item_cost() {
+        let bal = Bal::new(vec![
+            AccountChanges::new(Address::from([0x11; 20]))
+                .with_storage_read(U256::from(1))
+                .with_storage_change(SlotChanges::new(
+                    U256::from(1),
+                    vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(0xaa))],
+                )),
+        ]);
+
+        assert_eq!(bal.total_bal_items(), 2);
+        assert_eq!(bal.validate_gas_limit(2 * ITEM_COST as u64), Ok(()));
+    }
+
+    #[test]
+    fn bal_validate_gas_limit_rejects_item_cost_above_limit() {
+        let bal = Bal::new(vec![
+            AccountChanges::new(Address::from([0x11; 20]))
+                .with_storage_read(U256::from(1))
+                .with_storage_read(U256::from(2)),
+        ]);
+        let gas_limit = 3 * ITEM_COST as u64 - 1;
+
+        assert_eq!(bal.total_bal_items(), 3);
+        assert_eq!(
+            bal.validate_gas_limit(gas_limit),
+            Err(super::BlockAccessListGasError::new(3, gas_limit))
+        );
+    }
 }
 
 #[cfg(all(test, feature = "rlp"))]
@@ -609,5 +652,26 @@ mod tests {
         assert_eq!(decoded.as_bal(), &bal);
         assert_eq!(decoded.as_raw().as_ref(), raw.as_slice());
         assert_eq!(alloy_rlp::encode(&decoded), raw);
+    }
+}
+
+/// Error returned when a block access list item cost exceeds the block gas limit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, thiserror::Error)]
+#[error(
+    "block access list item cost exceeds gas limit: items={items}, max_items={max_items}, gas_limit={gas_limit}"
+)]
+pub struct BlockAccessListGasError {
+    /// Number of block access list items.
+    pub items: u64,
+    /// Maximum number of block access list items allowed by the gas limit.
+    pub max_items: u64,
+    /// Block gas limit used for validation.
+    pub gas_limit: u64,
+}
+
+impl BlockAccessListGasError {
+    /// Creates a new gas limit validation error for the provided item count and gas limit.
+    pub const fn new(items: u64, gas_limit: u64) -> Self {
+        Self { items, max_items: gas_limit / crate::constants::ITEM_COST as u64, gas_limit }
     }
 }
