@@ -13,7 +13,7 @@ use alloy_primitives::U256;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct StorageChange {
     /// Index of the bal that stores the performed write.
-    #[cfg_attr(feature = "serde", serde(alias = "txIndex", with = "crate::quantity"))]
+    #[cfg_attr(feature = "serde", serde(alias = "txIndex"))]
     pub block_access_index: BlockAccessIndex,
     /// The new value written to the storage slot.
     #[cfg_attr(feature = "serde", serde(alias = "postValue"))]
@@ -33,9 +33,9 @@ impl StorageChange {
         self.new_value.is_zero()
     }
 
-    /// Returns true if this change was made by the given transaction.
+    /// Returns true if this change is recorded at the given block access index.
     #[inline]
-    pub const fn is_from_tx(&self, block_index: BlockAccessIndex) -> bool {
+    pub fn is_at_index(&self, block_index: BlockAccessIndex) -> bool {
         self.block_access_index == block_index
     }
 

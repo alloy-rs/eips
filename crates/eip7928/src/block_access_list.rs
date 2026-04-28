@@ -393,7 +393,8 @@ pub mod bal {
 mod hash_tests {
     use super::bal::{Bal, DecodedBal};
     use crate::{
-        AccountChanges, BalanceChange, CodeChange, NonceChange, SlotChanges, StorageChange,
+        AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
+        StorageChange,
     };
     use alloy_primitives::{Address, Bytes, U256};
 
@@ -421,27 +422,30 @@ mod hash_tests {
                     SlotChanges::new(
                         U256::from(3),
                         vec![
-                            StorageChange::new(8, U256::from(0x80)),
-                            StorageChange::new(2, U256::from(0x20)),
+                            StorageChange::new(BlockAccessIndex::new(8), U256::from(0x80)),
+                            StorageChange::new(BlockAccessIndex::new(2), U256::from(0x20)),
                         ],
                     ),
                     SlotChanges::new(
                         U256::from(1),
                         vec![
-                            StorageChange::new(5, U256::from(0x50)),
-                            StorageChange::new(1, U256::from(0x10)),
+                            StorageChange::new(BlockAccessIndex::new(5), U256::from(0x50)),
+                            StorageChange::new(BlockAccessIndex::new(1), U256::from(0x10)),
                         ],
                     ),
                 ],
                 storage_reads: vec![U256::from(4), U256::from(2)],
                 balance_changes: vec![
-                    BalanceChange::new(6, U256::from(600)),
-                    BalanceChange::new(3, U256::from(300)),
+                    BalanceChange::new(BlockAccessIndex::new(6), U256::from(600)),
+                    BalanceChange::new(BlockAccessIndex::new(3), U256::from(300)),
                 ],
-                nonce_changes: vec![NonceChange::new(7, 70), NonceChange::new(4, 40)],
+                nonce_changes: vec![
+                    NonceChange::new(BlockAccessIndex::new(7), 70),
+                    NonceChange::new(BlockAccessIndex::new(4), 40),
+                ],
                 code_changes: vec![
-                    CodeChange::new(9, Bytes::from_static(&[0x60, 0x09])),
-                    CodeChange::new(5, Bytes::from_static(&[0x60, 0x05])),
+                    CodeChange::new(BlockAccessIndex::new(9), Bytes::from_static(&[0x60, 0x09])),
+                    CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[0x60, 0x05])),
                 ],
             },
             AccountChanges {
@@ -450,27 +454,30 @@ mod hash_tests {
                     SlotChanges::new(
                         U256::from(2),
                         vec![
-                            StorageChange::new(4, U256::from(0x40)),
-                            StorageChange::new(0, U256::from(0x00)),
+                            StorageChange::new(BlockAccessIndex::new(4), U256::from(0x40)),
+                            StorageChange::new(BlockAccessIndex::new(0), U256::from(0x00)),
                         ],
                     ),
                     SlotChanges::new(
                         U256::from(1),
                         vec![
-                            StorageChange::new(3, U256::from(0x30)),
-                            StorageChange::new(1, U256::from(0x10)),
+                            StorageChange::new(BlockAccessIndex::new(3), U256::from(0x30)),
+                            StorageChange::new(BlockAccessIndex::new(1), U256::from(0x10)),
                         ],
                     ),
                 ],
                 storage_reads: vec![U256::from(5), U256::from(3)],
                 balance_changes: vec![
-                    BalanceChange::new(5, U256::from(500)),
-                    BalanceChange::new(2, U256::from(200)),
+                    BalanceChange::new(BlockAccessIndex::new(5), U256::from(500)),
+                    BalanceChange::new(BlockAccessIndex::new(2), U256::from(200)),
                 ],
-                nonce_changes: vec![NonceChange::new(8, 80), NonceChange::new(1, 10)],
+                nonce_changes: vec![
+                    NonceChange::new(BlockAccessIndex::new(8), 80),
+                    NonceChange::new(BlockAccessIndex::new(1), 10),
+                ],
                 code_changes: vec![
-                    CodeChange::new(4, Bytes::from_static(&[0x60, 0x04])),
-                    CodeChange::new(2, Bytes::from_static(&[0x60, 0x02])),
+                    CodeChange::new(BlockAccessIndex::new(4), Bytes::from_static(&[0x60, 0x04])),
+                    CodeChange::new(BlockAccessIndex::new(2), Bytes::from_static(&[0x60, 0x02])),
                 ],
             },
         ]);
@@ -518,8 +525,8 @@ mod hash_tests {
 mod tests {
     use super::bal::{Bal, DecodedBal};
     use crate::{
-        AccountChanges, BalanceChange, CodeChange, NonceChange, SlotChanges, StorageChange,
-        constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
+        AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
+        StorageChange, constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
     };
     use alloy_primitives::{Address, Bytes, U256};
 
@@ -529,16 +536,22 @@ mod tests {
                 .with_storage_read(U256::from(0x10))
                 .with_storage_change(SlotChanges::new(
                     U256::from(0x01),
-                    vec![StorageChange::new(0, U256::from(0xaa))],
+                    vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(0xaa))],
                 ))
-                .with_balance_change(BalanceChange::new(1, U256::from(1_000)))
-                .with_nonce_change(NonceChange::new(2, 7))
-                .with_code_change(CodeChange::new(3, Bytes::from(vec![0x60, 0x00]))),
+                .with_balance_change(BalanceChange::new(
+                    BlockAccessIndex::new(1),
+                    U256::from(1_000),
+                ))
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(2), 7))
+                .with_code_change(CodeChange::new(
+                    BlockAccessIndex::new(3),
+                    Bytes::from(vec![0x60, 0x00]),
+                )),
             AccountChanges::new(Address::from([0x22; 20]))
                 .with_storage_read(U256::from(0x20))
                 .with_storage_change(SlotChanges::new(
                     U256::from(0x02),
-                    vec![StorageChange::new(4, U256::from(0xbb))],
+                    vec![StorageChange::new(BlockAccessIndex::new(4), U256::from(0xbb))],
                 )),
         ])
     }
