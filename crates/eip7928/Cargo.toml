@@ -29,6 +29,7 @@ workspace = true
 alloy-primitives = { workspace = true, features = ["map"] }
 alloy-rlp = { workspace = true, features = ["derive"] }
 once_cell.workspace = true
+thiserror.workspace = true
 
 # serde
 serde = { workspace = true, optional = true }
@@ -46,7 +47,14 @@ serde_json.workspace = true
 
 [features]
 default = ["std"]
-std = ["alloy-primitives/std", "alloy-rlp/std", "once_cell/std", "serde?/std", "borsh?/std"]
+std = [
+    "alloy-primitives/std",
+    "alloy-rlp/std",
+    "once_cell/std",
+    "serde?/std",
+    "thiserror/std",
+    "borsh?/std",
+]
 borsh = ["dep:borsh", "alloy-primitives/borsh"]
 rlp = ["alloy-primitives/rlp"]
 serde = ["dep:serde", "alloy-primitives/serde"]
