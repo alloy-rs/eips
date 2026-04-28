@@ -48,9 +48,11 @@ pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
 /// Block-Level Access List wrapper type with helper methods for metrics and validation.
 pub mod bal {
     use super::OnceLock;
-    use crate::{BlockAccessListGasError, account_changes::AccountChanges};
+    use crate::{
+        BlockAccessListGasError, BlockAccessListHashMismatch, account_changes::AccountChanges,
+    };
     use alloc::vec::{IntoIter, Vec};
-    use alloy_primitives::Bytes;
+    use alloy_primitives::{B256, Bytes};
     use core::{
         ops::{Deref, Index},
         slice::Iter,
@@ -305,7 +307,7 @@ pub mod bal {
         raw: Bytes,
         /// Lazily computed hash of the block access list.
         #[cfg_attr(feature = "serde", serde(skip, default))]
-        hash: OnceLock<alloy_primitives::B256>,
+        hash: OnceLock<B256>,
     }
 
     impl PartialEq for DecodedBal {
@@ -355,7 +357,7 @@ pub mod bal {
         }
 
         /// Splits this struct into the decoded BAL, raw bytes, and hash.
-        pub fn into_parts(self) -> (Bal, Bytes, alloy_primitives::B256) {
+        pub fn into_parts(self) -> (Bal, Bytes, B256) {
             let hash = self.hash();
             let (decoded, raw) = self.split();
             (decoded, raw, hash)
@@ -369,10 +371,23 @@ pub mod bal {
             alloy_primitives::Sealable::seal_unchecked(decoded, seal)
         }
 
+        /// Ensures the raw RLP hash matches the expected block access list hash.
+        ///
+        /// This checks `keccak256(raw_rlp_of_received_bal) == expected` using the cached hash of
+        /// the original raw RLP bytes captured at decode time.
+        pub fn ensure_hash(&self, expected: B256) -> Result<(), BlockAccessListHashMismatch> {
+            let computed = self.hash();
+            if computed == expected {
+                Ok(())
+            } else {
+                Err(BlockAccessListHashMismatch::new(computed, expected))
+            }
+        }
+
         /// Returns the hash of this block access list.
         ///
         /// The hash is computed lazily on first call and cached for subsequent calls.
-        pub fn hash(&self) -> alloy_primitives::B256 {
+        pub fn hash(&self) -> B256 {
             #[allow(clippy::useless_conversion)]
             *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()).into())
         }
@@ -401,6 +416,44 @@ pub mod bal {
     }
 }
 
+/// Error returned when a block access list item cost exceeds the block gas limit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, thiserror::Error)]
+#[error(
+    "block access list item cost exceeds gas limit: items={items}, max_items={max_items}, gas_limit={gas_limit}"
+)]
+pub struct BlockAccessListGasError {
+    /// Number of block access list items.
+    pub items: u64,
+    /// Maximum number of block access list items allowed by the gas limit.
+    pub max_items: u64,
+    /// Block gas limit used for validation.
+    pub gas_limit: u64,
+}
+
+impl BlockAccessListGasError {
+    /// Creates a new gas limit validation error for the provided item count and gas limit.
+    pub const fn new(items: u64, gas_limit: u64) -> Self {
+        Self { items, max_items: gas_limit / crate::constants::ITEM_COST as u64, gas_limit }
+    }
+}
+
+/// Error returned when a decoded block access list hash does not match the expected hash.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("block access list hash mismatch: computed={computed}, expected={expected}")]
+pub struct BlockAccessListHashMismatch {
+    /// Hash computed from the received BAL bytes.
+    pub computed: alloy_primitives::B256,
+    /// Hash expected by the caller, typically `header.block_access_list_hash`.
+    pub expected: alloy_primitives::B256,
+}
+
+impl BlockAccessListHashMismatch {
+    /// Creates a new block access list hash validation error.
+    pub const fn new(computed: alloy_primitives::B256, expected: alloy_primitives::B256) -> Self {
+        Self { computed, expected }
+    }
+}
+
 #[cfg(test)]
 mod hash_tests {
     use super::bal::{Bal, DecodedBal};
@@ -408,7 +461,7 @@ mod hash_tests {
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
         StorageChange, constants::ITEM_COST,
     };
-    use alloy_primitives::{Address, Bytes, U256};
+    use alloy_primitives::{Address, B256, Bytes, U256};
 
     #[test]
     fn decoded_bal_hash_uses_raw_bytes_without_rlp_feature() {
@@ -421,6 +474,20 @@ mod hash_tests {
         assert!(bal.is_empty());
         assert_eq!(split_raw, raw);
         assert_eq!(split_hash, alloy_primitives::keccak256(raw.as_ref()));
+    }
+
+    #[test]
+    fn decoded_bal_ensure_hash_reports_both_hashes() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let decoded = DecodedBal::new(Bal::default(), raw.clone());
+        let computed = alloy_primitives::keccak256(raw.as_ref());
+        let expected = B256::from([0x11; 32]);
+
+        assert_eq!(decoded.ensure_hash(computed), Ok(()));
+        assert_eq!(
+            decoded.ensure_hash(expected),
+            Err(super::BlockAccessListHashMismatch::new(computed, expected))
+        );
     }
 
     #[test]
@@ -652,26 +719,5 @@ mod tests {
         assert_eq!(decoded.as_bal(), &bal);
         assert_eq!(decoded.as_raw().as_ref(), raw.as_slice());
         assert_eq!(alloy_rlp::encode(&decoded), raw);
-    }
-}
-
-/// Error returned when a block access list item cost exceeds the block gas limit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, thiserror::Error)]
-#[error(
-    "block access list item cost exceeds gas limit: items={items}, max_items={max_items}, gas_limit={gas_limit}"
-)]
-pub struct BlockAccessListGasError {
-    /// Number of block access list items.
-    pub items: u64,
-    /// Maximum number of block access list items allowed by the gas limit.
-    pub max_items: u64,
-    /// Block gas limit used for validation.
-    pub gas_limit: u64,
-}
-
-impl BlockAccessListGasError {
-    /// Creates a new gas limit validation error for the provided item count and gas limit.
-    pub const fn new(items: u64, gas_limit: u64) -> Self {
-        Self { items, max_items: gas_limit / crate::constants::ITEM_COST as u64, gas_limit }
     }
 }
