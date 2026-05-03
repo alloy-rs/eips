@@ -9,14 +9,14 @@ use alloc::vec::Vec;
 use alloy_primitives::{Address, U256};
 
 /// This struct is used to track the changes across accounts in a block.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct AccountChanges {
-    /// The address of the account whoose changes are stored.
+    /// The address of the account whose changes are stored.
     pub address: Address,
     /// List of slot changes for this account.
     pub storage_changes: Vec<SlotChanges>,
