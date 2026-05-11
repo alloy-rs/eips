@@ -263,10 +263,7 @@ pub fn first_bal_divergence(left: &[AccountChanges], right: &[AccountChanges]) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges, StorageChange,
-        bal::Bal,
-    };
+    use crate::{BalanceChange, CodeChange, NonceChange, SlotChanges, StorageChange, bal::Bal};
     use alloc::format;
     use alloy_primitives::{Address, Bytes, U256};
 
@@ -279,10 +276,7 @@ mod tests {
     fn diagnostic_account(address: Address, balance: u64) -> AccountChanges {
         AccountChanges {
             address,
-            balance_changes: vec![BalanceChange::new(
-                BlockAccessIndex::new(1),
-                U256::from(balance),
-            )],
+            balance_changes: vec![BalanceChange::new(1, U256::from(balance))],
             ..Default::default()
         }
     }
@@ -377,26 +371,23 @@ mod tests {
             address: diagnostic_addr(1),
             storage_changes: vec![SlotChanges::new(
                 U256::from(1),
-                vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(1))],
+                vec![StorageChange::new(1, U256::from(1))],
             )],
             storage_reads: vec![U256::from(2)],
-            balance_changes: vec![BalanceChange::new(BlockAccessIndex::new(3), U256::from(3))],
-            nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(4), 4)],
-            code_changes: vec![CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[5]))],
+            balance_changes: vec![BalanceChange::new(3, U256::from(3))],
+            nonce_changes: vec![NonceChange::new(4, 4)],
+            code_changes: vec![CodeChange::new(5, Bytes::from_static(&[5]))],
         }];
         let right = vec![AccountChanges {
             address: diagnostic_addr(1),
             storage_changes: vec![SlotChanges::new(
                 U256::from(1),
-                vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(10))],
+                vec![StorageChange::new(1, U256::from(10))],
             )],
             storage_reads: vec![U256::from(20)],
-            balance_changes: vec![BalanceChange::new(BlockAccessIndex::new(3), U256::from(30))],
-            nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(4), 40)],
-            code_changes: vec![CodeChange::new(
-                BlockAccessIndex::new(5),
-                Bytes::from_static(&[50]),
-            )],
+            balance_changes: vec![BalanceChange::new(3, U256::from(30))],
+            nonce_changes: vec![NonceChange::new(4, 40)],
+            code_changes: vec![CodeChange::new(5, Bytes::from_static(&[50]))],
         }];
 
         let diff = first_diff(&left, &right);
