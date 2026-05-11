@@ -43,6 +43,10 @@ pub use account_changes::*;
 pub mod block_access_list;
 pub use block_access_list::*;
 
+/// Module for comparing block access lists.
+pub mod diff;
+pub use diff::*;
+
 /// Serde for quantity types.
 #[cfg(feature = "serde")]
 mod quantity {

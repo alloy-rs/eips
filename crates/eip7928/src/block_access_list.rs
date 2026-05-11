@@ -50,6 +50,7 @@ pub mod bal {
     use super::OnceLock;
     use crate::{
         BlockAccessListGasError, BlockAccessListHashMismatch, account_changes::AccountChanges,
+        diff::BalDiff,
     };
     use alloc::vec::{IntoIter, Vec};
     use alloy_primitives::{B256, Bytes};
@@ -169,6 +170,11 @@ pub mod bal {
         #[inline]
         pub const fn as_slice(&self) -> &[AccountChanges] {
             self.0.as_slice()
+        }
+
+        /// Returns a compact diff describing where this BAL first diverges from `other`.
+        pub fn diff(&self, other: &[AccountChanges]) -> BalDiff {
+            BalDiff::between(self.as_slice(), other)
         }
 
         /// Returns a vector of [`AccountChanges`].
