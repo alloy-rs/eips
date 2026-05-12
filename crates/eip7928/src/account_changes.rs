@@ -6,7 +6,10 @@ use crate::{
     SlotChanges, balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange,
 };
 use alloc::vec::Vec;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{
+    Address, U256,
+    map::{HashMap, HashSet},
+};
 
 /// This struct is used to track the changes across accounts in a block.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
@@ -75,6 +78,43 @@ impl AccountChanges {
         self.storage_changes.iter().filter_map(|changes| {
             changes.changes.last().map(|change| (changes.slot, change.new_value))
         })
+    }
+
+    /// Merges another account change set into this one.
+    ///
+    /// Storage changes for matching slots are grouped together. Storage reads are normalized after
+    /// merging so that written slots are represented by `storage_changes`, while `storage_reads`
+    /// only contains unique read-only slots in first-seen order. This preserves the EIP-7928
+    /// invariant that a storage slot appears in either reads or changes, but not both, after
+    /// independently valid account change sets are combined.
+    ///
+    /// This preserves relative ordering by appending incoming changes to existing changes. Call
+    /// [`Self::sort`] after merging if canonical EIP-7928 ordering is required.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the two account change sets have different addresses.
+    pub fn merge(&mut self, incoming: Self) {
+        assert_eq!(
+            self.address, incoming.address,
+            "cannot merge account changes for different addresses"
+        );
+
+        merge_slot_changes(&mut self.storage_changes, incoming.storage_changes);
+        self.storage_reads.extend(incoming.storage_reads);
+        self.balance_changes.extend(incoming.balance_changes);
+        self.nonce_changes.extend(incoming.nonce_changes);
+        self.code_changes.extend(incoming.code_changes);
+
+        let written = self
+            .storage_changes
+            .iter()
+            .map(|slot_changes| slot_changes.slot)
+            .collect::<HashSet<_>>();
+        self.storage_reads.retain(|slot| !written.contains(slot));
+
+        let mut seen = HashSet::with_capacity(self.storage_reads.len());
+        self.storage_reads.retain(|slot| seen.insert(*slot));
     }
 
     /// Returns the storage reads for this account.
@@ -181,6 +221,142 @@ impl AccountChanges {
     {
         self.storage_changes.extend(iter);
         self
+    }
+}
+
+fn merge_slot_changes(existing: &mut Vec<SlotChanges>, incoming: Vec<SlotChanges>) {
+    let mut slot_positions = existing
+        .iter()
+        .enumerate()
+        .map(|(idx, slot_changes)| (slot_changes.slot, idx))
+        .collect::<HashMap<_, _>>();
+
+    for slot_changes in incoming {
+        if let Some(&idx) = slot_positions.get(&slot_changes.slot) {
+            existing[idx].changes.extend(slot_changes.changes);
+        } else {
+            slot_positions.insert(slot_changes.slot, existing.len());
+            existing.push(slot_changes);
+        }
+    }
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use crate::{BlockAccessIndex, StorageChange};
+
+    use super::*;
+    use alloy_primitives::Bytes;
+
+    #[test]
+    fn merge_groups_slot_changes_and_appends_account_changes() {
+        let address = Address::from([0x11; 20]);
+        let mut existing = AccountChanges {
+            address,
+            storage_changes: vec![SlotChanges::new(
+                U256::from(1),
+                vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(10))],
+            )],
+            storage_reads: vec![U256::from(3)],
+            balance_changes: vec![BalanceChange::new(BlockAccessIndex::new(1), U256::from(100))],
+            nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(2), 7)],
+            code_changes: vec![],
+        };
+        let incoming = AccountChanges {
+            address,
+            storage_changes: vec![
+                SlotChanges::new(
+                    U256::from(1),
+                    vec![StorageChange::new(BlockAccessIndex::new(3), U256::from(20))],
+                ),
+                SlotChanges::new(
+                    U256::from(2),
+                    vec![StorageChange::new(BlockAccessIndex::new(4), U256::from(30))],
+                ),
+            ],
+            storage_reads: vec![U256::from(4)],
+            balance_changes: vec![BalanceChange::new(BlockAccessIndex::new(5), U256::from(150))],
+            nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(6), 8)],
+            code_changes: vec![CodeChange::new(
+                BlockAccessIndex::new(7),
+                Bytes::from_static(&[0xaa]),
+            )],
+        };
+
+        existing.merge(incoming);
+
+        assert_eq!(existing.storage_reads, vec![U256::from(3), U256::from(4)]);
+        assert_eq!(
+            existing.storage_changes.iter().map(|changes| changes.slot).collect::<Vec<_>>(),
+            vec![U256::from(1), U256::from(2)]
+        );
+        assert_eq!(
+            existing.storage_changes[0]
+                .changes
+                .iter()
+                .map(|change| change.new_value)
+                .collect::<Vec<_>>(),
+            vec![U256::from(10), U256::from(20)]
+        );
+        assert_eq!(existing.balance_changes.len(), 2);
+        assert_eq!(existing.nonce_changes.len(), 2);
+        assert_eq!(existing.code_changes.len(), 1);
+    }
+
+    #[test]
+    fn merge_normalizes_storage_reads_after_cross_block_merge() {
+        let address = Address::from([0x33; 20]);
+        const A: U256 = U256::from_limbs([1, 0, 0, 0]);
+        const B: U256 = U256::from_limbs([2, 0, 0, 0]);
+        const C: U256 = U256::from_limbs([3, 0, 0, 0]);
+        const D: U256 = U256::from_limbs([4, 0, 0, 0]);
+
+        let mut existing = AccountChanges {
+            address,
+            storage_changes: vec![SlotChanges::new(
+                A,
+                vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(10))],
+            )],
+            storage_reads: vec![B, C],
+            balance_changes: vec![],
+            nonce_changes: vec![],
+            code_changes: vec![],
+        };
+        let incoming = AccountChanges {
+            address,
+            storage_changes: vec![SlotChanges::new(
+                B,
+                vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(20))],
+            )],
+            storage_reads: vec![A, C, D],
+            balance_changes: vec![],
+            nonce_changes: vec![],
+            code_changes: vec![],
+        };
+
+        existing.merge(incoming);
+
+        assert_eq!(
+            existing
+                .storage_changes
+                .iter()
+                .map(|slot_changes| slot_changes.slot)
+                .collect::<Vec<_>>(),
+            vec![A, B]
+        );
+        assert_eq!(existing.storage_reads, vec![C, D]);
+        assert!(existing.storage_reads.iter().all(|read_slot| {
+            !existing.storage_changes.iter().any(|slot_changes| slot_changes.slot == *read_slot)
+        }));
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot merge account changes for different addresses")]
+    fn merge_rejects_different_addresses() {
+        let mut existing = AccountChanges::new(Address::from([0x11; 20]));
+        let incoming = AccountChanges::new(Address::from([0x22; 20]));
+
+        existing.merge(incoming);
     }
 }
 
