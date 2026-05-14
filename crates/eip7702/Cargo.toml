@@ -56,6 +56,7 @@ serde = ["dep:serde", "alloy-primitives/serde"]
 serde-bincode-compat = ["serde_with"]
 arbitrary = ["std", "dep:arbitrary", "dep:rand", "alloy-primitives/arbitrary"]
 k256 = ["alloy-primitives/k256", "dep:k256"]
+secp256k1 = ["alloy-primitives/secp256k1"]
 borsh = [
 	"dep:borsh",
     "alloy-primitives/borsh",

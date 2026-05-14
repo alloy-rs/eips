@@ -252,9 +252,12 @@ impl Encodable for SignedAuthorization {
     }
 }
 
-#[cfg(feature = "k256")]
+#[cfg(any(feature = "k256", feature = "secp256k1"))]
 impl SignedAuthorization {
     /// Recover the authority for the authorization.
+    ///
+    /// When both `k256` and `secp256k1` features are enabled, the `secp256k1` backend is
+    /// preferred.
     ///
     /// # Note
     ///
@@ -369,14 +372,14 @@ impl RecoveredAuthorization {
     }
 }
 
-#[cfg(feature = "k256")]
+#[cfg(any(feature = "k256", feature = "secp256k1"))]
 impl From<SignedAuthorization> for RecoveredAuthority {
     fn from(value: SignedAuthorization) -> Self {
         value.into_recovered().authority
     }
 }
 
-#[cfg(feature = "k256")]
+#[cfg(any(feature = "k256", feature = "secp256k1"))]
 impl From<SignedAuthorization> for RecoveredAuthorization {
     fn from(value: SignedAuthorization) -> Self {
         value.into_recovered()

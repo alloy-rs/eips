@@ -52,3 +52,8 @@ rand = "0.8"
 
 # misc
 thiserror = { version = "2.0.0", default-features = false }
+
+# Temporary: patch alloy-primitives to pick up secp256k1 backend support
+# from https://github.com/alloy-rs/core/pull/1104
+[patch.crates-io]
+alloy-primitives = { git = "https://github.com/decofe/core.git", branch = "feat/secp256k1-backend" }
