@@ -43,8 +43,6 @@ exceptions = [
     # https://tldrlegal.com/license/creative-commons-cc0-1.0-universal
     { allow = ["CC0-1.0"], name = "tiny-keccak" },
     { allow = ["CC0-1.0"], name = "trezor-client" },
-    { allow = ["CC0-1.0"], name = "secp256k1" },
-    { allow = ["CC0-1.0"], name = "secp256k1-sys" },
     { allow = ["BSD-2-Clause"], name = "zerocopy" },
 ]
 
@@ -61,7 +59,3 @@ license-files = [{ path = "LICENSE", hash = 0x001c7e6c }]
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-
-# Temporary: allow alloy-primitives from the secp256k1 PR branch
-# Remove once alloy-rs/core#1104 is merged and released
-allow-git = ["https://github.com/decofe/core"]
