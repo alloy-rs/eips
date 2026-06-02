@@ -198,7 +198,7 @@ impl AccountChanges {
 
     /// Clears `storage_root` when this entry has no state changes.
     #[inline]
-    pub fn normalize_storage_root(&mut self) {
+    pub const fn normalize_storage_root(&mut self) {
         if self.state_change_lists_are_empty() {
             self.storage_root = None;
         }
@@ -266,7 +266,7 @@ impl AccountChanges {
 
     /// Returns the storage root for this account.
     #[inline]
-    pub fn storage_root(&self) -> Option<B256> {
+    pub const fn storage_root(&self) -> Option<B256> {
         self.storage_root
     }
 }
@@ -281,10 +281,10 @@ impl alloy_rlp::Encodable for AccountChanges {
         self.balance_changes.encode(out);
         self.nonce_changes.encode(out);
         self.code_changes.encode(out);
-        if self.has_state_changes() {
-            if let Some(storage_root) = self.storage_root {
-                storage_root.encode(out);
-            }
+        if self.has_state_changes()
+            && let Some(storage_root) = self.storage_root
+        {
+            storage_root.encode(out);
         }
     }
 
