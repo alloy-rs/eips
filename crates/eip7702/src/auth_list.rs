@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 use alloy_primitives::{Address, B256, Signature, SignatureError, U8, U256, keccak256};
 use alloy_rlp::{
     BufMut, Decodable, Encodable, Header, Result as RlpResult, RlpDecodable, RlpEncodable,
@@ -97,13 +95,14 @@ impl Authorization {
     /// The signature hash is `keccak(MAGIC || rlp([chain_id, address, nonce]))`
     #[inline]
     pub fn signature_hash(&self) -> B256 {
-        use super::constants::MAGIC;
+        let mut buf = [0u8; 66];
+        buf[0] = super::constants::MAGIC;
 
-        let mut buf = Vec::new();
-        buf.put_u8(MAGIC);
-        self.encode(&mut buf);
+        let mut out = &mut buf[1..];
+        self.encode(&mut out);
+        let written = 66 - out.len();
 
-        keccak256(buf)
+        keccak256(&buf[..written])
     }
 
     /// Convert to a signed authorization by adding a signature.
@@ -528,6 +527,7 @@ pub(super) mod serde_bincode_compat {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
     use alloy_primitives::hex;
     use core::str::FromStr;
 
