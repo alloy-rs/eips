@@ -208,6 +208,13 @@ pub mod bal {
             }
         }
 
+        /// Clears storage roots from entries that do not contain state changes.
+        pub fn normalize_storage_roots(&mut self) {
+            for account in &mut self.0 {
+                account.normalize_storage_root();
+            }
+        }
+
         /// Returns the total number of accounts with changes in this BAL.
         #[inline]
         pub const fn account_count(&self) -> usize {
@@ -244,6 +251,11 @@ pub mod bal {
             self.0.iter().map(|a| a.code_changes.len()).sum()
         }
 
+        /// Returns the total number of account entries carrying a storage root.
+        pub fn total_storage_roots(&self) -> usize {
+            self.0.iter().filter(|a| a.storage_root.is_some()).count()
+        }
+
         /// Returns a summary of all change counts for metrics reporting.
         pub fn change_counts(&self) -> BalChangeCounts {
             let mut counts = BalChangeCounts::default();
@@ -253,6 +265,7 @@ pub mod bal {
                 counts.balance += account.balance_changes.len();
                 counts.nonce += account.nonce_changes.len();
                 counts.code += account.code_changes.len();
+                counts.storage_roots += usize::from(account.storage_root.is_some());
             }
             counts
         }
@@ -298,6 +311,8 @@ pub mod bal {
         pub nonce: usize,
         /// Total number of code changes.
         pub code: usize,
+        /// Total number of storage roots.
+        pub storage_roots: usize,
     }
 
     /// A decoded block access list with lazy hash computation.
@@ -646,6 +661,7 @@ mod hash_tests {
                     CodeChange::new(BlockAccessIndex::new(9), Bytes::from_static(&[0x60, 0x09])),
                     CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[0x60, 0x05])),
                 ],
+                storage_root: None,
             },
             AccountChanges {
                 address: address_1,
@@ -678,6 +694,7 @@ mod hash_tests {
                     CodeChange::new(BlockAccessIndex::new(4), Bytes::from_static(&[0x60, 0x04])),
                     CodeChange::new(BlockAccessIndex::new(2), Bytes::from_static(&[0x60, 0x02])),
                 ],
+                storage_root: None,
             },
         ]);
 
@@ -748,6 +765,27 @@ mod hash_tests {
             bal.validate_gas_limit(gas_limit),
             Err(super::BlockAccessListGasError::new(3, gas_limit))
         );
+    }
+
+    #[test]
+    fn bal_normalizes_and_counts_storage_roots() {
+        let mut bal = Bal::new(vec![
+            AccountChanges::new(Address::from([0x11; 20]))
+                .with_storage_read(U256::from(1))
+                .with_storage_root(B256::from([0x11; 32])),
+            AccountChanges::new(Address::from([0x22; 20]))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(1)))
+                .with_storage_root(B256::from([0x22; 32])),
+        ]);
+
+        assert_eq!(bal.total_storage_roots(), 2);
+
+        bal.normalize_storage_roots();
+
+        assert_eq!(bal.total_storage_roots(), 1);
+        assert_eq!(bal.change_counts().storage_roots, 1);
+        assert_eq!(bal[0].storage_root(), None);
+        assert_eq!(bal[1].storage_root(), Some(B256::from([0x22; 32])));
     }
 }
 
