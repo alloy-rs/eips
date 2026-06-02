@@ -303,10 +303,10 @@ impl AccountChanges {
             + self.balance_changes.length()
             + self.nonce_changes.length()
             + self.code_changes.length();
-        if self.has_state_changes() {
-            if let Some(storage_root) = self.storage_root {
-                payload_length += storage_root.length();
-            }
+        if self.has_state_changes()
+            && let Some(storage_root) = self.storage_root
+        {
+            payload_length += storage_root.length();
         }
         payload_length
     }
