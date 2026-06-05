@@ -602,7 +602,7 @@ mod storage_root_tests {
     use crate::{BlockAccessIndex, StorageChange};
 
     use super::*;
-    use alloy_primitives::Bytes;
+    use alloy_primitives::{Bytes, address, b256};
 
     #[test]
     fn normalize_storage_root_clears_root_when_state_change_lists_are_empty() {
@@ -645,6 +645,29 @@ mod storage_root_tests {
                 ))
                 .has_state_changes()
         );
+    }
+
+    #[test]
+    fn balance_and_nonce_changes_keep_empty_storage_root() {
+        let storage_root =
+            b256!("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
+        let mut account =
+            AccountChanges::new(address!("0x1ad9bc24818784172ff393bb6f89f094d4d2ca29"))
+                .with_balance_change(BalanceChange::new(
+                    BlockAccessIndex::new(1),
+                    U256::from(999999999999998760750_u128),
+                ))
+                .with_balance_change(BalanceChange::new(
+                    BlockAccessIndex::new(2),
+                    U256::from(999999999999997521500_u128),
+                ))
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(1), 1))
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(2), 2))
+                .with_storage_root(storage_root);
+
+        account.normalize_storage_root();
+
+        assert_eq!(account.storage_root(), Some(storage_root));
     }
 }
 
