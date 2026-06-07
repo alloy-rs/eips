@@ -332,6 +332,17 @@ pub mod bal {
             Self { raw, hash: OnceLock::new() }
         }
 
+        /// Creates a new [`RawBal`] from raw RLP bytes and a precomputed hash.
+        ///
+        /// The hash is not checked against the raw bytes. Callers must ensure `hash` is the
+        /// keccak256 hash of `raw`.
+        pub fn new_unchecked(raw: Bytes, hash: B256) -> Self {
+            let this = Self::new(raw);
+            #[allow(clippy::useless_conversion)]
+            let _ = this.hash.get_or_init(|| hash.into());
+            this
+        }
+
         /// Returns the original raw RLP bytes.
         pub const fn as_raw(&self) -> &Bytes {
             &self.raw
@@ -416,6 +427,14 @@ pub mod bal {
         /// Creates a new [`DecodedBal`] from decoded data and raw bytes.
         pub const fn new(decoded: T, raw: Bytes) -> Self {
             Self { decoded, raw: RawBal::new(raw) }
+        }
+
+        /// Creates a new [`DecodedBal`] from decoded data, raw bytes, and a precomputed hash.
+        ///
+        /// The hash is not checked against the raw bytes. Callers must ensure `hash` is the
+        /// keccak256 hash of `raw`.
+        pub fn new_unchecked(decoded: T, raw: Bytes, hash: B256) -> Self {
+            Self { decoded, raw: RawBal::new_unchecked(raw, hash) }
         }
 
         /// Creates a new [`DecodedBal`] from decoded data and a [`RawBal`].
@@ -617,6 +636,14 @@ pub mod bal {
         /// Creates a new [`RawOrDecodedBal`] from raw RLP bytes.
         pub const fn raw(raw: Bytes) -> Self {
             Self::Raw(RawBal::new(raw))
+        }
+
+        /// Creates a new [`RawOrDecodedBal`] from raw RLP bytes and a precomputed hash.
+        ///
+        /// The hash is not checked against the raw bytes. Callers must ensure `hash` is the
+        /// keccak256 hash of `raw`.
+        pub fn raw_unchecked(raw: Bytes, hash: B256) -> Self {
+            Self::Raw(RawBal::new_unchecked(raw, hash))
         }
 
         /// Creates a new [`RawOrDecodedBal`] from a [`RawBal`].
@@ -972,6 +999,21 @@ mod hash_tests {
     }
 
     #[test]
+    fn raw_bal_new_unchecked_uses_supplied_hash() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let hash = B256::from([0x11; 32]);
+        let raw_bal = RawBal::new_unchecked(raw.clone(), hash);
+
+        assert_eq!(raw_bal.as_raw(), &raw);
+        assert_eq!(raw_bal.hash(), hash);
+        assert_eq!(raw_bal.ensure_hash(hash), Ok(()));
+
+        let (split_raw, split_hash) = raw_bal.into_parts();
+        assert_eq!(split_raw, raw);
+        assert_eq!(split_hash, hash);
+    }
+
+    #[test]
     fn decoded_bal_exposes_raw_bal() {
         let raw = Bytes::from_static(&[0xc0]);
         let raw_bal = RawBal::new(raw.clone());
@@ -983,6 +1025,17 @@ mod hash_tests {
         let (bal, split_raw_bal) = decoded.split_raw_bal();
         assert!(bal.is_empty());
         assert_eq!(split_raw_bal, raw_bal);
+    }
+
+    #[test]
+    fn decoded_bal_new_unchecked_uses_supplied_hash() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let hash = B256::from([0x11; 32]);
+        let decoded = DecodedBal::new_unchecked(Bal::default(), raw.clone(), hash);
+
+        assert_eq!(decoded.as_raw(), &raw);
+        assert_eq!(decoded.hash(), hash);
+        assert_eq!(decoded.ensure_hash(hash), Ok(()));
     }
 
     #[cfg(feature = "serde")]
@@ -1024,6 +1077,18 @@ mod hash_tests {
         assert_eq!(split_raw_bal.as_raw(), &raw);
         assert_eq!(bal.clone().into_raw_bal().as_raw(), &raw);
         assert_eq!(bal.into_raw(), raw);
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_raw_unchecked_uses_supplied_hash() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let hash = B256::from([0x11; 32]);
+        let bal = RawOrDecodedBal::<Bal>::raw_unchecked(raw.clone(), hash);
+
+        assert!(bal.is_raw());
+        assert_eq!(bal.as_raw(), &raw);
+        assert_eq!(bal.hash(), hash);
+        assert_eq!(bal.ensure_hash(hash), Ok(()));
     }
 
     #[test]
