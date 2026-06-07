@@ -313,6 +313,7 @@ pub mod bal {
     }
 
     impl PartialEq for RawBal {
+        #[inline]
         fn eq(&self, other: &Self) -> bool {
             self.raw == other.raw
         }
@@ -321,6 +322,7 @@ pub mod bal {
     impl Eq for RawBal {}
 
     impl From<Bytes> for RawBal {
+        #[inline]
         fn from(raw: Bytes) -> Self {
             Self::new(raw)
         }
@@ -328,6 +330,7 @@ pub mod bal {
 
     impl RawBal {
         /// Creates a new [`RawBal`] from raw RLP bytes.
+        #[inline]
         pub const fn new(raw: Bytes) -> Self {
             Self { raw, hash: OnceLock::new() }
         }
@@ -336,6 +339,7 @@ pub mod bal {
         ///
         /// The hash is not checked against the raw bytes. Callers must ensure `hash` is the
         /// keccak256 hash of `raw`.
+        #[inline]
         pub fn new_unchecked(raw: Bytes, hash: B256) -> Self {
             let this = Self::new(raw);
             #[allow(clippy::useless_conversion)]
@@ -344,22 +348,26 @@ pub mod bal {
         }
 
         /// Returns the original raw RLP bytes.
+        #[inline]
         pub const fn as_raw(&self) -> &Bytes {
             &self.raw
         }
 
         /// Consumes this value and returns the raw RLP bytes.
+        #[inline]
         pub fn into_raw(self) -> Bytes {
             self.raw
         }
 
         /// Consumes this value and returns the raw RLP bytes and hash.
+        #[inline]
         pub fn into_parts(self) -> (Bytes, B256) {
             let hash = self.hash();
             (self.raw, hash)
         }
 
         /// Ensures the raw RLP hash matches the expected block access list hash.
+        #[inline]
         pub fn ensure_hash(&self, expected: B256) -> Result<(), BlockAccessListHashMismatch> {
             let computed = self.hash();
             if computed == expected {
@@ -372,6 +380,7 @@ pub mod bal {
         /// Returns the hash of the raw block access list bytes.
         ///
         /// The hash is computed lazily on first call and cached for subsequent calls.
+        #[inline]
         pub fn hash(&self) -> B256 {
             #[allow(clippy::useless_conversion)]
             *self.hash.get_or_init(|| alloy_primitives::keccak256(self.raw.as_ref()).into())
@@ -380,10 +389,12 @@ pub mod bal {
 
     #[cfg(feature = "rlp")]
     impl alloy_rlp::Encodable for RawBal {
+        #[inline]
         fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
             out.put_slice(&self.raw);
         }
 
+        #[inline]
         fn length(&self) -> usize {
             self.raw.len()
         }
@@ -391,6 +402,7 @@ pub mod bal {
 
     #[cfg(feature = "rlp")]
     impl alloy_rlp::Decodable for RawBal {
+        #[inline]
         fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
             let original = *buf;
             let header = alloy_rlp::Header::decode(buf)?;
@@ -416,6 +428,7 @@ pub mod bal {
     }
 
     impl<T: PartialEq> PartialEq for DecodedBal<T> {
+        #[inline]
         fn eq(&self, other: &Self) -> bool {
             self.decoded == other.decoded && self.raw == other.raw
         }
@@ -425,6 +438,7 @@ pub mod bal {
 
     impl<T> DecodedBal<T> {
         /// Creates a new [`DecodedBal`] from decoded data and raw bytes.
+        #[inline]
         pub const fn new(decoded: T, raw: Bytes) -> Self {
             Self { decoded, raw: RawBal::new(raw) }
         }
@@ -433,41 +447,49 @@ pub mod bal {
         ///
         /// The hash is not checked against the raw bytes. Callers must ensure `hash` is the
         /// keccak256 hash of `raw`.
+        #[inline]
         pub fn new_unchecked(decoded: T, raw: Bytes, hash: B256) -> Self {
             Self { decoded, raw: RawBal::new_unchecked(raw, hash) }
         }
 
         /// Creates a new [`DecodedBal`] from decoded data and a [`RawBal`].
+        #[inline]
         pub const fn with_raw_bal(decoded: T, raw: RawBal) -> Self {
             Self { decoded, raw }
         }
 
         /// Returns a reference to the decoded block access list.
+        #[inline]
         pub const fn as_bal(&self) -> &T {
             &self.decoded
         }
 
         /// Returns the original raw RLP bytes.
+        #[inline]
         pub const fn as_raw(&self) -> &Bytes {
             self.raw.as_raw()
         }
 
         /// Returns the raw BAL.
+        #[inline]
         pub const fn as_raw_bal(&self) -> &RawBal {
             &self.raw
         }
 
         /// Splits this struct into the decoded BAL and raw bytes.
+        #[inline]
         pub fn split(self) -> (T, Bytes) {
             (self.decoded, self.raw.into_raw())
         }
 
         /// Splits this struct into the decoded BAL and raw BAL.
+        #[inline]
         pub fn split_raw_bal(self) -> (T, RawBal) {
             (self.decoded, self.raw)
         }
 
         /// Splits this struct into the decoded BAL, raw bytes, and hash.
+        #[inline]
         pub fn into_parts(self) -> (T, Bytes, B256) {
             let hash = self.hash();
             let (decoded, raw) = self.split();
@@ -478,6 +500,7 @@ pub mod bal {
         ///
         /// This checks `keccak256(raw_rlp_of_received_bal) == expected` using the cached hash of
         /// the original raw RLP bytes captured at decode time.
+        #[inline]
         pub fn ensure_hash(&self, expected: B256) -> Result<(), BlockAccessListHashMismatch> {
             let computed = self.hash();
             if computed == expected {
@@ -490,11 +513,13 @@ pub mod bal {
         /// Returns the hash of this block access list.
         ///
         /// The hash is computed lazily on first call and cached for subsequent calls.
+        #[inline]
         pub fn hash(&self) -> B256 {
             self.raw.hash()
         }
 
         /// Converts the decoded BAL to the given alternative that is [`From<T>`].
+        #[inline]
         pub fn convert<U>(self) -> DecodedBal<U>
         where
             U: From<T>,
@@ -503,6 +528,7 @@ pub mod bal {
         }
 
         /// Converts the decoded BAL to the given alternative that is [`TryFrom<T>`].
+        #[inline]
         pub fn try_convert<U>(self) -> Result<DecodedBal<U>, U::Error>
         where
             U: TryFrom<T>,
@@ -511,12 +537,14 @@ pub mod bal {
         }
 
         /// Applies the given closure to the decoded BAL.
+        #[inline]
         pub fn map<U>(self, f: impl FnOnce(T) -> U) -> DecodedBal<U> {
             let Self { decoded, raw } = self;
             DecodedBal { decoded: f(decoded), raw }
         }
 
         /// Applies the given fallible closure to the decoded BAL.
+        #[inline]
         pub fn try_map<U, E>(self, f: impl FnOnce(T) -> Result<U, E>) -> Result<DecodedBal<U>, E> {
             let Self { decoded, raw } = self;
             Ok(DecodedBal { decoded: f(decoded)?, raw })
@@ -526,16 +554,19 @@ pub mod bal {
     #[cfg(feature = "rlp")]
     impl DecodedBal {
         /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes.
+        #[inline]
         pub fn from_rlp_bytes(raw: Bytes) -> Result<Self, alloy_rlp::Error> {
             Self::from_rlp_bytes_as(raw)
         }
 
         /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes in a [`RawBal`].
+        #[inline]
         pub fn from_raw_bal(raw: RawBal) -> Result<Self, alloy_rlp::Error> {
             Self::from_raw_bal_as(raw)
         }
 
         /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes into `T`.
+        #[inline]
         pub fn from_rlp_bytes_as<T>(raw: Bytes) -> Result<DecodedBal<T>, alloy_rlp::Error>
         where
             T: alloy_rlp::Decodable,
@@ -544,6 +575,7 @@ pub mod bal {
         }
 
         /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes in a [`RawBal`] into `T`.
+        #[inline]
         pub fn from_raw_bal_as<T>(raw: RawBal) -> Result<DecodedBal<T>, alloy_rlp::Error>
         where
             T: alloy_rlp::Decodable,
@@ -563,11 +595,13 @@ pub mod bal {
         T: alloy_primitives::Sealable,
     {
         /// Returns the decoded BAL as a sealed borrowed value.
+        #[inline]
         pub fn as_sealed_bal(&self) -> alloy_primitives::Sealed<&T> {
             alloy_primitives::Sealable::seal_ref_unchecked(&self.decoded, self.hash())
         }
 
         /// Consumes this struct and returns the decoded BAL together with its hash.
+        #[inline]
         pub fn into_sealed(self) -> alloy_primitives::Sealed<T> {
             let seal = self.hash();
             let (decoded, _) = self.split();
@@ -580,6 +614,7 @@ pub mod bal {
     where
         T: alloy_rlp::Decodable,
     {
+        #[inline]
         fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
             let original = *buf;
             let decoded = T::decode(buf)?;
@@ -591,10 +626,12 @@ pub mod bal {
 
     #[cfg(feature = "rlp")]
     impl<T> alloy_rlp::Encodable for DecodedBal<T> {
+        #[inline]
         fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
             alloy_rlp::Encodable::encode(&self.raw, out);
         }
 
+        #[inline]
         fn length(&self) -> usize {
             alloy_rlp::Encodable::length(&self.raw)
         }
@@ -615,18 +652,21 @@ pub mod bal {
     }
 
     impl<T> From<Bytes> for RawOrDecodedBal<T> {
+        #[inline]
         fn from(raw: Bytes) -> Self {
             Self::Raw(RawBal::new(raw))
         }
     }
 
     impl<T> From<RawBal> for RawOrDecodedBal<T> {
+        #[inline]
         fn from(raw: RawBal) -> Self {
             Self::Raw(raw)
         }
     }
 
     impl<T> From<DecodedBal<T>> for RawOrDecodedBal<T> {
+        #[inline]
         fn from(decoded: DecodedBal<T>) -> Self {
             Self::Decoded(decoded)
         }
@@ -634,6 +674,7 @@ pub mod bal {
 
     impl<T> RawOrDecodedBal<T> {
         /// Creates a new [`RawOrDecodedBal`] from raw RLP bytes.
+        #[inline]
         pub const fn raw(raw: Bytes) -> Self {
             Self::Raw(RawBal::new(raw))
         }
@@ -642,31 +683,37 @@ pub mod bal {
         ///
         /// The hash is not checked against the raw bytes. Callers must ensure `hash` is the
         /// keccak256 hash of `raw`.
+        #[inline]
         pub fn raw_unchecked(raw: Bytes, hash: B256) -> Self {
             Self::Raw(RawBal::new_unchecked(raw, hash))
         }
 
         /// Creates a new [`RawOrDecodedBal`] from a [`RawBal`].
+        #[inline]
         pub const fn raw_bal(raw: RawBal) -> Self {
             Self::Raw(raw)
         }
 
         /// Creates a new [`RawOrDecodedBal`] from a decoded BAL.
+        #[inline]
         pub const fn decoded(decoded: DecodedBal<T>) -> Self {
             Self::Decoded(decoded)
         }
 
         /// Returns `true` if this contains raw RLP bytes.
+        #[inline]
         pub const fn is_raw(&self) -> bool {
             matches!(self, Self::Raw(_))
         }
 
         /// Returns `true` if this contains a decoded BAL.
+        #[inline]
         pub const fn is_decoded(&self) -> bool {
             matches!(self, Self::Decoded(_))
         }
 
         /// Returns the raw RLP bytes.
+        #[inline]
         pub const fn as_raw(&self) -> &Bytes {
             match self {
                 Self::Raw(raw) => raw.as_raw(),
@@ -675,6 +722,7 @@ pub mod bal {
         }
 
         /// Returns the raw BAL.
+        #[inline]
         pub const fn as_raw_bal(&self) -> &RawBal {
             match self {
                 Self::Raw(raw) => raw,
@@ -683,6 +731,7 @@ pub mod bal {
         }
 
         /// Returns the decoded BAL if available.
+        #[inline]
         pub const fn as_decoded(&self) -> Option<&DecodedBal<T>> {
             match self {
                 Self::Raw(_) => None,
@@ -691,6 +740,7 @@ pub mod bal {
         }
 
         /// Returns the decoded BAL if available.
+        #[inline]
         pub fn into_decoded(self) -> Option<DecodedBal<T>> {
             match self {
                 Self::Raw(_) => None,
@@ -699,6 +749,7 @@ pub mod bal {
         }
 
         /// Returns the decoded block access list if available.
+        #[inline]
         pub const fn as_bal(&self) -> Option<&T> {
             match self {
                 Self::Raw(_) => None,
@@ -707,6 +758,7 @@ pub mod bal {
         }
 
         /// Consumes this value and returns the raw RLP bytes.
+        #[inline]
         pub fn into_raw(self) -> Bytes {
             match self {
                 Self::Raw(raw) => raw.into_raw(),
@@ -715,6 +767,7 @@ pub mod bal {
         }
 
         /// Consumes this value and returns the raw BAL.
+        #[inline]
         pub fn into_raw_bal(self) -> RawBal {
             match self {
                 Self::Raw(raw) => raw,
@@ -723,6 +776,7 @@ pub mod bal {
         }
 
         /// Splits this value into its decoded BAL, if available, and raw RLP bytes.
+        #[inline]
         pub fn split(self) -> (Option<T>, Bytes) {
             match self {
                 Self::Raw(raw) => (None, raw.into_raw()),
@@ -734,6 +788,7 @@ pub mod bal {
         }
 
         /// Splits this value into its decoded BAL, if available, and raw BAL.
+        #[inline]
         pub fn split_raw_bal(self) -> (Option<T>, RawBal) {
             match self {
                 Self::Raw(raw) => (None, raw),
@@ -745,6 +800,7 @@ pub mod bal {
         }
 
         /// Ensures the raw RLP hash matches the expected block access list hash.
+        #[inline]
         pub fn ensure_hash(&self, expected: B256) -> Result<(), BlockAccessListHashMismatch> {
             let computed = self.hash();
             if computed == expected {
@@ -755,6 +811,7 @@ pub mod bal {
         }
 
         /// Returns the hash of the raw block access list bytes.
+        #[inline]
         pub fn hash(&self) -> B256 {
             match self {
                 Self::Raw(raw) => raw.hash(),
@@ -765,6 +822,7 @@ pub mod bal {
         /// Converts the decoded BAL to the given alternative that is [`From<T>`].
         ///
         /// Raw values stay raw.
+        #[inline]
         pub fn convert<U>(self) -> RawOrDecodedBal<U>
         where
             U: From<T>,
@@ -775,6 +833,7 @@ pub mod bal {
         /// Converts the decoded BAL to the given alternative that is [`TryFrom<T>`].
         ///
         /// Raw values stay raw.
+        #[inline]
         pub fn try_convert<U>(self) -> Result<RawOrDecodedBal<U>, U::Error>
         where
             U: TryFrom<T>,
@@ -783,6 +842,7 @@ pub mod bal {
         }
 
         /// Applies the given closure to the decoded BAL if available.
+        #[inline]
         pub fn map<U>(self, f: impl FnOnce(T) -> U) -> RawOrDecodedBal<U> {
             match self {
                 Self::Raw(raw) => RawOrDecodedBal::Raw(raw),
@@ -791,6 +851,7 @@ pub mod bal {
         }
 
         /// Applies the given fallible closure to the decoded BAL if available.
+        #[inline]
         pub fn try_map<U, E>(
             self,
             f: impl FnOnce(T) -> Result<U, E>,
@@ -808,6 +869,7 @@ pub mod bal {
         T: alloy_rlp::Decodable,
     {
         /// Up-converts raw RLP bytes into a decoded BAL, or returns the existing decoded BAL.
+        #[inline]
         pub fn try_into_decoded(self) -> Result<DecodedBal<T>, alloy_rlp::Error> {
             match self {
                 Self::Raw(raw) => DecodedBal::from_raw_bal_as(raw),
@@ -818,10 +880,12 @@ pub mod bal {
 
     #[cfg(feature = "rlp")]
     impl<T> alloy_rlp::Encodable for RawOrDecodedBal<T> {
+        #[inline]
         fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
             out.put_slice(self.as_raw());
         }
 
+        #[inline]
         fn length(&self) -> usize {
             self.as_raw().len()
         }
@@ -829,6 +893,7 @@ pub mod bal {
 
     #[cfg(feature = "rlp")]
     impl<T> alloy_rlp::Decodable for RawOrDecodedBal<T> {
+        #[inline]
         fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
             <RawBal as alloy_rlp::Decodable>::decode(buf).map(Self::Raw)
         }
