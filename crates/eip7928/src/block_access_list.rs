@@ -465,6 +465,200 @@ pub mod bal {
             self.raw.len()
         }
     }
+
+    /// Either raw RLP bytes or a decoded block access list.
+    ///
+    /// This type is useful when callers may receive raw BAL bytes before the BAL needs to be
+    /// decoded, while still allowing decoded values to preserve and re-use their original raw
+    /// bytes.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum RawOrDecodedBal<T = Bal> {
+        /// Raw RLP bytes for a block access list.
+        Raw(Bytes),
+        /// A decoded block access list with its original raw RLP bytes.
+        Decoded(DecodedBal<T>),
+    }
+
+    impl<T> From<Bytes> for RawOrDecodedBal<T> {
+        fn from(raw: Bytes) -> Self {
+            Self::Raw(raw)
+        }
+    }
+
+    impl<T> From<DecodedBal<T>> for RawOrDecodedBal<T> {
+        fn from(decoded: DecodedBal<T>) -> Self {
+            Self::Decoded(decoded)
+        }
+    }
+
+    impl<T> RawOrDecodedBal<T> {
+        /// Creates a new [`RawOrDecodedBal`] from raw RLP bytes.
+        pub const fn raw(raw: Bytes) -> Self {
+            Self::Raw(raw)
+        }
+
+        /// Creates a new [`RawOrDecodedBal`] from a decoded BAL.
+        pub const fn decoded(decoded: DecodedBal<T>) -> Self {
+            Self::Decoded(decoded)
+        }
+
+        /// Returns `true` if this contains raw RLP bytes.
+        pub const fn is_raw(&self) -> bool {
+            matches!(self, Self::Raw(_))
+        }
+
+        /// Returns `true` if this contains a decoded BAL.
+        pub const fn is_decoded(&self) -> bool {
+            matches!(self, Self::Decoded(_))
+        }
+
+        /// Returns the raw RLP bytes.
+        pub const fn as_raw(&self) -> &Bytes {
+            match self {
+                Self::Raw(raw) => raw,
+                Self::Decoded(decoded) => decoded.as_raw(),
+            }
+        }
+
+        /// Returns the decoded BAL if available.
+        pub const fn as_decoded(&self) -> Option<&DecodedBal<T>> {
+            match self {
+                Self::Raw(_) => None,
+                Self::Decoded(decoded) => Some(decoded),
+            }
+        }
+
+        /// Returns the decoded BAL if available.
+        pub fn into_decoded(self) -> Option<DecodedBal<T>> {
+            match self {
+                Self::Raw(_) => None,
+                Self::Decoded(decoded) => Some(decoded),
+            }
+        }
+
+        /// Returns the decoded block access list if available.
+        pub const fn as_bal(&self) -> Option<&T> {
+            match self {
+                Self::Raw(_) => None,
+                Self::Decoded(decoded) => Some(decoded.as_bal()),
+            }
+        }
+
+        /// Consumes this value and returns the raw RLP bytes.
+        pub fn into_raw(self) -> Bytes {
+            match self {
+                Self::Raw(raw) => raw,
+                Self::Decoded(decoded) => decoded.split().1,
+            }
+        }
+
+        /// Splits this value into its decoded BAL, if available, and raw RLP bytes.
+        pub fn split(self) -> (Option<T>, Bytes) {
+            match self {
+                Self::Raw(raw) => (None, raw),
+                Self::Decoded(decoded) => {
+                    let (bal, raw) = decoded.split();
+                    (Some(bal), raw)
+                }
+            }
+        }
+
+        /// Ensures the raw RLP hash matches the expected block access list hash.
+        pub fn ensure_hash(&self, expected: B256) -> Result<(), BlockAccessListHashMismatch> {
+            let computed = self.hash();
+            if computed == expected {
+                Ok(())
+            } else {
+                Err(BlockAccessListHashMismatch::new(computed, expected))
+            }
+        }
+
+        /// Returns the hash of the raw block access list bytes.
+        pub fn hash(&self) -> B256 {
+            match self {
+                Self::Raw(raw) => alloy_primitives::keccak256(raw.as_ref()),
+                Self::Decoded(decoded) => decoded.hash(),
+            }
+        }
+
+        /// Converts the decoded BAL to the given alternative that is [`From<T>`].
+        ///
+        /// Raw values stay raw.
+        pub fn convert<U>(self) -> RawOrDecodedBal<U>
+        where
+            U: From<T>,
+        {
+            self.map(U::from)
+        }
+
+        /// Converts the decoded BAL to the given alternative that is [`TryFrom<T>`].
+        ///
+        /// Raw values stay raw.
+        pub fn try_convert<U>(self) -> Result<RawOrDecodedBal<U>, U::Error>
+        where
+            U: TryFrom<T>,
+        {
+            self.try_map(U::try_from)
+        }
+
+        /// Applies the given closure to the decoded BAL if available.
+        pub fn map<U>(self, f: impl FnOnce(T) -> U) -> RawOrDecodedBal<U> {
+            match self {
+                Self::Raw(raw) => RawOrDecodedBal::Raw(raw),
+                Self::Decoded(decoded) => RawOrDecodedBal::Decoded(decoded.map(f)),
+            }
+        }
+
+        /// Applies the given fallible closure to the decoded BAL if available.
+        pub fn try_map<U, E>(
+            self,
+            f: impl FnOnce(T) -> Result<U, E>,
+        ) -> Result<RawOrDecodedBal<U>, E> {
+            match self {
+                Self::Raw(raw) => Ok(RawOrDecodedBal::Raw(raw)),
+                Self::Decoded(decoded) => decoded.try_map(f).map(RawOrDecodedBal::Decoded),
+            }
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    impl<T> RawOrDecodedBal<T>
+    where
+        T: alloy_rlp::Decodable,
+    {
+        /// Up-converts raw RLP bytes into a decoded BAL, or returns the existing decoded BAL.
+        pub fn try_into_decoded(self) -> Result<DecodedBal<T>, alloy_rlp::Error> {
+            match self {
+                Self::Raw(raw) => DecodedBal::from_rlp_bytes_as(raw),
+                Self::Decoded(decoded) => Ok(decoded),
+            }
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    impl<T> alloy_rlp::Encodable for RawOrDecodedBal<T> {
+        fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+            out.put_slice(self.as_raw());
+        }
+
+        fn length(&self) -> usize {
+            self.as_raw().len()
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    impl<T> alloy_rlp::Decodable for RawOrDecodedBal<T> {
+        fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
+            let original = *buf;
+            let header = alloy_rlp::Header::decode(buf)?;
+            let header_len = original.len() - buf.len();
+            let raw_len = header_len + header.payload_length;
+            let raw = Bytes::copy_from_slice(&original[..raw_len]);
+            *buf = &original[raw_len..];
+            Ok(Self::Raw(raw))
+        }
+    }
 }
 
 /// Error returned when a block access list item cost exceeds the block gas limit.
@@ -507,7 +701,7 @@ impl BlockAccessListHashMismatch {
 
 #[cfg(test)]
 mod hash_tests {
-    use super::bal::{Bal, DecodedBal};
+    use super::bal::{Bal, DecodedBal, RawOrDecodedBal};
     use crate::{
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
         StorageChange, constants::ITEM_COST,
@@ -608,6 +802,75 @@ mod hash_tests {
             decoded.ensure_hash(expected),
             Err(super::BlockAccessListHashMismatch::new(computed, expected))
         );
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_raw_helpers_use_raw_bytes() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let bal = RawOrDecodedBal::<Bal>::raw(raw.clone());
+        let hash = alloy_primitives::keccak256(raw.as_ref());
+
+        assert!(bal.is_raw());
+        assert!(!bal.is_decoded());
+        assert_eq!(bal.as_raw(), &raw);
+        assert_eq!(bal.as_decoded(), None);
+        assert_eq!(bal.as_bal(), None);
+        assert_eq!(bal.hash(), hash);
+        assert_eq!(bal.ensure_hash(hash), Ok(()));
+
+        let (decoded, split_raw) = bal.clone().split();
+        assert_eq!(decoded, None);
+        assert_eq!(split_raw, raw);
+        assert_eq!(bal.into_raw(), raw);
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_decoded_helpers_use_decoded_bal() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let decoded = DecodedBal::new(Bal::default(), raw.clone());
+        let hash = decoded.hash();
+        let bal = RawOrDecodedBal::decoded(decoded.clone());
+
+        assert!(!bal.is_raw());
+        assert!(bal.is_decoded());
+        assert_eq!(bal.as_raw(), &raw);
+        assert_eq!(bal.as_decoded(), Some(&decoded));
+        assert_eq!(bal.as_bal(), Some(decoded.as_bal()));
+        assert_eq!(bal.hash(), hash);
+
+        let (split_bal, split_raw) = bal.clone().split();
+        assert_eq!(split_bal, Some(Bal::default()));
+        assert_eq!(split_raw, raw);
+        assert_eq!(bal.into_decoded(), Some(decoded));
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_convert_maps_only_decoded_values() {
+        let raw = Bytes::from_static(&[0xc0]);
+        let raw_bal: RawOrDecodedBal<Bal> = RawOrDecodedBal::raw(raw.clone());
+        let converted_raw: RawOrDecodedBal<BalLen> = raw_bal.convert();
+
+        assert!(converted_raw.is_raw());
+        assert_eq!(converted_raw.as_raw(), &raw);
+        assert_eq!(converted_raw.as_bal(), None);
+
+        let decoded = DecodedBal::new(Bal::default(), raw.clone());
+        let converted_decoded: RawOrDecodedBal<BalLen> =
+            RawOrDecodedBal::decoded(decoded).convert();
+
+        assert!(converted_decoded.is_decoded());
+        assert_eq!(converted_decoded.as_bal(), Some(&BalLen(0)));
+        assert_eq!(converted_decoded.as_raw(), &raw);
+
+        let err = RawOrDecodedBal::decoded(DecodedBal::new(Bal::default(), raw.clone()))
+            .try_convert::<NonEmptyBal>();
+        assert_eq!(err.unwrap_err(), EmptyBal);
+
+        let raw_result: Result<RawOrDecodedBal<NonEmptyBal>, EmptyBal> =
+            RawOrDecodedBal::<Bal>::raw(raw.clone()).try_convert();
+        let raw_result = raw_result.unwrap();
+        assert!(raw_result.is_raw());
+        assert_eq!(raw_result.as_raw(), &raw);
     }
 
     #[test]
@@ -753,7 +1016,7 @@ mod hash_tests {
 
 #[cfg(all(test, feature = "rlp"))]
 mod tests {
-    use super::bal::{Bal, DecodedBal};
+    use super::bal::{Bal, DecodedBal, RawOrDecodedBal};
     use crate::{
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
         StorageChange, constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
@@ -850,5 +1113,55 @@ mod tests {
         assert_eq!(decoded.as_bal(), &bal);
         assert_eq!(decoded.as_raw().as_ref(), raw.as_slice());
         assert_eq!(alloy_rlp::encode(&decoded), raw);
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_try_into_decoded_decodes_raw() {
+        let bal = sample_bal();
+        let raw = Bytes::from(alloy_rlp::encode(&bal));
+        let decoded = RawOrDecodedBal::<Bal>::raw(raw.clone()).try_into_decoded().unwrap();
+
+        assert_eq!(decoded.as_bal(), &bal);
+        assert_eq!(decoded.as_raw(), &raw);
+        assert_eq!(decoded.hash(), bal.compute_hash());
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_try_into_decoded_reuses_decoded() {
+        let bal = sample_bal();
+        let raw = Bytes::from(alloy_rlp::encode(&bal));
+        let decoded = DecodedBal::new(bal.clone(), raw.clone());
+        let decoded = RawOrDecodedBal::decoded(decoded).try_into_decoded().unwrap();
+
+        assert_eq!(decoded.as_bal(), &bal);
+        assert_eq!(decoded.as_raw(), &raw);
+        assert_eq!(decoded.hash(), bal.compute_hash());
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_rlp_encodes_raw_bytes() {
+        let bal = sample_bal();
+        let raw = alloy_rlp::encode(&bal);
+        let raw_bal = RawOrDecodedBal::<Bal>::raw(Bytes::from(raw.clone()));
+        let decoded_bal = RawOrDecodedBal::decoded(DecodedBal::new(bal, Bytes::from(raw.clone())));
+
+        assert_eq!(alloy_rlp::encode(&raw_bal), raw);
+        assert_eq!(alloy_rlp::encode(&decoded_bal), raw);
+    }
+
+    #[test]
+    fn raw_or_decoded_bal_decode_preserves_raw_rlp_item() {
+        let bal = sample_bal();
+        let raw = alloy_rlp::encode(&bal);
+        let mut buf = raw.as_ref();
+        let decoded = <RawOrDecodedBal as alloy_rlp::Decodable>::decode(&mut buf).unwrap();
+
+        assert!(buf.is_empty());
+        assert!(decoded.is_raw());
+        assert_eq!(decoded.as_raw().as_ref(), raw.as_slice());
+        assert_eq!(alloy_rlp::encode(&decoded), raw);
+
+        let decoded = decoded.try_into_decoded().unwrap();
+        assert_eq!(decoded.as_bal(), &bal);
     }
 }
