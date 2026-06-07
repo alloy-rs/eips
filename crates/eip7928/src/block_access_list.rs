@@ -75,12 +75,14 @@ pub mod bal {
     pub struct Bal(Vec<AccountChanges>);
 
     impl From<Bal> for Vec<AccountChanges> {
+        #[inline]
         fn from(this: Bal) -> Self {
             this.0
         }
     }
 
     impl From<Vec<AccountChanges>> for Bal {
+        #[inline]
         fn from(list: Vec<AccountChanges>) -> Self {
             Self(list)
         }
@@ -88,6 +90,7 @@ pub mod bal {
 
     #[cfg(feature = "rlp")]
     impl alloy_primitives::Sealable for Bal {
+        #[inline]
         fn hash_slow(&self) -> alloy_primitives::B256 {
             self.compute_hash()
         }
@@ -96,6 +99,7 @@ pub mod bal {
     impl Deref for Bal {
         type Target = [AccountChanges];
 
+        #[inline]
         fn deref(&self) -> &Self::Target {
             self.as_slice()
         }
@@ -105,6 +109,7 @@ pub mod bal {
         type Item = AccountChanges;
         type IntoIter = IntoIter<AccountChanges>;
 
+        #[inline]
         fn into_iter(self) -> Self::IntoIter {
             self.0.into_iter()
         }
@@ -114,12 +119,14 @@ pub mod bal {
         type Item = &'a AccountChanges;
         type IntoIter = Iter<'a, AccountChanges>;
 
+        #[inline]
         fn into_iter(self) -> Self::IntoIter {
             self.iter()
         }
     }
 
     impl FromIterator<AccountChanges> for Bal {
+        #[inline]
         fn from_iter<I: IntoIterator<Item = AccountChanges>>(iter: I) -> Self {
             Self(iter.into_iter().collect())
         }
@@ -139,11 +146,13 @@ pub mod bal {
 
     impl Bal {
         /// Creates a new [`Bal`] from the provided account changes.
+        #[inline]
         pub const fn new(account_changes: Vec<AccountChanges>) -> Self {
             Self(account_changes)
         }
 
         /// Adds a new [`AccountChanges`] entry to the list.
+        #[inline]
         pub fn push(&mut self, account_changes: AccountChanges) {
             self.0.push(account_changes)
         }
@@ -173,11 +182,13 @@ pub mod bal {
         }
 
         /// Returns a compact diff describing where this BAL first diverges from `other`.
+        #[inline]
         pub fn diff(&self, other: &[AccountChanges]) -> BalDiff {
             BalDiff::between(self.as_slice(), other)
         }
 
         /// Returns a vector of [`AccountChanges`].
+        #[inline]
         pub fn into_inner(self) -> Vec<AccountChanges> {
             self.0
         }
@@ -215,31 +226,37 @@ pub mod bal {
         }
 
         /// Returns the total number of storage changes across all accounts.
+        #[inline]
         pub fn total_storage_changes(&self) -> usize {
             self.0.iter().map(|a| a.storage_changes.len()).sum()
         }
 
         /// Returns the total number of storage reads across all accounts.
+        #[inline]
         pub fn total_storage_reads(&self) -> usize {
             self.0.iter().map(|a| a.storage_reads.len()).sum()
         }
 
         /// Returns the total number of storage slots (both changes and reads) across all accounts.
+        #[inline]
         pub fn total_slots(&self) -> usize {
             self.0.iter().map(|a| a.storage_changes.len() + a.storage_reads.len()).sum()
         }
 
         /// Returns the total number of balance changes across all accounts.
+        #[inline]
         pub fn total_balance_changes(&self) -> usize {
             self.0.iter().map(|a| a.balance_changes.len()).sum()
         }
 
         /// Returns the total number of nonce changes across all accounts.
+        #[inline]
         pub fn total_nonce_changes(&self) -> usize {
             self.0.iter().map(|a| a.nonce_changes.len()).sum()
         }
 
         /// Returns the total number of code changes across all accounts.
+        #[inline]
         pub fn total_code_changes(&self) -> usize {
             self.0.iter().map(|a| a.code_changes.len()).sum()
         }
@@ -259,6 +276,7 @@ pub mod bal {
 
         /// Computes the total number of items in this block access list, counting each account and
         /// unique storage slot.
+        #[inline]
         pub fn total_bal_items(&self) -> u64 {
             super::total_bal_items(&self.0)
         }
@@ -267,6 +285,7 @@ pub mod bal {
         ///
         /// EIP-7928 specifies that the total cost of the block access list items must not exceed
         /// the gas limit. Each item costs [`crate::constants::ITEM_COST`] gas.
+        #[inline]
         pub fn validate_gas_limit(&self, gas_limit: u64) -> Result<(), BlockAccessListGasError> {
             let items = self.total_bal_items();
             if items > gas_limit / crate::constants::ITEM_COST as u64 {
@@ -277,6 +296,7 @@ pub mod bal {
 
         /// Computes the hash of this block access list.
         #[cfg(feature = "rlp")]
+        #[inline]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
             if self.0.is_empty() {
                 return crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH;
@@ -916,6 +936,7 @@ pub struct BlockAccessListGasError {
 
 impl BlockAccessListGasError {
     /// Creates a new gas limit validation error for the provided item count and gas limit.
+    #[inline]
     pub const fn new(items: u64, gas_limit: u64) -> Self {
         Self { items, max_items: gas_limit / crate::constants::ITEM_COST as u64, gas_limit }
     }
@@ -933,6 +954,7 @@ pub struct BlockAccessListHashMismatch {
 
 impl BlockAccessListHashMismatch {
     /// Creates a new block access list hash validation error.
+    #[inline]
     pub const fn new(computed: alloy_primitives::B256, expected: alloy_primitives::B256) -> Self {
         Self { computed, expected }
     }
