@@ -75,12 +75,14 @@ pub mod bal {
     pub struct Bal(Vec<AccountChanges>);
 
     impl From<Bal> for Vec<AccountChanges> {
+        #[inline]
         fn from(this: Bal) -> Self {
             this.0
         }
     }
 
     impl From<Vec<AccountChanges>> for Bal {
+        #[inline]
         fn from(list: Vec<AccountChanges>) -> Self {
             Self(list)
         }
@@ -96,6 +98,7 @@ pub mod bal {
     impl Deref for Bal {
         type Target = [AccountChanges];
 
+        #[inline]
         fn deref(&self) -> &Self::Target {
             self.as_slice()
         }
@@ -105,6 +108,7 @@ pub mod bal {
         type Item = AccountChanges;
         type IntoIter = IntoIter<AccountChanges>;
 
+        #[inline]
         fn into_iter(self) -> Self::IntoIter {
             self.0.into_iter()
         }
@@ -114,6 +118,7 @@ pub mod bal {
         type Item = &'a AccountChanges;
         type IntoIter = Iter<'a, AccountChanges>;
 
+        #[inline]
         fn into_iter(self) -> Self::IntoIter {
             self.iter()
         }
@@ -139,11 +144,13 @@ pub mod bal {
 
     impl Bal {
         /// Creates a new [`Bal`] from the provided account changes.
+        #[inline]
         pub const fn new(account_changes: Vec<AccountChanges>) -> Self {
             Self(account_changes)
         }
 
         /// Adds a new [`AccountChanges`] entry to the list.
+        #[inline]
         pub fn push(&mut self, account_changes: AccountChanges) {
             self.0.push(account_changes)
         }
@@ -178,6 +185,7 @@ pub mod bal {
         }
 
         /// Returns a vector of [`AccountChanges`].
+        #[inline]
         pub fn into_inner(self) -> Vec<AccountChanges> {
             self.0
         }
@@ -916,6 +924,7 @@ pub struct BlockAccessListGasError {
 
 impl BlockAccessListGasError {
     /// Creates a new gas limit validation error for the provided item count and gas limit.
+    #[inline]
     pub const fn new(items: u64, gas_limit: u64) -> Self {
         Self { items, max_items: gas_limit / crate::constants::ITEM_COST as u64, gas_limit }
     }
@@ -933,6 +942,7 @@ pub struct BlockAccessListHashMismatch {
 
 impl BlockAccessListHashMismatch {
     /// Creates a new block access list hash validation error.
+    #[inline]
     pub const fn new(computed: alloy_primitives::B256, expected: alloy_primitives::B256) -> Self {
         Self { computed, expected }
     }
