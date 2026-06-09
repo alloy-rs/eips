@@ -1,7 +1,7 @@
 //! Helpers for finding the first divergence between block access lists.
 
-use crate::AccountChanges;
-use alloy_primitives::{Address, B256};
+use crate::{AccountChanges, StorageRoot};
+use alloy_primitives::Address;
 use core::{cmp::Ordering, fmt};
 
 /// Compact summary of the first difference between two block access lists.
@@ -155,7 +155,7 @@ pub struct AccountSummary {
     /// Number of code changes.
     pub code_changes: usize,
     /// Storage root included for EIP-8268 state-change entries.
-    pub storage_root: Option<B256>,
+    pub storage_root: Option<StorageRoot>,
 }
 
 impl AccountSummary {
@@ -185,9 +185,13 @@ impl fmt::Display for AccountSummary {
             self.balance_changes,
             self.nonce_changes,
             self.code_changes,
-            self.storage_root
-                .map(|storage_root| alloc::format!("{storage_root}"))
-                .unwrap_or_else(|| "none".into())
+            self.storage_root.map_or_else(
+                || "none".into(),
+                |storage_root| match storage_root {
+                    StorageRoot::Empty => "empty".into(),
+                    StorageRoot::Root(root) => alloc::format!("{root}"),
+                }
+            )
         )
     }
 }
@@ -279,7 +283,7 @@ mod tests {
         bal::Bal,
     };
     use alloc::format;
-    use alloy_primitives::{Address, Bytes, U256};
+    use alloy_primitives::{Address, B256, Bytes, U256};
 
     fn diagnostic_addr(byte: u8) -> Address {
         let mut address = [0; 20];
