@@ -9,32 +9,32 @@ use core::fmt;
 /// - `1..=tx_len` — transaction execution (transaction index `i` maps to index `i + 1`)
 /// - `tx_len + 1` — post-execution (block rewards, withdrawals, ...)
 ///
-/// Stored as a `u64` internally, but wrapped as a newtype so it cannot be accidentally
-/// confused with other `u64` indices (for example, an `account_id` passed alongside it).
+/// Stored as a `u32` internally, but wrapped as a newtype so it cannot be accidentally
+/// confused with other `u32` indices.
 ///
-/// RLP, borsh, and arbitrary representations are identical to the wrapped `u64`. Serde
+/// RLP, borsh, and arbitrary representations are identical to the wrapped `u32`. Serde
 /// serializes as a hex `"quantity"` string (e.g. `"0x1a"`), matching the previous
-/// `BlockAccessIndex = u64` alias behavior when paired with the `crate::quantity` module.
+/// quantity representation.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodableWrapper, alloy_rlp::RlpDecodableWrapper))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[repr(transparent)]
-pub struct BlockAccessIndex(pub u64);
+pub struct BlockAccessIndex(pub u32);
 
 impl BlockAccessIndex {
     /// Pre-execution slot (index `0`).
     pub const PRE_EXECUTION: Self = Self(0);
 
-    /// Constructs a new [`BlockAccessIndex`] from a raw `u64`.
+    /// Constructs a new [`BlockAccessIndex`] from a raw `u32`.
     #[inline]
-    pub const fn new(value: u64) -> Self {
+    pub const fn new(value: u32) -> Self {
         Self(value)
     }
 
-    /// Returns the raw `u64` value.
+    /// Returns the raw `u32` value.
     #[inline]
-    pub const fn get(self) -> u64 {
+    pub const fn get(self) -> u32 {
         self.0
     }
 
@@ -55,20 +55,18 @@ impl BlockAccessIndex {
     /// - `None` when the index is strictly greater than `tx_len + 1` (out of range for a block with
     ///   `tx_len` transactions).
     #[inline]
-    pub const fn phase(self, tx_len: usize) -> Option<BlockAccessPhase> {
-        // Widen `tx_len` to `u64` to compare against the index without risking
-        // truncation on 32-bit targets.
-        let tx_len_u64 = tx_len as u64;
+    pub const fn phase(self, tx_len: u32) -> Option<BlockAccessPhase> {
         if self.0 == 0 {
             Some(BlockAccessPhase::PreExecution)
-        } else if self.0 <= tx_len_u64 {
-            // `self.0 >= 1` here, so the subtraction cannot underflow.
-            // Casting back to `usize` is safe because `self.0 - 1 < tx_len <= usize::MAX`.
-            Some(BlockAccessPhase::Transaction((self.0 - 1) as usize))
-        } else if self.0 == tx_len_u64 + 1 {
-            Some(BlockAccessPhase::PostExecution)
+        } else if self.0 <= tx_len {
+            Some(BlockAccessPhase::Transaction(self.0 - 1))
         } else {
-            None
+            match tx_len.checked_add(1) {
+                Some(post_execution_index) if self.0 == post_execution_index => {
+                    Some(BlockAccessPhase::PostExecution)
+                }
+                _ => None,
+            }
         }
     }
 }
@@ -90,14 +88,14 @@ impl fmt::LowerHex for BlockAccessIndex {
 #[cfg(feature = "serde")]
 impl serde::Serialize for BlockAccessIndex {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        alloy_primitives::U64::from(self.0).serialize(serializer)
+        alloy_primitives::U32::from(self.0).serialize(serializer)
     }
 }
 
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for BlockAccessIndex {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        alloy_primitives::U64::deserialize(deserializer).map(|value| Self(value.to()))
+        alloy_primitives::U32::deserialize(deserializer).map(|value| Self(value.to()))
     }
 }
 
@@ -111,7 +109,7 @@ pub enum BlockAccessPhase {
     PreExecution,
     /// Transaction execution slot. The inner value is the 0-based transaction index
     /// within the block (i.e. `block_access_index - 1`).
-    Transaction(usize),
+    Transaction(u32),
     /// Post-execution slot (index `tx_len + 1`).
     PostExecution,
 }
@@ -138,12 +136,24 @@ mod tests {
     fn post_execution_is_tx_len_plus_one() {
         assert_eq!(BlockAccessIndex::new(4).phase(3), Some(BlockAccessPhase::PostExecution));
         assert_eq!(BlockAccessIndex::new(1).phase(0), Some(BlockAccessPhase::PostExecution));
+        assert_eq!(
+            BlockAccessIndex::new(u32::MAX).phase(u32::MAX - 1),
+            Some(BlockAccessPhase::PostExecution)
+        );
     }
 
     #[test]
     fn out_of_range_returns_none() {
         assert_eq!(BlockAccessIndex::new(5).phase(3), None);
-        assert_eq!(BlockAccessIndex::new(u64::MAX).phase(3), None);
+        assert_eq!(BlockAccessIndex::new(u32::MAX).phase(3), None);
+    }
+
+    #[test]
+    fn max_tx_len_has_no_representable_post_execution_index() {
+        assert_eq!(
+            BlockAccessIndex::new(u32::MAX).phase(u32::MAX),
+            Some(BlockAccessPhase::Transaction(u32::MAX - 1))
+        );
     }
 
     #[test]
@@ -183,13 +193,19 @@ mod tests {
         assert_eq!(back, idx);
     }
 
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_rejects_value_above_u32_max() {
+        assert!(serde_json::from_str::<BlockAccessIndex>("\"0x100000000\"").is_err());
+    }
+
     #[cfg(feature = "rlp")]
     #[test]
-    fn rlp_matches_raw_u64() {
+    fn rlp_matches_raw_u32() {
         use alloy_rlp::Decodable;
         let idx = BlockAccessIndex::new(300);
         let encoded = alloy_rlp::encode(idx);
-        assert_eq!(encoded, alloy_rlp::encode(300u64));
+        assert_eq!(encoded, alloy_rlp::encode(300u32));
         let decoded = BlockAccessIndex::decode(&mut encoded.as_slice()).unwrap();
         assert_eq!(decoded, idx);
     }
