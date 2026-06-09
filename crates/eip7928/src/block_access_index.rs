@@ -56,18 +56,20 @@ impl BlockAccessIndex {
     ///   `tx_len` transactions).
     #[inline]
     pub const fn phase(self, tx_len: usize) -> Option<BlockAccessPhase> {
-        let index = self.0 as usize;
-        if index == 0 {
+        // Widen `tx_len` to `u64` to compare against the index without risking
+        // truncation on 32-bit targets.
+        let tx_len_u64 = tx_len as u64;
+        let index_u64 = self.0 as u64;
+        if index_u64 == 0 {
             Some(BlockAccessPhase::PreExecution)
-        } else if index <= tx_len {
-            Some(BlockAccessPhase::Transaction(index - 1))
+        } else if index_u64 <= tx_len_u64 {
+            // `self.0 >= 1` here, so the subtraction cannot underflow.
+            // Casting back to `usize` is safe because `self.0 - 1 < tx_len <= usize::MAX`.
+            Some(BlockAccessPhase::Transaction((self.0 - 1) as usize))
+        } else if index_u64 == tx_len_u64 + 1 {
+            Some(BlockAccessPhase::PostExecution)
         } else {
-            match tx_len.checked_add(1) {
-                Some(post_execution_index) if index == post_execution_index => {
-                    Some(BlockAccessPhase::PostExecution)
-                }
-                _ => None,
-            }
+            None
         }
     }
 }
