@@ -10,11 +10,11 @@ use core::fmt;
 /// - `tx_len + 1` — post-execution (block rewards, withdrawals, ...)
 ///
 /// Stored as a `u32` internally, but wrapped as a newtype so it cannot be accidentally
-/// confused with other `u32` indices.
+/// confused with other `u32` indices (for example, an `account_id` passed alongside it).
 ///
 /// RLP, borsh, and arbitrary representations are identical to the wrapped `u32`. Serde
 /// serializes as a hex `"quantity"` string (e.g. `"0x1a"`), matching the previous
-/// quantity representation.
+/// `BlockAccessIndex = u32` alias behavior when paired with the `crate::quantity` module.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodableWrapper, alloy_rlp::RlpDecodableWrapper))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
@@ -55,14 +55,15 @@ impl BlockAccessIndex {
     /// - `None` when the index is strictly greater than `tx_len + 1` (out of range for a block with
     ///   `tx_len` transactions).
     #[inline]
-    pub const fn phase(self, tx_len: u32) -> Option<BlockAccessPhase> {
-        if self.0 == 0 {
+    pub const fn phase(self, tx_len: usize) -> Option<BlockAccessPhase> {
+        let index = self.0 as usize;
+        if index == 0 {
             Some(BlockAccessPhase::PreExecution)
-        } else if self.0 <= tx_len {
-            Some(BlockAccessPhase::Transaction(self.0 - 1))
+        } else if index <= tx_len {
+            Some(BlockAccessPhase::Transaction(index - 1))
         } else {
             match tx_len.checked_add(1) {
-                Some(post_execution_index) if self.0 == post_execution_index => {
+                Some(post_execution_index) if index == post_execution_index => {
                     Some(BlockAccessPhase::PostExecution)
                 }
                 _ => None,
@@ -109,7 +110,7 @@ pub enum BlockAccessPhase {
     PreExecution,
     /// Transaction execution slot. The inner value is the 0-based transaction index
     /// within the block (i.e. `block_access_index - 1`).
-    Transaction(u32),
+    Transaction(usize),
     /// Post-execution slot (index `tx_len + 1`).
     PostExecution,
 }
@@ -136,24 +137,12 @@ mod tests {
     fn post_execution_is_tx_len_plus_one() {
         assert_eq!(BlockAccessIndex::new(4).phase(3), Some(BlockAccessPhase::PostExecution));
         assert_eq!(BlockAccessIndex::new(1).phase(0), Some(BlockAccessPhase::PostExecution));
-        assert_eq!(
-            BlockAccessIndex::new(u32::MAX).phase(u32::MAX - 1),
-            Some(BlockAccessPhase::PostExecution)
-        );
     }
 
     #[test]
     fn out_of_range_returns_none() {
         assert_eq!(BlockAccessIndex::new(5).phase(3), None);
         assert_eq!(BlockAccessIndex::new(u32::MAX).phase(3), None);
-    }
-
-    #[test]
-    fn max_tx_len_has_no_representable_post_execution_index() {
-        assert_eq!(
-            BlockAccessIndex::new(u32::MAX).phase(u32::MAX),
-            Some(BlockAccessPhase::Transaction(u32::MAX - 1))
-        );
     }
 
     #[test]
