@@ -1537,9 +1537,9 @@ mod tests {
             bal.compute_hash(),
             b256!("0xfddce9faa92e20d1fb14e7ffa997ef974813737d8d7499398a34c4f5ba25bba3")
         );
-  }
-  
-  #[test]
+    }
+
+    #[test]
     fn raw_bal_rlp_roundtrip_preserves_raw_item() {
         let bal = sample_bal();
         let raw = alloy_rlp::encode(&bal);
