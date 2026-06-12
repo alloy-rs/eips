@@ -32,6 +32,15 @@ impl BlockAccessIndex {
         Self(value)
     }
 
+    /// Constructs a new [`BlockAccessIndex`] from a 0-based transaction index.
+    ///
+    /// Transaction changes start at index `1` in a block access list, so transaction
+    /// index `0` maps to block access index `1`.
+    #[inline]
+    pub const fn from_tx_index(tx_index: u64) -> Self {
+        Self(tx_index + 1)
+    }
+
     /// Returns the raw `u64` value.
     #[inline]
     pub const fn get(self) -> u64 {
@@ -132,6 +141,12 @@ mod tests {
         assert_eq!(BlockAccessIndex::new(1).phase(3), Some(BlockAccessPhase::Transaction(0)));
         assert_eq!(BlockAccessIndex::new(2).phase(3), Some(BlockAccessPhase::Transaction(1)));
         assert_eq!(BlockAccessIndex::new(3).phase(3), Some(BlockAccessPhase::Transaction(2)));
+    }
+
+    #[test]
+    fn from_tx_index_offsets_by_one() {
+        assert_eq!(BlockAccessIndex::from_tx_index(0), BlockAccessIndex::new(1));
+        assert_eq!(BlockAccessIndex::from_tx_index(1), BlockAccessIndex::new(2));
     }
 
     #[test]

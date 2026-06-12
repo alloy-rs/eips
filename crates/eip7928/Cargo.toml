@@ -2,7 +2,7 @@
 name = "alloy-eip7928"
 description = "Implementation of EIP-7928 type definitions"
 
-version = "0.4.1"
+version = "0.4.3"
 edition.workspace = true
 rust-version.workspace = true
 authors = [
