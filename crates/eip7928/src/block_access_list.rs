@@ -179,6 +179,12 @@ pub mod bal {
             self.0.as_slice()
         }
 
+        /// Returns the contained [`Vec<AccountChanges>`].
+        #[inline]
+        pub const fn as_vec(&self) -> &Vec<AccountChanges> {
+            &self.0
+        }
+
         /// Returns a compact diff describing where this BAL first diverges from `other`.
         pub fn diff(&self, other: &[AccountChanges]) -> BalDiff {
             BalDiff::between(self.as_slice(), other)
@@ -997,6 +1003,14 @@ mod hash_tests {
         let err = decoded.try_map(|_| Err::<usize, _>("expected error")).unwrap_err();
 
         assert_eq!(err, "expected error");
+    }
+
+    #[test]
+    fn bal_as_vec_returns_inner_vector_ref() {
+        let bal = Bal::new(vec![AccountChanges::new(Address::from([0x11; 20]))]);
+
+        assert_eq!(bal.as_vec().len(), 1);
+        assert_eq!(bal.as_vec().as_slice(), bal.as_slice());
     }
 
     #[derive(Debug, PartialEq, Eq)]
