@@ -19,30 +19,12 @@ pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitive
     alloy_primitives::keccak256(&buf)
 }
 
-/// Computes the total number of items in the block access list, counting each account and unique
-/// storage slot.
+/// Computes the total number of items in the block access list, counting each account and storage
+/// entry.
 pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
-    let mut bal_items: u64 = 0;
-
-    for account in bal {
-        // Count address
-        bal_items += 1;
-
-        // Collect unique storage slots across reads + writes
-        let mut unique_slots = alloy_primitives::map::HashSet::new();
-
-        for change in account.storage_changes() {
-            unique_slots.insert(change.slot);
-        }
-
-        for slot in account.storage_reads() {
-            unique_slots.insert(*slot);
-        }
-
-        // Count unique storage keys
-        bal_items += unique_slots.len() as u64;
-    }
-    bal_items
+    bal.iter()
+        .map(|account| 1 + account.storage_changes().len() + account.storage_reads().len())
+        .sum::<usize>() as u64
 }
 
 /// Block-Level Access List wrapper type with helper methods for metrics and validation.
@@ -1348,13 +1330,27 @@ mod hash_tests {
             AccountChanges::new(Address::from([0x11; 20]))
                 .with_storage_read(U256::from(1))
                 .with_storage_change(SlotChanges::new(
+                    U256::from(2),
+                    vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(0xaa))],
+                )),
+        ]);
+
+        assert_eq!(bal.total_bal_items(), 3);
+        assert_eq!(bal.validate_gas_limit(3 * ITEM_COST as u64), Ok(()));
+    }
+
+    #[test]
+    fn bal_total_items_counts_storage_entries_without_deduplicating() {
+        let bal = Bal::new(vec![
+            AccountChanges::new(Address::from([0x11; 20]))
+                .with_storage_read(U256::from(1))
+                .with_storage_change(SlotChanges::new(
                     U256::from(1),
                     vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(0xaa))],
                 )),
         ]);
 
-        assert_eq!(bal.total_bal_items(), 2);
-        assert_eq!(bal.validate_gas_limit(2 * ITEM_COST as u64), Ok(()));
+        assert_eq!(bal.total_bal_items(), 3);
     }
 
     #[test]
