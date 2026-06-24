@@ -11,12 +11,90 @@ use std::sync::OnceLock;
 /// This struct is used to store `account_changes` in a block.
 pub type BlockAccessList = Vec<AccountChanges>;
 
+// Below this, the side-vector allocation costs more than reusing account payload lengths.
+#[cfg(feature = "rlp")]
+const ACCOUNT_PAYLOAD_LENGTH_CACHE_THRESHOLD: usize = 16;
+
 /// Computes the hash of the given block access list.
 #[cfg(feature = "rlp")]
 pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitives::B256 {
-    let mut buf = Vec::new();
-    alloy_rlp::encode_list(bal, &mut buf);
+    if bal.is_empty() {
+        return crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH;
+    }
+
+    if bal.len() < ACCOUNT_PAYLOAD_LENGTH_CACHE_THRESHOLD {
+        return compute_block_access_list_hash_without_cached_account_lengths(bal);
+    }
+
+    use alloy_rlp::Encodable;
+
+    let mut account_payload_lengths = Vec::with_capacity(bal.len());
+    let mut payload_length = 0;
+    for account in bal {
+        let account_payload_length = account_changes_payload_length(account);
+        payload_length += rlp_payload_length(account_payload_length);
+        account_payload_lengths.push(account_payload_length);
+    }
+
+    let mut buf = Vec::with_capacity(payload_length + alloy_rlp::length_of_length(payload_length));
+
+    alloy_rlp::Header { list: true, payload_length }.encode(&mut buf);
+    for (account, account_payload_length) in bal.iter().zip(account_payload_lengths) {
+        alloy_rlp::Header { list: true, payload_length: account_payload_length }.encode(&mut buf);
+        account.address.encode(&mut buf);
+        alloy_rlp::encode_list(&account.storage_changes, &mut buf);
+        alloy_rlp::encode_list(&account.storage_reads, &mut buf);
+        alloy_rlp::encode_list(&account.balance_changes, &mut buf);
+        alloy_rlp::encode_list(&account.nonce_changes, &mut buf);
+        alloy_rlp::encode_list(&account.code_changes, &mut buf);
+    }
+
+    debug_assert_eq!(buf.len(), payload_length + alloy_rlp::length_of_length(payload_length));
     alloy_primitives::keccak256(&buf)
+}
+
+#[cfg(feature = "rlp")]
+#[inline]
+fn compute_block_access_list_hash_without_cached_account_lengths(
+    bal: &[AccountChanges],
+) -> alloy_primitives::B256 {
+    use alloy_rlp::Encodable;
+
+    let payload_length = bal.iter().map(Encodable::length).sum();
+    let mut buf = Vec::with_capacity(rlp_payload_length(payload_length));
+
+    alloy_rlp::Header { list: true, payload_length }.encode(&mut buf);
+    for account in bal {
+        account.encode(&mut buf);
+    }
+
+    debug_assert_eq!(buf.len(), rlp_payload_length(payload_length));
+    alloy_primitives::keccak256(&buf)
+}
+
+#[cfg(feature = "rlp")]
+#[inline]
+fn account_changes_payload_length(account: &AccountChanges) -> usize {
+    use alloy_rlp::Encodable;
+
+    account.address.length()
+        + rlp_list_length(&account.storage_changes)
+        + rlp_list_length(&account.storage_reads)
+        + rlp_list_length(&account.balance_changes)
+        + rlp_list_length(&account.nonce_changes)
+        + rlp_list_length(&account.code_changes)
+}
+
+#[cfg(feature = "rlp")]
+#[inline]
+fn rlp_list_length<T: alloy_rlp::Encodable>(values: &[T]) -> usize {
+    rlp_payload_length(values.iter().map(alloy_rlp::Encodable::length).sum())
+}
+
+#[cfg(feature = "rlp")]
+#[inline]
+const fn rlp_payload_length(payload_length: usize) -> usize {
+    payload_length + alloy_rlp::length_of_length(payload_length)
 }
 
 /// Computes the total number of items in the block access list, counting each account and storage

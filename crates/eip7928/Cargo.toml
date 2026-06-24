@@ -42,7 +42,13 @@ arbitrary = { workspace = true, features = ["derive"], optional = true }
 rand = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = "0.8.2"
 serde_json.workspace = true
+
+[[bench]]
+name = "bal_hash"
+harness = false
+required-features = ["rlp"]
 
 
 [features]
