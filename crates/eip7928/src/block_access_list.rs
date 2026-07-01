@@ -204,6 +204,13 @@ pub mod bal {
             }
         }
 
+        /// Clears storage roots from entries that do not contain state changes.
+        pub fn normalize_storage_roots(&mut self) {
+            for account in &mut self.0 {
+                account.normalize_storage_root();
+            }
+        }
+
         /// Returns the total number of accounts with changes in this BAL.
         #[inline]
         pub const fn account_count(&self) -> usize {
@@ -240,6 +247,11 @@ pub mod bal {
             self.0.iter().map(|a| a.code_changes.len()).sum()
         }
 
+        /// Returns the total number of account entries carrying a storage root.
+        pub fn total_storage_roots(&self) -> usize {
+            self.0.iter().filter(|a| a.storage_root.is_some()).count()
+        }
+
         /// Returns a summary of all change counts for metrics reporting.
         pub fn change_counts(&self) -> BalChangeCounts {
             let mut counts = BalChangeCounts::default();
@@ -249,6 +261,7 @@ pub mod bal {
                 counts.balance += account.balance_changes.len();
                 counts.nonce += account.nonce_changes.len();
                 counts.code += account.code_changes.len();
+                counts.storage_roots += usize::from(account.storage_root.is_some());
             }
             counts
         }
@@ -294,6 +307,8 @@ pub mod bal {
         pub nonce: usize,
         /// Total number of code changes.
         pub code: usize,
+        /// Total number of storage roots.
+        pub storage_roots: usize,
     }
 
     /// Raw RLP bytes for a block access list with lazy hash computation.
@@ -1251,6 +1266,7 @@ mod hash_tests {
                     CodeChange::new(BlockAccessIndex::new(9), Bytes::from_static(&[0x60, 0x09])),
                     CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[0x60, 0x05])),
                 ],
+                storage_root: None,
             },
             AccountChanges {
                 address: address_1,
@@ -1283,6 +1299,7 @@ mod hash_tests {
                     CodeChange::new(BlockAccessIndex::new(4), Bytes::from_static(&[0x60, 0x04])),
                     CodeChange::new(BlockAccessIndex::new(2), Bytes::from_static(&[0x60, 0x02])),
                 ],
+                storage_root: None,
             },
         ]);
 
@@ -1368,6 +1385,27 @@ mod hash_tests {
             Err(super::BlockAccessListGasError::new(3, gas_limit))
         );
     }
+
+    #[test]
+    fn bal_normalizes_and_counts_storage_roots() {
+        let mut bal = Bal::new(vec![
+            AccountChanges::new(Address::from([0x11; 20]))
+                .with_storage_read(U256::from(1))
+                .with_storage_root(B256::from([0x11; 32])),
+            AccountChanges::new(Address::from([0x22; 20]))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(1)))
+                .with_storage_root(B256::from([0x22; 32])),
+        ]);
+
+        assert_eq!(bal.total_storage_roots(), 2);
+
+        bal.normalize_storage_roots();
+
+        assert_eq!(bal.total_storage_roots(), 1);
+        assert_eq!(bal.change_counts().storage_roots, 1);
+        assert_eq!(bal[0].storage_root(), None);
+        assert_eq!(bal[1].storage_root(), Some(B256::from([0x22; 32])));
+    }
 }
 
 #[cfg(all(test, feature = "rlp"))]
@@ -1377,7 +1415,7 @@ mod tests {
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
         StorageChange, constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
     };
-    use alloy_primitives::{Address, Bytes, U256};
+    use alloy_primitives::{Address, Bytes, U256, address, b256};
 
     fn sample_bal() -> Bal {
         Bal::new(vec![
@@ -1469,6 +1507,46 @@ mod tests {
         assert_eq!(decoded.as_bal(), &bal);
         assert_eq!(decoded.as_raw().as_ref(), raw.as_slice());
         assert_eq!(alloy_rlp::encode(&decoded), raw);
+    }
+
+    #[test]
+    fn bal_hash_includes_account_storage_roots() {
+        let root_0 = b256!("0xe6f36e519f6bb156d8634280bda7d1488b6e8af221964c32f79a1a8188688a5e");
+        let root_1 = b256!("0xf23e0f20f7f3051dffe85288732967785e280d16850fe62ae22bb662a4380e73");
+        let bal = Bal::new(vec![
+            AccountChanges::new(address!("0x000000000000000000000000000000000000000a")),
+            AccountChanges::new(address!("0x00000961ef480eb55e80d19ad83579a64c007002"))
+                .extend_storage_reads([0, 1, 2, 3].map(U256::from)),
+            AccountChanges::new(address!("0x0000bbddc7ce488642fb579f8b00f3a590007251"))
+                .extend_storage_reads([0, 1, 2, 3].map(U256::from)),
+            AccountChanges::new(address!("0x0000f90827f1c53a10cb7a02335b175320002935"))
+                .with_storage_change(SlotChanges::new(
+                    U256::from(0),
+                    vec![StorageChange::new(
+                        BlockAccessIndex::new(0),
+                        "74677266337622263923841319904302013251000197610984971530968672629876502107959"
+                            .parse()
+                            .unwrap(),
+                    )],
+                ))
+                .with_storage_root(root_0),
+            AccountChanges::new(address!("0x000f3df6d732807ef1319fb7b8bb8522d0beac02"))
+                .with_storage_change(SlotChanges::new(
+                    U256::from(12),
+                    vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(12))],
+                ))
+                .with_storage_read(U256::from(8203))
+                .with_storage_root(root_1),
+        ]);
+
+        assert_eq!(
+            bal.iter().map(AccountChanges::storage_root).collect::<Vec<_>>(),
+            vec![None, None, None, Some(root_0), Some(root_1)]
+        );
+        assert_eq!(
+            bal.compute_hash(),
+            b256!("0xfddce9faa92e20d1fb14e7ffa997ef974813737d8d7499398a34c4f5ba25bba3")
+        );
     }
 
     #[test]

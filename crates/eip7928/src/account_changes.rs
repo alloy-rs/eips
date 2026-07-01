@@ -7,13 +7,78 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloy_primitives::{
-    Address, U256,
+    Address, B256, U256,
     map::{HashMap, HashSet},
 };
+#[cfg(feature = "rlp")]
+use alloy_rlp::{Buf, BufMut, Decodable, EMPTY_STRING_CODE, Encodable};
+
+/// Post-block storage trie root for an account with state changes.
+///
+/// EIP-8268 encodes an empty post-block storage trie as the RLP empty byte string (`0x80`)
+/// instead of the canonical 32-byte empty trie root.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub enum StorageRoot {
+    /// The account's post-block storage trie is empty.
+    Empty,
+    /// The 32-byte root of the account's non-empty post-block storage trie.
+    Root(B256),
+}
+
+impl StorageRoot {
+    /// Returns the underlying 32-byte root when this is a non-empty storage trie root.
+    pub const fn as_b256(self) -> Option<B256> {
+        match self {
+            Self::Empty => None,
+            Self::Root(root) => Some(root),
+        }
+    }
+}
+
+impl From<B256> for StorageRoot {
+    fn from(root: B256) -> Self {
+        Self::Root(root)
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl Encodable for StorageRoot {
+    fn encode(&self, out: &mut dyn BufMut) {
+        match self {
+            Self::Empty => out.put_u8(EMPTY_STRING_CODE),
+            Self::Root(root) => root.encode(out),
+        }
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            Self::Empty => 1,
+            Self::Root(root) => root.length(),
+        }
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl Decodable for StorageRoot {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        if let Some(&first) = buf.first() {
+            if first == EMPTY_STRING_CODE {
+                buf.advance(1);
+                Ok(Self::Empty)
+            } else {
+                B256::decode(buf).map(Self::Root)
+            }
+        } else {
+            Err(alloy_rlp::Error::InputTooShort)
+        }
+    }
+}
 
 /// This struct is used to track the changes across accounts in a block.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodable, alloy_rlp::RlpDecodable))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -31,6 +96,8 @@ pub struct AccountChanges {
     pub nonce_changes: Vec<NonceChange>,
     /// List of code changes for this account.
     pub code_changes: Vec<CodeChange>,
+    /// Post-block storage trie root introduced by EIP-8268.
+    pub storage_root: Option<StorageRoot>,
 }
 
 impl AccountChanges {
@@ -43,6 +110,7 @@ impl AccountChanges {
             balance_changes: Vec::new(),
             nonce_changes: Vec::new(),
             code_changes: Vec::new(),
+            storage_root: None,
         }
     }
 
@@ -55,6 +123,7 @@ impl AccountChanges {
             balance_changes: Vec::with_capacity(capacity),
             nonce_changes: Vec::with_capacity(capacity),
             code_changes: Vec::with_capacity(capacity),
+            storage_root: None,
         }
     }
 
@@ -105,6 +174,9 @@ impl AccountChanges {
         self.balance_changes.extend(incoming.balance_changes);
         self.nonce_changes.extend(incoming.nonce_changes);
         self.code_changes.extend(incoming.code_changes);
+        if incoming.storage_root.is_some() {
+            self.storage_root = incoming.storage_root;
+        }
 
         let written = self
             .storage_changes
@@ -115,6 +187,7 @@ impl AccountChanges {
 
         let mut seen = HashSet::with_capacity(self.storage_reads.len());
         self.storage_reads.retain(|slot| seen.insert(*slot));
+        self.normalize_storage_root();
     }
 
     /// Returns the storage reads for this account.
@@ -167,6 +240,32 @@ impl AccountChanges {
         self.balance_changes.sort_unstable_by_key(|change| change.block_access_index);
         self.nonce_changes.sort_unstable_by_key(|change| change.block_access_index);
         self.code_changes.sort_unstable_by_key(|change| change.block_access_index);
+        self.normalize_storage_root();
+    }
+
+    /// Returns `true` if this account has balance, nonce, code, or storage writes.
+    ///
+    /// Storage reads are access-only entries and do not require a storage root under EIP-8268.
+    #[inline]
+    pub const fn has_state_changes(&self) -> bool {
+        !(self.storage_changes.is_empty()
+            && self.balance_changes.is_empty()
+            && self.nonce_changes.is_empty()
+            && self.code_changes.is_empty())
+    }
+
+    /// Returns `true` if all state-change lists are empty.
+    #[inline]
+    pub const fn state_change_lists_are_empty(&self) -> bool {
+        !self.has_state_changes()
+    }
+
+    /// Clears `storage_root` when this entry has no state changes.
+    #[inline]
+    pub const fn normalize_storage_root(&mut self) {
+        if self.state_change_lists_are_empty() {
+            self.storage_root = None;
+        }
     }
 
     /// Set the address.
@@ -205,6 +304,18 @@ impl AccountChanges {
         self
     }
 
+    /// Set the post-block storage trie root for a non-empty storage trie.
+    pub const fn with_storage_root(mut self, storage_root: B256) -> Self {
+        self.storage_root = Some(StorageRoot::Root(storage_root));
+        self
+    }
+
+    /// Set the post-block storage trie root to the EIP-8268 empty storage trie marker.
+    pub const fn with_empty_storage_root(mut self) -> Self {
+        self.storage_root = Some(StorageRoot::Empty);
+        self
+    }
+
     /// Add multiple storage reads at once.
     pub fn extend_storage_reads<I>(mut self, iter: I) -> Self
     where
@@ -221,6 +332,89 @@ impl AccountChanges {
     {
         self.storage_changes.extend(iter);
         self
+    }
+
+    /// Returns the storage root value for this account.
+    #[inline]
+    pub const fn storage_root_value(&self) -> Option<StorageRoot> {
+        self.storage_root
+    }
+
+    /// Returns the 32-byte storage root for this account, if it has a non-empty storage trie.
+    #[inline]
+    pub const fn storage_root(&self) -> Option<B256> {
+        match self.storage_root {
+            Some(StorageRoot::Root(root)) => Some(root),
+            Some(StorageRoot::Empty) | None => None,
+        }
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl alloy_rlp::Encodable for AccountChanges {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        alloy_rlp::Header { list: true, payload_length: self.rlp_payload_length() }.encode(out);
+        self.address.encode(out);
+        self.storage_changes.encode(out);
+        self.storage_reads.encode(out);
+        self.balance_changes.encode(out);
+        self.nonce_changes.encode(out);
+        self.code_changes.encode(out);
+        if self.has_state_changes()
+            && let Some(storage_root) = self.storage_root
+        {
+            storage_root.encode(out);
+        }
+    }
+
+    fn length(&self) -> usize {
+        let payload_length = self.rlp_payload_length();
+        alloy_rlp::length_of_length(payload_length) + payload_length
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl AccountChanges {
+    fn rlp_payload_length(&self) -> usize {
+        let mut payload_length = self.address.length()
+            + self.storage_changes.length()
+            + self.storage_reads.length()
+            + self.balance_changes.length()
+            + self.nonce_changes.length()
+            + self.code_changes.length();
+        if self.has_state_changes()
+            && let Some(storage_root) = self.storage_root
+        {
+            payload_length += storage_root.length();
+        }
+        payload_length
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl alloy_rlp::Decodable for AccountChanges {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let mut payload = alloy_rlp::Header::decode_bytes(buf, true)?;
+        let mut account = Self {
+            address: Address::decode(&mut payload)?,
+            storage_changes: Vec::<SlotChanges>::decode(&mut payload)?,
+            storage_reads: Vec::<U256>::decode(&mut payload)?,
+            balance_changes: Vec::<BalanceChange>::decode(&mut payload)?,
+            nonce_changes: Vec::<NonceChange>::decode(&mut payload)?,
+            code_changes: Vec::<CodeChange>::decode(&mut payload)?,
+            storage_root: if payload.is_empty() {
+                None
+            } else {
+                Some(StorageRoot::decode(&mut payload)?)
+            },
+        };
+
+        if !payload.is_empty() {
+            return Err(alloy_rlp::Error::UnexpectedLength);
+        }
+
+        account.normalize_storage_root();
+        Ok(account)
     }
 }
 
@@ -261,6 +455,7 @@ mod merge_tests {
             balance_changes: vec![BalanceChange::new(BlockAccessIndex::new(1), U256::from(100))],
             nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(2), 7)],
             code_changes: vec![],
+            storage_root: None,
         };
         let incoming = AccountChanges {
             address,
@@ -281,6 +476,7 @@ mod merge_tests {
                 BlockAccessIndex::new(7),
                 Bytes::from_static(&[0xaa]),
             )],
+            storage_root: None,
         };
 
         existing.merge(incoming);
@@ -321,6 +517,7 @@ mod merge_tests {
             balance_changes: vec![],
             nonce_changes: vec![],
             code_changes: vec![],
+            storage_root: None,
         };
         let incoming = AccountChanges {
             address,
@@ -332,6 +529,7 @@ mod merge_tests {
             balance_changes: vec![],
             nonce_changes: vec![],
             code_changes: vec![],
+            storage_root: None,
         };
 
         existing.merge(incoming);
@@ -400,6 +598,7 @@ mod sort_tests {
                 CodeChange::new(BlockAccessIndex::new(9), Bytes::from_static(&[0x60, 0x09])),
                 CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[0x60, 0x05])),
             ],
+            storage_root: None,
         };
 
         account.sort();
@@ -481,6 +680,150 @@ mod post_state_tests {
     }
 }
 
+#[cfg(test)]
+mod storage_root_tests {
+    use crate::{BlockAccessIndex, StorageChange};
+
+    use super::*;
+    use alloy_primitives::{Bytes, address};
+
+    #[test]
+    fn normalize_storage_root_clears_root_when_state_change_lists_are_empty() {
+        let mut account = AccountChanges::new(Address::from([0x11; 20]))
+            .with_storage_read(U256::from(1))
+            .with_storage_root(B256::from([0xaa; 32]));
+
+        assert!(account.state_change_lists_are_empty());
+        assert!(!account.has_state_changes());
+
+        account.normalize_storage_root();
+
+        assert_eq!(account.storage_root(), None);
+    }
+
+    #[test]
+    fn state_changes_include_balance_nonce_code_and_storage_writes() {
+        let address = Address::from([0x11; 20]);
+
+        assert!(
+            AccountChanges::new(address)
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(1)))
+                .has_state_changes()
+        );
+        assert!(
+            AccountChanges::new(address)
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(1), 1))
+                .has_state_changes()
+        );
+        assert!(
+            AccountChanges::new(address)
+                .with_code_change(CodeChange::new(BlockAccessIndex::new(1), Bytes::from(vec![1])))
+                .has_state_changes()
+        );
+        assert!(
+            AccountChanges::new(address)
+                .with_storage_change(SlotChanges::new(
+                    U256::from(1),
+                    vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(1))]
+                ))
+                .has_state_changes()
+        );
+    }
+
+    #[test]
+    fn balance_and_nonce_changes_keep_empty_storage_root() {
+        let mut account =
+            AccountChanges::new(address!("0x1ad9bc24818784172ff393bb6f89f094d4d2ca29"))
+                .with_balance_change(BalanceChange::new(
+                    BlockAccessIndex::new(1),
+                    U256::from(999999999999998760750_u128),
+                ))
+                .with_balance_change(BalanceChange::new(
+                    BlockAccessIndex::new(2),
+                    U256::from(999999999999997521500_u128),
+                ))
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(1), 1))
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(2), 2))
+                .with_empty_storage_root();
+
+        account.normalize_storage_root();
+
+        assert_eq!(account.storage_root_value(), Some(StorageRoot::Empty));
+        assert_eq!(account.storage_root(), None);
+    }
+}
+
+#[cfg(all(test, feature = "rlp"))]
+mod rlp_tests {
+    use crate::BlockAccessIndex;
+
+    use super::*;
+
+    #[test]
+    fn rlp_omits_storage_root_for_access_only_account() {
+        let mut account = AccountChanges::new(Address::from([0x11; 20]))
+            .with_storage_read(U256::from(1))
+            .with_storage_root(B256::from([0xaa; 32]));
+
+        account.normalize_storage_root();
+        let encoded = alloy_rlp::encode(&account);
+        let mut encoded_slice = encoded.as_slice();
+        let fields = match alloy_rlp::Header::decode_raw(&mut encoded_slice).unwrap() {
+            alloy_rlp::PayloadView::List(fields) => fields,
+            alloy_rlp::PayloadView::String(_) => panic!("account changes must encode as a list"),
+        };
+        let decoded = alloy_rlp::decode_exact::<AccountChanges>(&encoded).unwrap();
+
+        assert_eq!(fields.len(), 6);
+        assert_eq!(decoded.storage_root(), None);
+        assert_eq!(decoded.storage_reads(), &[U256::from(1)]);
+    }
+
+    #[test]
+    fn rlp_round_trips_storage_root_for_changed_account() {
+        let storage_root = B256::from([0xbb; 32]);
+        let account = AccountChanges::new(Address::from([0x11; 20]))
+            .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(1)))
+            .with_storage_root(storage_root);
+
+        let encoded = alloy_rlp::encode(&account);
+        let mut encoded_slice = encoded.as_slice();
+        let fields = match alloy_rlp::Header::decode_raw(&mut encoded_slice).unwrap() {
+            alloy_rlp::PayloadView::List(fields) => fields,
+            alloy_rlp::PayloadView::String(_) => panic!("account changes must encode as a list"),
+        };
+        let decoded = alloy_rlp::decode_exact::<AccountChanges>(&encoded).unwrap();
+
+        assert_eq!(fields.len(), 7);
+        assert_eq!(decoded.storage_root(), Some(storage_root));
+        assert!(decoded.has_state_changes());
+    }
+
+    #[test]
+    fn rlp_round_trips_empty_storage_root_for_changed_account() {
+        let account = AccountChanges::new(Address::from([0x11; 20]))
+            .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(1)))
+            .with_empty_storage_root();
+
+        let encoded = alloy_rlp::encode(&account);
+        let mut encoded_slice = encoded.as_slice();
+        let fields = match alloy_rlp::Header::decode_raw(&mut encoded_slice).unwrap() {
+            alloy_rlp::PayloadView::List(fields) => fields,
+            alloy_rlp::PayloadView::String(_) => panic!("account changes must encode as a list"),
+        };
+        let decoded = alloy_rlp::decode_exact::<AccountChanges>(&encoded).unwrap();
+
+        println!("encoded storage root: {:?}", fields[6]);
+        println!("decoded storage root: {:?}", decoded.storage_root_value());
+
+        assert_eq!(fields.len(), 7);
+        assert_eq!(fields[6], [alloy_rlp::EMPTY_STRING_CODE]);
+        assert_eq!(decoded.storage_root_value(), Some(StorageRoot::Empty));
+        assert_eq!(decoded.storage_root(), None);
+        assert!(decoded.has_state_changes());
+    }
+}
+
 #[cfg(all(test, feature = "serde"))]
 mod tests {
     use crate::{BlockAccessIndex, StorageChange};
@@ -513,6 +856,7 @@ mod tests {
                 block_access_index: BlockAccessIndex::new(3),
                 new_code: Bytes::from(vec![0x60, 0x00]),
             }],
+            storage_root: Some(StorageRoot::Root(B256::from([0x44; 32]))),
         };
 
         let json = serde_json::to_string(&acc).unwrap();
