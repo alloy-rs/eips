@@ -18,6 +18,3 @@ pub use receipt::*;
 
 mod signature;
 pub use signature::*;
-
-mod transaction;
-pub use transaction::*;
