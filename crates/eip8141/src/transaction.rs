@@ -50,11 +50,9 @@ impl FrameTransaction {
         keccak256(out)
     }
 
-    /// Returns the sum of protocol signature verification gas costs, if all schemes are known.
+    /// Returns the sum of protocol signature verification gas costs, or `None` on overflow.
     pub fn signature_verification_gas(&self) -> Option<u64> {
-        self.signatures
-            .iter()
-            .try_fold(0u64, |acc, sig| sig.verification_gas().and_then(|gas| acc.checked_add(gas)))
+        self.signatures.iter().try_fold(0u64, |acc, sig| acc.checked_add(sig.verification_gas()))
     }
 
     /// Returns the sum of all frame gas limits, or `None` on overflow.
@@ -77,7 +75,7 @@ mod tests {
             nonce: 7,
             sender: Address::from([0x11; 20]),
             frames: vec![Frame {
-                mode: crate::FrameMode::Verify.into(),
+                mode: crate::FrameMode::Verify,
                 flags: crate::ApprovalScope::ExecutionAndPayment.into(),
                 target: Bytes::new(),
                 gas_limit: 21_000,
@@ -85,7 +83,7 @@ mod tests {
                 data: Bytes::new(),
             }],
             signatures: vec![FrameSignature {
-                scheme: crate::SignatureScheme::Secp256k1.into(),
+                scheme: crate::SignatureScheme::Secp256k1,
                 signer: Bytes::copy_from_slice(&[0x11; 20]),
                 msg: Bytes::new(),
                 signature: Bytes::copy_from_slice(&[0x22; 65]),
@@ -112,7 +110,7 @@ mod tests {
             sender: Address::from([0x11; 20]),
             frames: Vec::new(),
             signatures: vec![FrameSignature {
-                scheme: crate::SignatureScheme::Arbitrary.into(),
+                scheme: crate::SignatureScheme::Arbitrary,
                 signer: Bytes::new(),
                 msg: Bytes::new(),
                 signature: Bytes::copy_from_slice(&[0x22; 32]),

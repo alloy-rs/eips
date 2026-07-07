@@ -1,9 +1,10 @@
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
 
 /// EIP-8141 frame execution mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
@@ -35,9 +36,27 @@ impl From<FrameMode> for u8 {
     }
 }
 
+impl Encodable for FrameMode {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        u8::from(*self).encode(out);
+    }
+
+    fn length(&self) -> usize {
+        u8::from(*self).length()
+    }
+}
+
+impl Decodable for FrameMode {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        Self::try_from_u8(u8::decode(buf)?)
+            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 frame mode"))
+    }
+}
+
 /// EIP-8141 approval scope.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
@@ -79,8 +98,8 @@ impl From<ApprovalScope> for u8 {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct Frame {
-    /// The raw frame mode.
-    pub mode: u8,
+    /// The frame execution mode.
+    pub mode: FrameMode,
     /// Frame flags. Bits 0-1 encode approval scope, bit 2 encodes atomic batching.
     pub flags: u8,
     /// Encoded target account. Empty bytes resolve to the transaction sender.
@@ -96,7 +115,7 @@ pub struct Frame {
 impl Frame {
     /// Creates a new frame from raw field values.
     pub const fn new(
-        mode: u8,
+        mode: FrameMode,
         flags: u8,
         target: Bytes,
         gas_limit: u64,
@@ -104,11 +123,6 @@ impl Frame {
         data: Bytes,
     ) -> Self {
         Self { mode, flags, target, gas_limit, value, data }
-    }
-
-    /// Returns the parsed frame mode, if valid.
-    pub const fn frame_mode(&self) -> Option<FrameMode> {
-        FrameMode::try_from_u8(self.mode)
     }
 
     /// Returns the target address, or `None` when the frame resolves to the transaction sender.
@@ -141,7 +155,7 @@ impl Frame {
 
     /// Returns true if this frame is an expiry verifier frame.
     pub fn is_expiry_verifier(&self) -> bool {
-        self.mode == FrameMode::Verify as u8
+        self.mode == FrameMode::Verify
             && self.target_address() == Some(crate::EXPIRY_VERIFIER)
             && self.flags == 0
             && self.value.is_zero()
