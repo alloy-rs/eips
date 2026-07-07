@@ -1,9 +1,10 @@
 use alloy_primitives::{Address, B256, Bytes};
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
 
 /// EIP-8141 transaction signature scheme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
@@ -44,6 +45,23 @@ impl From<SignatureScheme> for u8 {
     }
 }
 
+impl Encodable for SignatureScheme {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        u8::from(*self).encode(out);
+    }
+
+    fn length(&self) -> usize {
+        u8::from(*self).length()
+    }
+}
+
+impl Decodable for SignatureScheme {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        Self::try_from_u8(u8::decode(buf)?)
+            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 signature scheme"))
+    }
+}
+
 /// The message authorized by an EIP-8141 signature entry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -62,8 +80,8 @@ pub enum SignatureMessage {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameSignature {
-    /// Raw signature scheme identifier.
-    pub scheme: u8,
+    /// Signature scheme identifier.
+    pub scheme: SignatureScheme,
     /// Scheme-dependent signer metadata. For `ARBITRARY`, this must be empty.
     pub signer: Bytes,
     /// Empty for the canonical transaction signature hash, or an explicit 32-byte digest.
@@ -74,13 +92,8 @@ pub struct FrameSignature {
 
 impl FrameSignature {
     /// Creates a new frame signature from raw field values.
-    pub const fn new(scheme: u8, signer: Bytes, msg: Bytes, signature: Bytes) -> Self {
+    pub const fn new(scheme: SignatureScheme, signer: Bytes, msg: Bytes, signature: Bytes) -> Self {
         Self { scheme, signer, msg, signature }
-    }
-
-    /// Returns the parsed signature scheme, if valid.
-    pub const fn signature_scheme(&self) -> Option<SignatureScheme> {
-        SignatureScheme::try_from_u8(self.scheme)
     }
 
     /// Returns true if this signature signs the canonical transaction signature hash.
@@ -110,11 +123,8 @@ impl FrameSignature {
         }
     }
 
-    /// Returns the protocol signature verification gas cost, if the scheme is known.
-    pub const fn verification_gas(&self) -> Option<u64> {
-        match self.signature_scheme() {
-            Some(scheme) => Some(scheme.verification_gas()),
-            None => None,
-        }
+    /// Returns the protocol signature verification gas cost.
+    pub const fn verification_gas(&self) -> u64 {
+        self.scheme.verification_gas()
     }
 }
