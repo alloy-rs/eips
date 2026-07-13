@@ -13,6 +13,16 @@ pub const FRAME_TX_INTRINSIC_COST: u64 = 15_000;
 /// Fixed gas cost charged per frame.
 pub const FRAME_TX_PER_FRAME_COST: u64 = 475;
 
+/// Standard gas charged per frame transaction calldata token.
+///
+/// This matches `GasCosts.TX_DATA_TOKEN_STANDARD` in the execution-specs EIP-8141 draft.
+pub const FRAME_TX_DATA_TOKEN_STANDARD_COST: u64 = 4;
+
+/// Floor gas charged per frame transaction calldata token.
+///
+/// This matches `GasCosts.TX_DATA_TOKEN_FLOOR` in the execution-specs EIP-8141 draft.
+pub const FRAME_TX_DATA_TOKEN_FLOOR_COST: u64 = 16;
+
 /// Protocol entry point caller used by `DEFAULT` and `VERIFY` frames.
 pub const ENTRY_POINT: Address = Address::new(hex!("00000000000000000000000000000000000000aa"));
 
