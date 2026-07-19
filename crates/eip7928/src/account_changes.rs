@@ -24,6 +24,7 @@ pub struct AccountChanges {
     /// List of slot changes for this account.
     pub storage_changes: Vec<SlotChanges>,
     /// List of storage reads for this account.
+    #[cfg_attr(feature = "serde", serde(with = "crate::fixed_bytes_vec"))]
     pub storage_reads: Vec<U256>,
     /// List of balance changes for this account.
     pub balance_changes: Vec<BalanceChange>,
@@ -516,6 +517,22 @@ mod tests {
         };
 
         let json = serde_json::to_string(&acc).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            value["storageChanges"][0]["key"],
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        assert_eq!(
+            value["storageChanges"][0]["changes"][0]["value"],
+            "0x0000000000000000000000000000000000000000000000000000000000000064"
+        );
+        assert_eq!(
+            value["storageReads"][0],
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+        );
+        assert_eq!(value["balanceChanges"][0]["value"], "0x3e8");
+        assert_eq!(value["nonceChanges"][0]["value"], "0x2a");
+        assert_eq!(value["codeChanges"][0]["code"], "0x6000");
         let decoded: AccountChanges = serde_json::from_str(&json).unwrap();
 
         assert_eq!(acc, decoded);
