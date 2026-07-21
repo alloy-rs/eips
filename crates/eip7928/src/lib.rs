@@ -96,13 +96,17 @@ pub(crate) mod fixed_bytes {
 pub(crate) mod fixed_bytes_vec {
     use alloc::vec::Vec;
     use alloy_primitives::{B256, U256};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serializer, ser::SerializeSeq};
 
-    pub(crate) fn serialize<S>(values: &Vec<U256>, serializer: S) -> Result<S::Ok, S::Error>
+    pub(crate) fn serialize<S>(values: &[U256], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        values.iter().map(|value| B256::from(*value)).collect::<Vec<_>>().serialize(serializer)
+        let mut seq = serializer.serialize_seq(Some(values.len()))?;
+        for value in values {
+            seq.serialize_element(&B256::from(*value))?;
+        }
+        seq.end()
     }
 
     pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<Vec<U256>, D::Error>

@@ -484,7 +484,7 @@ mod post_state_tests {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
-    use crate::{BlockAccessIndex, StorageChange};
+    use crate::{BlockAccessIndex, BlockAccessList, StorageChange};
 
     use super::*;
     use alloy_primitives::Bytes;
@@ -571,5 +571,89 @@ mod tests {
         let decoded: Vec<AccountChanges> = serde_json::from_str(&json).unwrap();
 
         assert_eq!(vec_acc, decoded);
+    }
+
+    #[test]
+    fn test_block_access_list_serde_roundtrip_from_populated_fixture() {
+        let fixture = r#"
+[
+  {
+    "address": "0x1111111111111111111111111111111111111111",
+    "storageChanges": [
+      {
+        "key": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "changes": [
+          {
+            "index": "0x1",
+            "value": "0x0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          {
+            "index": "0x2",
+            "value": "0x0000000000000000000000000000000000000000000000000000000000000020"
+          }
+        ]
+      }
+    ],
+    "storageReads": [
+      "0x0000000000000000000000000000000000000000000000000000000000000002"
+    ],
+    "balanceChanges": [
+      {
+        "index": "0x3",
+        "value": "0x3e8"
+      }
+    ],
+    "nonceChanges": [
+      {
+        "index": "0x4",
+        "value": "0x2a"
+      }
+    ],
+    "codeChanges": [
+      {
+        "index": "0x5",
+        "code": "0x6000"
+      }
+    ]
+  }
+]
+"#;
+
+        let decoded: BlockAccessList = serde_json::from_str(fixture).unwrap();
+        let serialized = serde_json::to_string(&decoded).unwrap();
+        let fixture_value: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let serialized_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+
+        assert!(fixture_value.is_array());
+        assert_eq!(fixture_value, serialized_value);
+    }
+
+    #[test]
+    fn test_block_access_list_serde_roundtrip_from_empty_fixture() {
+        let fixture = r#"
+[
+  {
+    "address": "0x2222222222222222222222222222222222222222",
+    "storageChanges": [],
+    "storageReads": [],
+    "balanceChanges": [],
+    "nonceChanges": [],
+    "codeChanges": []
+  }
+]
+"#;
+
+        let decoded: BlockAccessList = serde_json::from_str(fixture).unwrap();
+        let serialized = serde_json::to_string(&decoded).unwrap();
+        let fixture_value: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let serialized_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+
+        assert!(fixture_value.is_array());
+        assert_eq!(fixture_value, serialized_value);
+        assert_eq!(serialized_value[0]["storageChanges"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["storageReads"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["balanceChanges"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["nonceChanges"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["codeChanges"], serde_json::json!([]));
     }
 }
