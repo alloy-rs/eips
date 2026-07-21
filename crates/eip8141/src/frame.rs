@@ -154,11 +154,44 @@ impl Frame {
     }
 
     /// Returns true if this frame is an expiry verifier frame.
+    ///
+    /// Classification depends only on the frame mode and target. Call
+    /// [`Self::has_valid_expiry_verifier_fields`] separately when validating the transaction.
     pub fn is_expiry_verifier(&self) -> bool {
-        self.mode == FrameMode::Verify
-            && self.target_address() == Some(crate::EXPIRY_VERIFIER)
-            && self.flags == 0
-            && self.value.is_zero()
-            && self.data.len() == crate::EXPIRY_DATA_LENGTH
+        self.mode == FrameMode::Verify && self.target_address() == Some(crate::EXPIRY_VERIFIER)
+    }
+
+    /// Returns true if the constrained fields of an expiry verifier frame are valid.
+    pub fn has_valid_expiry_verifier_fields(&self) -> bool {
+        self.flags == 0 && self.value.is_zero() && self.data.len() == crate::EXPIRY_DATA_LENGTH
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Frame, FrameMode};
+    use alloy_primitives::{Bytes, U256};
+
+    fn expiry_frame() -> Frame {
+        Frame {
+            mode: FrameMode::Verify,
+            target: Bytes::copy_from_slice(crate::EXPIRY_VERIFIER.as_slice()),
+            data: Bytes::from(vec![0; crate::EXPIRY_DATA_LENGTH]),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn expiry_verifier_classification_is_separate_from_field_validation() {
+        let mut frame = expiry_frame();
+        assert!(frame.is_expiry_verifier());
+        assert!(frame.has_valid_expiry_verifier_fields());
+
+        frame.flags = 1;
+        frame.value = U256::from(1);
+        frame.data = Bytes::new();
+
+        assert!(frame.is_expiry_verifier());
+        assert!(!frame.has_valid_expiry_verifier_fields());
     }
 }

@@ -39,6 +39,18 @@ impl SignatureScheme {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::SignatureScheme;
+
+    #[test]
+    fn signature_verification_gas_matches_execution_specs() {
+        assert_eq!(SignatureScheme::Arbitrary.verification_gas(), 0);
+        assert_eq!(SignatureScheme::Secp256k1.verification_gas(), 2_800);
+        assert_eq!(SignatureScheme::P256.verification_gas(), 6_700);
+    }
+}
+
 impl From<SignatureScheme> for u8 {
     fn from(value: SignatureScheme) -> Self {
         value as Self
