@@ -17,7 +17,7 @@ pub enum FrameStatus {
     /// Frame completed successfully.
     Success = 0x01,
     /// Frame was skipped because an atomic batch failed.
-    SkippedAtomicBatch = 0x03,
+    SkippedAtomicBatch = 0x02,
 }
 
 impl FrameStatus {
@@ -26,7 +26,7 @@ impl FrameStatus {
         match value {
             0x00 => Some(Self::Failure),
             0x01 => Some(Self::Success),
-            0x03 => Some(Self::SkippedAtomicBatch),
+            0x02 => Some(Self::SkippedAtomicBatch),
             _ => None,
         }
     }
@@ -83,4 +83,18 @@ pub struct FrameReceiptPayload<Log = alloy_primitives::Log> {
     pub payer: Address,
     /// Per-frame receipt entries.
     pub frame_receipts: Vec<FrameReceipt<Log>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FrameStatus;
+
+    #[test]
+    fn frame_status_codes_match_execution_specs() {
+        assert_eq!(u8::from(FrameStatus::Failure), 0);
+        assert_eq!(u8::from(FrameStatus::Success), 1);
+        assert_eq!(u8::from(FrameStatus::SkippedAtomicBatch), 2);
+        assert_eq!(FrameStatus::try_from_u8(2), Some(FrameStatus::SkippedAtomicBatch));
+        assert_eq!(FrameStatus::try_from_u8(3), None);
+    }
 }
