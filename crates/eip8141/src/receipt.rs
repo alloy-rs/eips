@@ -85,6 +85,25 @@ pub struct FrameReceiptPayload<Log = alloy_primitives::Log> {
     pub frame_receipts: Vec<FrameReceipt<Log>>,
 }
 
+impl<Log> FrameReceiptPayload<Log> {
+    /// Maps the log type in every frame receipt.
+    pub fn map_logs<U>(self, mut f: impl FnMut(Log) -> U) -> FrameReceiptPayload<U> {
+        FrameReceiptPayload {
+            cumulative_gas_used: self.cumulative_gas_used,
+            payer: self.payer,
+            frame_receipts: self
+                .frame_receipts
+                .into_iter()
+                .map(|receipt| FrameReceipt {
+                    status: receipt.status,
+                    gas_used: receipt.gas_used,
+                    logs: receipt.logs.into_iter().map(&mut f).collect(),
+                })
+                .collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::FrameStatus;
