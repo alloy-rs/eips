@@ -24,6 +24,7 @@ pub struct AccountChanges {
     /// List of slot changes for this account.
     pub storage_changes: Vec<SlotChanges>,
     /// List of storage reads for this account.
+    #[cfg_attr(feature = "serde", serde(with = "crate::fixed_bytes_vec"))]
     pub storage_reads: Vec<U256>,
     /// List of balance changes for this account.
     pub balance_changes: Vec<BalanceChange>,
@@ -483,7 +484,7 @@ mod post_state_tests {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
-    use crate::{BlockAccessIndex, StorageChange};
+    use crate::{BlockAccessIndex, BlockAccessList, StorageChange};
 
     use super::*;
     use alloy_primitives::Bytes;
@@ -516,6 +517,22 @@ mod tests {
         };
 
         let json = serde_json::to_string(&acc).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            value["storageChanges"][0]["key"],
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        assert_eq!(
+            value["storageChanges"][0]["changes"][0]["value"],
+            "0x0000000000000000000000000000000000000000000000000000000000000064"
+        );
+        assert_eq!(
+            value["storageReads"][0],
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+        );
+        assert_eq!(value["balanceChanges"][0]["value"], "0x3e8");
+        assert_eq!(value["nonceChanges"][0]["value"], "0x2a");
+        assert_eq!(value["codeChanges"][0]["code"], "0x6000");
         let decoded: AccountChanges = serde_json::from_str(&json).unwrap();
 
         assert_eq!(acc, decoded);
@@ -554,5 +571,89 @@ mod tests {
         let decoded: Vec<AccountChanges> = serde_json::from_str(&json).unwrap();
 
         assert_eq!(vec_acc, decoded);
+    }
+
+    #[test]
+    fn test_block_access_list_serde_roundtrip_from_populated_fixture() {
+        let fixture = r#"
+[
+  {
+    "address": "0x1111111111111111111111111111111111111111",
+    "storageChanges": [
+      {
+        "key": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "changes": [
+          {
+            "index": "0x1",
+            "value": "0x0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          {
+            "index": "0x2",
+            "value": "0x0000000000000000000000000000000000000000000000000000000000000020"
+          }
+        ]
+      }
+    ],
+    "storageReads": [
+      "0x0000000000000000000000000000000000000000000000000000000000000002"
+    ],
+    "balanceChanges": [
+      {
+        "index": "0x3",
+        "value": "0x3e8"
+      }
+    ],
+    "nonceChanges": [
+      {
+        "index": "0x4",
+        "value": "0x2a"
+      }
+    ],
+    "codeChanges": [
+      {
+        "index": "0x5",
+        "code": "0x6000"
+      }
+    ]
+  }
+]
+"#;
+
+        let decoded: BlockAccessList = serde_json::from_str(fixture).unwrap();
+        let serialized = serde_json::to_string(&decoded).unwrap();
+        let fixture_value: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let serialized_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+
+        assert!(fixture_value.is_array());
+        assert_eq!(fixture_value, serialized_value);
+    }
+
+    #[test]
+    fn test_block_access_list_serde_roundtrip_from_empty_fixture() {
+        let fixture = r#"
+[
+  {
+    "address": "0x2222222222222222222222222222222222222222",
+    "storageChanges": [],
+    "storageReads": [],
+    "balanceChanges": [],
+    "nonceChanges": [],
+    "codeChanges": []
+  }
+]
+"#;
+
+        let decoded: BlockAccessList = serde_json::from_str(fixture).unwrap();
+        let serialized = serde_json::to_string(&decoded).unwrap();
+        let fixture_value: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let serialized_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+
+        assert!(fixture_value.is_array());
+        assert_eq!(fixture_value, serialized_value);
+        assert_eq!(serialized_value[0]["storageChanges"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["storageReads"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["balanceChanges"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["nonceChanges"], serde_json::json!([]));
+        assert_eq!(serialized_value[0]["codeChanges"], serde_json::json!([]));
     }
 }

@@ -12,10 +12,16 @@ use crate::BlockAccessIndex;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct NonceChange {
     /// The index of bal that stores this nonce change.
-    #[cfg_attr(feature = "serde", serde(alias = "txIndex"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "index", alias = "blockAccessIndex", alias = "txIndex")
+    )]
     pub block_access_index: BlockAccessIndex,
     /// The new nonce of the account.
-    #[cfg_attr(feature = "serde", serde(alias = "postNonce", with = "crate::quantity"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "value", alias = "newNonce", alias = "postNonce", with = "crate::quantity")
+    )]
     pub new_nonce: u64,
 }
 
