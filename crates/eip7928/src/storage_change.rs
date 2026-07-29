@@ -13,10 +13,21 @@ use alloy_primitives::U256;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct StorageChange {
     /// Index of the bal that stores the performed write.
-    #[cfg_attr(feature = "serde", serde(alias = "txIndex"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "index", alias = "blockAccessIndex", alias = "txIndex")
+    )]
     pub block_access_index: BlockAccessIndex,
     /// The new value written to the storage slot.
-    #[cfg_attr(feature = "serde", serde(alias = "postValue"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            rename = "value",
+            alias = "newValue",
+            alias = "postValue",
+            with = "crate::fixed_bytes"
+        )
+    )]
     pub new_value: U256,
 }
 

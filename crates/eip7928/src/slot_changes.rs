@@ -14,6 +14,10 @@ use alloy_primitives::U256;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SlotChanges {
     /// The storage slot key being modified.
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "key", alias = "slot", with = "crate::fixed_bytes")
+    )]
     pub slot: U256,
     /// A list of write operations to this slot, ordered by transaction index.
     #[cfg_attr(feature = "serde", serde(alias = "slotChanges"))]
