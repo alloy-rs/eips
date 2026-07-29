@@ -32,7 +32,7 @@ impl SignatureScheme {
     /// Returns the protocol signature verification gas cost.
     pub const fn verification_gas(self) -> u64 {
         match self {
-            Self::Arbitrary => 100,
+            Self::Arbitrary => 0,
             Self::Secp256k1 => 2_800,
             Self::P256 => 6_700,
         }
@@ -45,7 +45,7 @@ mod tests {
 
     #[test]
     fn signature_verification_gas_matches_execution_specs() {
-        assert_eq!(SignatureScheme::Arbitrary.verification_gas(), 100);
+        assert_eq!(SignatureScheme::Arbitrary.verification_gas(), 0);
         assert_eq!(SignatureScheme::Secp256k1.verification_gas(), 2_800);
         assert_eq!(SignatureScheme::P256.verification_gas(), 6_700);
     }
