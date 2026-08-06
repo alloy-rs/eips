@@ -1,6 +1,6 @@
 //! Helpers for finding the first divergence between block access lists.
 
-use crate::AccountChanges;
+use crate::{AccountChanges, StorageRoot};
 use alloy_primitives::Address;
 use core::{cmp::Ordering, fmt};
 
@@ -154,6 +154,8 @@ pub struct AccountSummary {
     pub nonce_changes: usize,
     /// Number of code changes.
     pub code_changes: usize,
+    /// Storage root included for EIP-8268 state-change entries.
+    pub storage_root: Option<StorageRoot>,
 }
 
 impl AccountSummary {
@@ -167,6 +169,7 @@ impl AccountSummary {
             balance_changes: account.balance_changes.len(),
             nonce_changes: account.nonce_changes.len(),
             code_changes: account.code_changes.len(),
+            storage_root: account.storage_root,
         }
     }
 }
@@ -175,13 +178,20 @@ impl fmt::Display for AccountSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} (storage_changes={}, storage_reads={}, balance_changes={}, nonce_changes={}, code_changes={})",
+            "{} (storage_changes={}, storage_reads={}, balance_changes={}, nonce_changes={}, code_changes={}, storage_root={})",
             self.address,
             self.storage_changes,
             self.storage_reads,
             self.balance_changes,
             self.nonce_changes,
-            self.code_changes
+            self.code_changes,
+            self.storage_root.map_or_else(
+                || "none".into(),
+                |storage_root| match storage_root {
+                    StorageRoot::Empty => "empty".into(),
+                    StorageRoot::Root(root) => alloc::format!("{root}"),
+                }
+            )
         )
     }
 }
@@ -199,6 +209,8 @@ pub struct AccountFieldDiff {
     pub nonce_changes: bool,
     /// `true` if `code_changes` differ.
     pub code_changes: bool,
+    /// `true` if `storage_root` differs.
+    pub storage_root: bool,
 }
 
 impl AccountFieldDiff {
@@ -210,6 +222,7 @@ impl AccountFieldDiff {
             balance_changes: left.balance_changes != right.balance_changes,
             nonce_changes: left.nonce_changes != right.nonce_changes,
             code_changes: left.code_changes != right.code_changes,
+            storage_root: left.storage_root != right.storage_root,
         }
     }
 
@@ -221,6 +234,7 @@ impl AccountFieldDiff {
             || self.balance_changes
             || self.nonce_changes
             || self.code_changes
+            || self.storage_root
     }
 
     fn fmt_flag(
@@ -248,6 +262,7 @@ impl fmt::Display for AccountFieldDiff {
         Self::fmt_flag(f, &mut wrote_field, self.balance_changes, "balance_changes")?;
         Self::fmt_flag(f, &mut wrote_field, self.nonce_changes, "nonce_changes")?;
         Self::fmt_flag(f, &mut wrote_field, self.code_changes, "code_changes")?;
+        Self::fmt_flag(f, &mut wrote_field, self.storage_root, "storage_root")?;
         if !wrote_field {
             f.write_str("none")?;
         }
@@ -268,7 +283,7 @@ mod tests {
         bal::Bal,
     };
     use alloc::format;
-    use alloy_primitives::{Address, Bytes, U256};
+    use alloy_primitives::{Address, B256, Bytes, U256};
 
     fn diagnostic_addr(byte: u8) -> Address {
         let mut address = [0; 20];
@@ -383,6 +398,7 @@ mod tests {
             balance_changes: vec![BalanceChange::new(BlockAccessIndex::new(3), U256::from(3))],
             nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(4), 4)],
             code_changes: vec![CodeChange::new(BlockAccessIndex::new(5), Bytes::from_static(&[5]))],
+            storage_root: None,
         }];
         let right = vec![AccountChanges {
             address: diagnostic_addr(1),
@@ -397,6 +413,7 @@ mod tests {
                 BlockAccessIndex::new(5),
                 Bytes::from_static(&[50]),
             )],
+            storage_root: None,
         }];
 
         let diff = first_diff(&left, &right);
@@ -409,6 +426,7 @@ mod tests {
                 balance_changes: true,
                 nonce_changes: true,
                 code_changes: true,
+                storage_root: false,
             }
         );
         assert_eq!(
@@ -420,7 +438,25 @@ mod tests {
                 balance_changes: 1,
                 nonce_changes: 1,
                 code_changes: 1,
+                storage_root: None,
             })
+        );
+    }
+
+    #[test]
+    fn reports_changed_storage_root_field() {
+        let left = vec![
+            diagnostic_account(diagnostic_addr(1), 1).with_storage_root(B256::from([0x11; 32])),
+        ];
+        let right = vec![
+            diagnostic_account(diagnostic_addr(1), 1).with_storage_root(B256::from([0x22; 32])),
+        ];
+
+        let diff = first_diff(&left, &right);
+
+        assert_eq!(
+            diff.fields_differ,
+            AccountFieldDiff { storage_root: true, ..Default::default() }
         );
     }
 
@@ -496,10 +532,10 @@ mod tests {
                 "fields [balance_changes] differ, ",
                 "left=0x0000000000000000000000000000000000000001 ",
                 "(storage_changes=0, storage_reads=0, balance_changes=1, nonce_changes=0, ",
-                "code_changes=0), ",
+                "code_changes=0, storage_root=none), ",
                 "right=0x0000000000000000000000000000000000000001 ",
                 "(storage_changes=0, storage_reads=0, balance_changes=1, nonce_changes=0, ",
-                "code_changes=0)"
+                "code_changes=0, storage_root=none)"
             )
         );
     }
@@ -516,10 +552,10 @@ mod tests {
                 "address mismatch, ",
                 "left=0x0000000000000000000000000000000000000001 ",
                 "(storage_changes=0, storage_reads=0, balance_changes=1, nonce_changes=0, ",
-                "code_changes=0), ",
+                "code_changes=0, storage_root=none), ",
                 "right=0x0000000000000000000000000000000000000002 ",
                 "(storage_changes=0, storage_reads=0, balance_changes=1, nonce_changes=0, ",
-                "code_changes=0)"
+                "code_changes=0, storage_root=none)"
             )
         );
     }
@@ -535,7 +571,7 @@ mod tests {
                 "account only in left BAL, ",
                 "left=0x0000000000000000000000000000000000000001 ",
                 "(storage_changes=0, storage_reads=0, balance_changes=1, nonce_changes=0, ",
-                "code_changes=0)"
+                "code_changes=0, storage_root=none)"
             )
         );
     }
