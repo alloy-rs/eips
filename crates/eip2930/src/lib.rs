@@ -5,7 +5,11 @@
 
 extern crate alloc;
 
-use alloc::{string::String, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+    vec::Vec,
+};
 use alloy_primitives::{Address, B256, U256};
 use alloy_rlp::{RlpDecodable, RlpDecodableWrapper, RlpEncodable, RlpEncodableWrapper};
 use core::{mem, ops::Deref};
@@ -60,6 +64,52 @@ impl Deref for AccessList {
 }
 
 impl AccessList {
+    /// Removes duplicate addresses and storage keys from this access list.
+    ///
+    /// Duplicate address entries are merged into the first entry for that address. Storage keys
+    /// from later entries are appended to the first entry, and duplicate storage keys are removed
+    /// while preserving their first-occurrence order.
+    ///
+    /// This method preserves the relative order of addresses and storage keys. Call [`Self::sort`]
+    /// afterwards if deterministic ordering is required.
+    ///
+    /// EIP-2930 charges duplicate addresses and storage keys individually, so deduplicating a
+    /// transaction's access list can change its intrinsic gas cost.
+    pub fn dedup(&mut self) {
+        let items = mem::take(&mut self.0);
+        let mut deduped = Vec::<AccessListItem>::with_capacity(items.len());
+        let mut address_positions = BTreeMap::<_, usize>::new();
+
+        for item in items {
+            if let Some(&idx) = address_positions.get(&item.address) {
+                deduped[idx].storage_keys.extend(item.storage_keys);
+            } else {
+                address_positions.insert(item.address, deduped.len());
+                deduped.push(item);
+            }
+        }
+
+        for item in &mut deduped {
+            let mut seen = BTreeSet::<B256>::new();
+            item.storage_keys.retain(|key| seen.insert(*key));
+        }
+
+        self.0 = deduped;
+    }
+
+    /// Sorts this access list in-place by address and each address's storage keys.
+    ///
+    /// This method only provides deterministic ordering. It preserves duplicate addresses and
+    /// storage keys; call [`Self::dedup`] to remove them.
+    pub fn sort(&mut self) {
+        for item in &mut self.0 {
+            item.storage_keys.sort_unstable();
+        }
+        self.0.sort_unstable_by(|a, b| {
+            a.address.cmp(&b.address).then_with(|| a.storage_keys.cmp(&b.storage_keys))
+        });
+    }
+
     /// Converts the list into a vec, expected by revm
     pub fn flattened(&self) -> Vec<(Address, Vec<U256>)> {
         self.flatten().collect()
@@ -222,6 +272,54 @@ mod tests {
         let decoded = AccessList::decode(&mut buf.as_ref()).unwrap();
         assert_eq!(buf.len(), list.length());
         assert_eq!(decoded, list);
+    }
+
+    #[test]
+    fn access_list_dedup_merges_addresses_and_storage_keys() {
+        let address_1 = Address::with_last_byte(1);
+        let address_2 = Address::with_last_byte(2);
+        let slot_1 = B256::with_last_byte(1);
+        let slot_2 = B256::with_last_byte(2);
+        let slot_3 = B256::with_last_byte(3);
+        let mut list = AccessList(vec![
+            AccessListItem { address: address_2, storage_keys: vec![slot_3, slot_1, slot_3] },
+            AccessListItem { address: address_1, storage_keys: vec![slot_2] },
+            AccessListItem { address: address_2, storage_keys: vec![slot_2, slot_1] },
+        ]);
+
+        list.dedup();
+
+        assert_eq!(
+            list,
+            AccessList(vec![
+                AccessListItem { address: address_2, storage_keys: vec![slot_3, slot_1, slot_2] },
+                AccessListItem { address: address_1, storage_keys: vec![slot_2] },
+            ])
+        );
+    }
+
+    #[test]
+    fn access_list_sort_orders_addresses_and_storage_keys() {
+        let address_1 = Address::with_last_byte(1);
+        let address_2 = Address::with_last_byte(2);
+        let slot_1 = B256::with_last_byte(1);
+        let slot_2 = B256::with_last_byte(2);
+        let mut list = AccessList(vec![
+            AccessListItem { address: address_2, storage_keys: vec![slot_2, slot_1, slot_1] },
+            AccessListItem { address: address_1, storage_keys: vec![slot_2] },
+            AccessListItem { address: address_2, storage_keys: vec![slot_1] },
+        ]);
+
+        list.sort();
+
+        assert_eq!(
+            list,
+            AccessList(vec![
+                AccessListItem { address: address_1, storage_keys: vec![slot_2] },
+                AccessListItem { address: address_2, storage_keys: vec![slot_1] },
+                AccessListItem { address: address_2, storage_keys: vec![slot_1, slot_1, slot_2] },
+            ])
+        );
     }
 
     #[test]
