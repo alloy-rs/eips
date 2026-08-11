@@ -75,6 +75,7 @@ impl AccessList {
     ///
     /// EIP-2930 charges duplicate addresses and storage keys individually, so deduplicating a
     /// transaction's access list can change its intrinsic gas cost.
+    #[inline]
     pub fn dedup(&mut self) {
         let items = mem::take(&mut self.0);
         let mut deduped = Vec::<AccessListItem>::with_capacity(items.len());
@@ -101,6 +102,7 @@ impl AccessList {
     ///
     /// This method only provides deterministic ordering. It preserves duplicate addresses and
     /// storage keys; call [`Self::dedup`] to remove them.
+    #[inline]
     pub fn sort(&mut self) {
         for item in &mut self.0 {
             item.storage_keys.sort_unstable();
@@ -108,6 +110,26 @@ impl AccessList {
         self.0.sort_unstable_by(|a, b| {
             a.address.cmp(&b.address).then_with(|| a.storage_keys.cmp(&b.storage_keys))
         });
+    }
+
+    /// Normalizes this access list into a canonical form: duplicate addresses and storage keys
+    /// are removed, and entries are sorted deterministically.
+    ///
+    /// Equivalent to calling [`Self::dedup`] followed by [`Self::sort`].
+    ///
+    /// EIP-2930 charges duplicate addresses and storage keys individually, so normalizing a
+    /// transaction's access list can change its intrinsic gas cost.
+    #[inline]
+    pub fn normalize(&mut self) {
+        self.dedup();
+        self.sort();
+    }
+
+    /// Consuming variant of [`Self::normalize`] that returns the normalized access list.
+    #[inline]
+    pub fn normalized(mut self) -> Self {
+        self.normalize();
+        self
     }
 
     /// Converts the list into a vec, expected by revm
@@ -318,6 +340,32 @@ mod tests {
                 AccessListItem { address: address_1, storage_keys: vec![slot_2] },
                 AccessListItem { address: address_2, storage_keys: vec![slot_1] },
                 AccessListItem { address: address_2, storage_keys: vec![slot_1, slot_1, slot_2] },
+            ])
+        );
+    }
+
+    #[test]
+    fn access_list_normalize_dedups_and_sorts() {
+        let address_1 = Address::with_last_byte(1);
+        let address_2 = Address::with_last_byte(2);
+        let slot_1 = B256::with_last_byte(1);
+        let slot_2 = B256::with_last_byte(2);
+        let slot_3 = B256::with_last_byte(3);
+        let mut list = AccessList(vec![
+            AccessListItem { address: address_2, storage_keys: vec![slot_3, slot_1, slot_3] },
+            AccessListItem { address: address_1, storage_keys: vec![slot_2] },
+            AccessListItem { address: address_2, storage_keys: vec![slot_2, slot_1] },
+        ]);
+
+        let normalized = list.clone().normalized();
+        list.normalize();
+        assert_eq!(normalized, list);
+
+        assert_eq!(
+            list,
+            AccessList(vec![
+                AccessListItem { address: address_1, storage_keys: vec![slot_2] },
+                AccessListItem { address: address_2, storage_keys: vec![slot_1, slot_2, slot_3] },
             ])
         );
     }
