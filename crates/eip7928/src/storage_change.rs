@@ -21,12 +21,7 @@ pub struct StorageChange {
     /// The new value written to the storage slot.
     #[cfg_attr(
         feature = "serde",
-        serde(
-            rename = "value",
-            alias = "newValue",
-            alias = "postValue",
-            with = "crate::fixed_bytes"
-        )
+        serde(rename = "value", alias = "newValue", alias = "postValue")
     )]
     pub new_value: U256,
 }

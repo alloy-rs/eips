@@ -517,14 +517,8 @@ mod tests {
 
         let json = serde_json::to_string(&acc).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(
-            value["storageChanges"][0]["key"],
-            "0x0000000000000000000000000000000000000000000000000000000000000001"
-        );
-        assert_eq!(
-            value["storageChanges"][0]["changes"][0]["value"],
-            "0x0000000000000000000000000000000000000000000000000000000000000064"
-        );
+        assert_eq!(value["storageChanges"][0]["key"], "0x1");
+        assert_eq!(value["storageChanges"][0]["changes"][0]["value"], "0x64");
         assert_eq!(value["storageReads"][0], "0x2");
         assert_eq!(value["balanceChanges"][0]["value"], "0x3e8");
         assert_eq!(value["nonceChanges"][0]["value"], "0x2a");
@@ -558,6 +552,57 @@ mod tests {
             serde_json::to_value(decoded).unwrap()["storageReads"],
             serde_json::json!(["0x0", "0x1", "0x2"])
         );
+    }
+
+    #[test]
+    fn test_eest_storage_fields_deserialize_compact_quantities() {
+        // Extracted from tests-glamsterdam-devnet@v7.2.0's precompile_warming.json fixture.
+        let fixture = r#"
+        [
+          {
+            "address": "0x0000f90827f1c53a10cb7a02335b175320002935",
+            "storageChanges": [
+              {
+                "slot": "0x01",
+                "slotChanges": [
+                  {
+                    "blockAccessIndex": "0x00",
+                    "postValue": "0x27330b1c525088b9b5ed2ced86b42d53378c8f6b384e8c3897493e851bc026df"
+                  }
+                ]
+              }
+            ],
+            "storageReads": [],
+            "balanceChanges": [],
+            "nonceChanges": [],
+            "codeChanges": []
+          },
+          {
+            "address": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+            "storageChanges": [
+              {
+                "slot": "0x0e22",
+                "slotChanges": [
+                  {
+                    "blockAccessIndex": "0x00",
+                    "postValue": "0x4e20"
+                  }
+                ]
+              }
+            ],
+            "storageReads": ["0x2e21"],
+            "balanceChanges": [],
+            "nonceChanges": [],
+            "codeChanges": []
+          }
+        ]
+        "#;
+
+        let decoded: BlockAccessList = serde_json::from_str(fixture).unwrap();
+        assert_eq!(decoded[0].storage_changes[0].slot, U256::from(1));
+        assert_eq!(decoded[1].storage_changes[0].slot, U256::from(0x0e22));
+        assert_eq!(decoded[1].storage_changes[0].changes[0].new_value, U256::from(0x4e20));
+        assert_eq!(decoded[1].storage_reads, vec![U256::from(0x2e21)]);
     }
 
     #[test]
@@ -603,15 +648,15 @@ mod tests {
     "address": "0x1111111111111111111111111111111111111111",
     "storageChanges": [
       {
-        "key": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "key": "0x1",
         "changes": [
           {
             "index": "0x1",
-            "value": "0x0000000000000000000000000000000000000000000000000000000000000010"
+            "value": "0x10"
           },
           {
             "index": "0x2",
-            "value": "0x0000000000000000000000000000000000000000000000000000000000000020"
+            "value": "0x20"
           }
         ]
       }
