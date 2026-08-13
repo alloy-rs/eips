@@ -14,9 +14,21 @@ pub type BlockAccessList = Vec<AccountChanges>;
 /// Computes the hash of the given block access list.
 #[cfg(feature = "rlp")]
 pub fn compute_block_access_list_hash(bal: &[AccountChanges]) -> alloy_primitives::B256 {
-    let mut buf = Vec::new();
-    alloy_rlp::encode_list(bal, &mut buf);
-    alloy_primitives::keccak256(&buf)
+    compute_block_access_list_hash_with_buf(bal, &mut Vec::new())
+}
+
+/// Computes the hash of the given block access list, encoding into the given buffer.
+///
+/// The buffer is cleared before use, so a buffer with existing capacity can be reused across
+/// calls to avoid repeated allocations.
+#[cfg(feature = "rlp")]
+pub fn compute_block_access_list_hash_with_buf(
+    bal: &[AccountChanges],
+    buf: &mut Vec<u8>,
+) -> alloy_primitives::B256 {
+    buf.clear();
+    alloy_rlp::encode_list(bal, buf);
+    alloy_primitives::keccak256(buf)
 }
 
 /// Computes the total number of items in the block access list, counting each account and storage
@@ -306,10 +318,22 @@ pub mod bal {
         /// Computes the hash of this block access list.
         #[cfg(feature = "rlp")]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
+            self.compute_hash_with_buf(&mut Vec::new())
+        }
+
+        /// Computes the hash of this block access list, encoding into the given buffer if the
+        /// list is non-empty.
+        ///
+        /// For a non-empty list the buffer is cleared before use, so a buffer with existing
+        /// capacity can be reused across calls to avoid repeated allocations. An empty list
+        /// returns [`crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH`] without touching the
+        /// buffer.
+        #[cfg(feature = "rlp")]
+        pub fn compute_hash_with_buf(&self, buf: &mut Vec<u8>) -> alloy_primitives::B256 {
             if self.0.is_empty() {
                 return crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH;
             }
-            super::compute_block_access_list_hash(&self.0)
+            super::compute_block_access_list_hash_with_buf(&self.0, buf)
         }
     }
 
@@ -1540,6 +1564,18 @@ mod tests {
 
         assert_eq!(bal.compute_hash(), super::compute_block_access_list_hash(bal.as_slice()));
         assert_ne!(bal.compute_hash(), EMPTY_BLOCK_ACCESS_LIST_HASH);
+    }
+
+    #[test]
+    fn bal_compute_hash_with_buf_clears_reused_buffer() {
+        let bal = sample_bal();
+        let mut buf = alloc::vec![0xff; 32];
+
+        assert_eq!(bal.compute_hash_with_buf(&mut buf), bal.compute_hash());
+        assert_eq!(
+            super::compute_block_access_list_hash_with_buf(bal.as_slice(), &mut buf),
+            super::compute_block_access_list_hash(bal.as_slice())
+        );
     }
 
     #[test]
