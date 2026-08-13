@@ -321,10 +321,13 @@ pub mod bal {
             self.compute_hash_with_buf(&mut Vec::new())
         }
 
-        /// Computes the hash of this block access list, encoding into the given buffer.
+        /// Computes the hash of this block access list, encoding into the given buffer if the
+        /// list is non-empty.
         ///
-        /// The buffer is cleared before use, so a buffer with existing capacity can be reused
-        /// across calls to avoid repeated allocations.
+        /// For a non-empty list the buffer is cleared before use, so a buffer with existing
+        /// capacity can be reused across calls to avoid repeated allocations. An empty list
+        /// returns [`crate::constants::EMPTY_BLOCK_ACCESS_LIST_HASH`] without touching the
+        /// buffer.
         #[cfg(feature = "rlp")]
         pub fn compute_hash_with_buf(&self, buf: &mut Vec<u8>) -> alloy_primitives::B256 {
             if self.0.is_empty() {
