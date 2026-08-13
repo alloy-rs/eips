@@ -539,6 +539,37 @@ mod tests {
     }
 
     #[test]
+    fn test_storage_reads_deserialize_compact_and_fixed_bytes() {
+        let fixture = r#"
+        {
+            "address": "0x1111111111111111111111111111111111111111",
+            "storageChanges": [],
+            "storageReads": [
+                "0x00",
+                "0x01",
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "balanceChanges": [],
+            "nonceChanges": [],
+            "codeChanges": []
+        }
+        "#;
+
+        let decoded: AccountChanges = serde_json::from_str(fixture).unwrap();
+        assert_eq!(decoded.storage_reads, vec![U256::ZERO, U256::from(1), U256::from(2)]);
+
+        let serialized = serde_json::to_value(decoded).unwrap();
+        assert_eq!(
+            serialized["storageReads"],
+            serde_json::json!([
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000000000000000000000000001",
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ])
+        );
+    }
+
+    #[test]
     fn test_vec_account_changes_serde() {
         let acc1 = AccountChanges::new(Address::from([0x11; 20]))
             .with_storage_read(U256::from(1))

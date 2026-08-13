@@ -98,6 +98,22 @@ pub(crate) mod fixed_bytes_vec {
     use alloy_primitives::{B256, U256};
     use serde::{Deserialize, Deserializer, Serializer, ser::SerializeSeq};
 
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum FixedBytesOrQuantity {
+        FixedBytes(B256),
+        Quantity(U256),
+    }
+
+    impl FixedBytesOrQuantity {
+        const fn into_u256(self) -> U256 {
+            match self {
+                Self::FixedBytes(value) => U256::from_be_bytes(value.0),
+                Self::Quantity(value) => value,
+            }
+        }
+    }
+
     pub(crate) fn serialize<S>(values: &[U256], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -113,7 +129,7 @@ pub(crate) mod fixed_bytes_vec {
     where
         D: Deserializer<'de>,
     {
-        Vec::<B256>::deserialize(deserializer)
-            .map(|values| values.into_iter().map(|value| U256::from_be_bytes(value.0)).collect())
+        Vec::<FixedBytesOrQuantity>::deserialize(deserializer)
+            .map(|values| values.into_iter().map(FixedBytesOrQuantity::into_u256).collect())
     }
 }
