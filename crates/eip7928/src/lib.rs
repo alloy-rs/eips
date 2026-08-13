@@ -69,25 +69,3 @@ mod quantity {
         U64::deserialize(deserializer).map(|value| value.to())
     }
 }
-
-/// Serde helpers for storage keys and values, which are JSON `bytes32` values rather than
-/// quantity-encoded integers.
-#[cfg(feature = "serde")]
-pub(crate) mod fixed_bytes {
-    use alloy_primitives::{B256, U256};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub(crate) fn serialize<S>(value: &U256, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        B256::from(*value).serialize(serializer)
-    }
-
-    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        B256::deserialize(deserializer).map(|value| U256::from_be_bytes(value.0))
-    }
-}
