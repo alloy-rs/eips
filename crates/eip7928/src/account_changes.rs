@@ -24,7 +24,6 @@ pub struct AccountChanges {
     /// List of slot changes for this account.
     pub storage_changes: Vec<SlotChanges>,
     /// List of storage reads for this account.
-    #[cfg_attr(feature = "serde", serde(with = "crate::fixed_bytes_vec"))]
     pub storage_reads: Vec<U256>,
     /// List of balance changes for this account.
     pub balance_changes: Vec<BalanceChange>,
@@ -526,16 +525,39 @@ mod tests {
             value["storageChanges"][0]["changes"][0]["value"],
             "0x0000000000000000000000000000000000000000000000000000000000000064"
         );
-        assert_eq!(
-            value["storageReads"][0],
-            "0x0000000000000000000000000000000000000000000000000000000000000002"
-        );
+        assert_eq!(value["storageReads"][0], "0x2");
         assert_eq!(value["balanceChanges"][0]["value"], "0x3e8");
         assert_eq!(value["nonceChanges"][0]["value"], "0x2a");
         assert_eq!(value["codeChanges"][0]["code"], "0x6000");
         let decoded: AccountChanges = serde_json::from_str(&json).unwrap();
 
         assert_eq!(acc, decoded);
+    }
+
+    #[test]
+    fn test_storage_reads_deserialize_compact_quantities() {
+        let fixture = r#"
+        {
+            "address": "0x1111111111111111111111111111111111111111",
+            "storageChanges": [],
+            "storageReads": [
+                "0x00",
+                "0x01",
+                "0x02"
+            ],
+            "balanceChanges": [],
+            "nonceChanges": [],
+            "codeChanges": []
+        }
+        "#;
+
+        let decoded: AccountChanges = serde_json::from_str(fixture).unwrap();
+        assert_eq!(decoded.storage_reads, vec![U256::ZERO, U256::from(1), U256::from(2)]);
+
+        assert_eq!(
+            serde_json::to_value(decoded).unwrap()["storageReads"],
+            serde_json::json!(["0x0", "0x1", "0x2"])
+        );
     }
 
     #[test]
@@ -595,7 +617,7 @@ mod tests {
       }
     ],
     "storageReads": [
-      "0x0000000000000000000000000000000000000000000000000000000000000002"
+      "0x2"
     ],
     "balanceChanges": [
       {
