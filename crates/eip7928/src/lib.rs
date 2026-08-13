@@ -69,3 +69,14 @@ mod quantity {
         U64::deserialize(deserializer).map(|value| value.to())
     }
 }
+
+/// Serializes a `U256` storage key or value as a 32-byte zero-padded `bytes32` value per the
+/// `execution-apis` schema. Deserialization intentionally stays on the default `U256` impl, which
+/// accepts both padded values and compact quantity encodings such as `0x0`.
+#[cfg(feature = "serde")]
+pub(crate) fn serialize_bytes32<S: serde::Serializer>(
+    value: &alloy_primitives::U256,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serde::Serialize::serialize(&alloy_primitives::B256::from(*value), serializer)
+}

@@ -19,9 +19,17 @@ pub struct StorageChange {
     )]
     pub block_access_index: BlockAccessIndex,
     /// The new value written to the storage slot.
+    ///
+    /// Serialized as a 32-byte zero-padded `bytes32` value per the `execution-apis` schema, while
+    /// deserialization also accepts compact quantity encodings such as `0x0`.
     #[cfg_attr(
         feature = "serde",
-        serde(rename = "value", alias = "newValue", alias = "postValue")
+        serde(
+            rename = "value",
+            alias = "newValue",
+            alias = "postValue",
+            serialize_with = "crate::serialize_bytes32"
+        )
     )]
     pub new_value: U256,
 }
