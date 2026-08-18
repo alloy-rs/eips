@@ -24,6 +24,10 @@ pub struct AccountChanges {
     /// List of slot changes for this account.
     pub storage_changes: Vec<SlotChanges>,
     /// List of storage reads for this account.
+    ///
+    /// Serialized as 32-byte zero-padded `bytes32` values per the `execution-apis` schema, while
+    /// deserialization also accepts compact quantity encodings such as `0x0`.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_storage_reads"))]
     pub storage_reads: Vec<U256>,
     /// List of balance changes for this account.
     pub balance_changes: Vec<BalanceChange>,
@@ -222,6 +226,17 @@ impl AccountChanges {
         self.storage_changes.extend(iter);
         self
     }
+}
+
+/// Serializes storage read slots as 32-byte zero-padded `bytes32` values per the `execution-apis`
+/// schema. Deserialization intentionally stays on the default `U256` impl, which accepts both
+/// padded values and compact quantity encodings such as `0x0`.
+#[cfg(feature = "serde")]
+fn serialize_storage_reads<S: serde::Serializer>(
+    values: &[U256],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(values.iter().map(|value| alloy_primitives::B256::from(*value)))
 }
 
 fn merge_slot_changes(existing: &mut Vec<SlotChanges>, incoming: Vec<SlotChanges>) {
@@ -517,9 +532,18 @@ mod tests {
 
         let json = serde_json::to_string(&acc).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(value["storageChanges"][0]["key"], "0x1");
-        assert_eq!(value["storageChanges"][0]["changes"][0]["value"], "0x64");
-        assert_eq!(value["storageReads"][0], "0x2");
+        assert_eq!(
+            value["storageChanges"][0]["key"],
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+        assert_eq!(
+            value["storageChanges"][0]["changes"][0]["value"],
+            "0x0000000000000000000000000000000000000000000000000000000000000064"
+        );
+        assert_eq!(
+            value["storageReads"][0],
+            "0x0000000000000000000000000000000000000000000000000000000000000002"
+        );
         assert_eq!(value["balanceChanges"][0]["value"], "0x3e8");
         assert_eq!(value["nonceChanges"][0]["value"], "0x2a");
         assert_eq!(value["codeChanges"][0]["code"], "0x6000");
@@ -550,7 +574,11 @@ mod tests {
 
         assert_eq!(
             serde_json::to_value(decoded).unwrap()["storageReads"],
-            serde_json::json!(["0x0", "0x1", "0x2"])
+            serde_json::json!([
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "0x0000000000000000000000000000000000000000000000000000000000000001",
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ])
         );
     }
 
@@ -648,21 +676,21 @@ mod tests {
     "address": "0x1111111111111111111111111111111111111111",
     "storageChanges": [
       {
-        "key": "0x1",
+        "key": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "changes": [
           {
             "index": "0x1",
-            "value": "0x10"
+            "value": "0x0000000000000000000000000000000000000000000000000000000000000010"
           },
           {
             "index": "0x2",
-            "value": "0x20"
+            "value": "0x0000000000000000000000000000000000000000000000000000000000000020"
           }
         ]
       }
     ],
     "storageReads": [
-      "0x2"
+      "0x0000000000000000000000000000000000000000000000000000000000000002"
     ],
     "balanceChanges": [
       {

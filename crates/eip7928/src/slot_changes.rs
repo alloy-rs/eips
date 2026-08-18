@@ -14,7 +14,13 @@ use alloy_primitives::U256;
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SlotChanges {
     /// The storage slot key being modified.
-    #[cfg_attr(feature = "serde", serde(rename = "key", alias = "slot"))]
+    ///
+    /// Serialized as a 32-byte zero-padded `bytes32` value per the `execution-apis` schema, while
+    /// deserialization also accepts compact quantity encodings such as `0x0`.
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "key", alias = "slot", serialize_with = "crate::serialize_bytes32")
+    )]
     pub slot: U256,
     /// A list of write operations to this slot, ordered by transaction index.
     #[cfg_attr(feature = "serde", serde(alias = "slotChanges"))]
