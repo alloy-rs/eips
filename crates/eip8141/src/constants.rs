@@ -18,11 +18,11 @@ pub const FRAME_TX_PER_FRAME_COST: u64 = 475;
 /// This matches `GasCosts.TX_DATA_TOKEN_STANDARD` in the execution-specs EIP-8141 draft.
 pub const FRAME_TX_DATA_TOKEN_STANDARD_COST: u64 = 4;
 
-/// EIP-7623 total-cost floor charged per frame transaction calldata token.
+/// Total-cost floor charged per frame transaction calldata token.
 ///
-/// This is already the full gas cost per token; it is not a multiplier on
-/// [`FRAME_TX_DATA_TOKEN_STANDARD_COST`].
-pub const FRAME_TX_TOTAL_COST_FLOOR_PER_TOKEN: u64 = 10;
+/// EIP-7976 raises this from 10 to 16 and counts every calldata byte as four
+/// floor tokens, producing a uniform 64 gas floor per byte.
+pub const FRAME_TX_TOTAL_COST_FLOOR_PER_TOKEN: u64 = 16;
 
 /// Protocol entry point caller used by `DEFAULT` and `VERIFY` frames.
 pub const ENTRY_POINT: Address = Address::new(hex!("00000000000000000000000000000000000000aa"));
