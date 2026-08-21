@@ -135,7 +135,7 @@ impl Frame {
         mode: FrameMode,
         flags: u8,
         target: Bytes,
-        gas_limit: u64,
+        execution_gas: u64,
         value: U256,
         data: Bytes,
     ) -> Self {
@@ -143,7 +143,27 @@ impl Frame {
             mode,
             flags,
             target,
-            limits: FrameLimits { execution: gas_limit, state: 0 },
+            limits: FrameLimits { execution: execution_gas, state: 0 },
+            value,
+            data,
+        }
+    }
+
+    /// Creates a new frame from raw field values, allowing both execution and state gas to be set.
+    pub const fn new_with_dynamic_limits(
+        mode: FrameMode,
+        flags: u8,
+        target: Bytes,
+        execution_gas: u64,
+        state_gas: u64,
+        value: U256,
+        data: Bytes,
+    ) -> Self {
+        Self {
+            mode,
+            flags,
+            target,
+            limits: FrameLimits { execution: execution_gas, state: state_gas },
             value,
             data,
         }
