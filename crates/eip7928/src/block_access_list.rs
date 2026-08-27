@@ -1806,6 +1806,124 @@ mod hash_tests {
         );
     }
 
+    /// Demonstrates how RPC-style state overrides — nested per-account override data built from
+    /// plain primitives — are applied to a positioned BAL and observed at the returned index.
+    #[test]
+    fn bal_insert_applies_state_overrides() {
+        let alice = Address::from([0xaa; 20]);
+        let bob = Address::from([0xbb; 20]);
+        let slot = U256::from(1);
+
+        // BAL for a 3-tx block: alice's balance and storage slot are written by txs 0..=2
+        // (block access indices 1..=3). The caller simulates positioned at index 2.
+        let mut bal = Bal::new(vec![
+            AccountChanges::new(alice)
+                .with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![
+                        StorageChange::new(BlockAccessIndex::new(2), U256::from(20)),
+                        StorageChange::new(BlockAccessIndex::new(3), U256::from(30)),
+                    ],
+                ))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(2), U256::from(200)))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(3), U256::from(300))),
+        ]);
+
+        // Effective balance at a position: latest change strictly before it.
+        let balance_at = |account: &AccountChanges, position: BlockAccessIndex| {
+            account
+                .balance_changes
+                .iter()
+                .rfind(|change| change.block_access_index < position)
+                .map(|change| change.post_balance)
+        };
+        let position = BlockAccessIndex::new(2);
+        assert_eq!(balance_at(&bal[0], position), Some(U256::from(100)));
+
+        // Override data as an RPC layer would carry it:
+        // (address, balance, nonce, code, [(slot, value)]) — no BAL indices involved.
+        let overrides = [
+            (alice, Some(U256::from(999)), None, None, vec![(slot, U256::from(90))]),
+            (
+                bob,
+                None,
+                Some(7),
+                Some(Bytes::from_static(&[0x60, 0x00])),
+                vec![(U256::from(5), U256::from(50))],
+            ),
+            // a later entry for an already overridden account wins
+            (alice, Some(U256::from(1000)), None, None, vec![]),
+        ];
+
+        // Conversion uses a placeholder index; `insert_changes_at` restamps every change to the
+        // insertion point.
+        let placeholder = BlockAccessIndex::PRE_EXECUTION;
+        let overlay = overrides.into_iter().map(|(address, balance, nonce, code, slots)| {
+            let mut account = AccountChanges::new(address);
+            if let Some(balance) = balance {
+                account = account.with_balance_change(BalanceChange::new(placeholder, balance));
+            }
+            if let Some(nonce) = nonce {
+                account = account.with_nonce_change(NonceChange::new(placeholder, nonce));
+            }
+            if let Some(code) = code {
+                account = account.with_code_change(CodeChange::new(placeholder, code));
+            }
+            for (slot, value) in slots {
+                account = account.with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![StorageChange::new(placeholder, value)],
+                ));
+            }
+            account
+        });
+
+        let positioned_index = bal.insert_changes_at(position, overlay);
+        assert_eq!(positioned_index, BlockAccessIndex::new(3));
+
+        // The override layer sits at the insertion point, the original suffix follows it.
+        assert_eq!(
+            bal[0].balance_changes,
+            vec![
+                BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)),
+                BalanceChange::new(BlockAccessIndex::new(2), U256::from(1000)),
+                BalanceChange::new(BlockAccessIndex::new(3), U256::from(200)),
+                BalanceChange::new(BlockAccessIndex::new(4), U256::from(300)),
+            ]
+        );
+        assert_eq!(
+            bal[0].storage_changes,
+            vec![SlotChanges::new(
+                slot,
+                vec![
+                    StorageChange::new(BlockAccessIndex::new(2), U256::from(90)),
+                    StorageChange::new(BlockAccessIndex::new(3), U256::from(20)),
+                    StorageChange::new(BlockAccessIndex::new(4), U256::from(30)),
+                ],
+            )]
+        );
+        assert_eq!(bal[1].address, bob);
+        assert_eq!(bal[1].nonce_changes, vec![NonceChange::new(BlockAccessIndex::new(2), 7)]);
+        assert_eq!(
+            bal[1].code_changes,
+            vec![CodeChange::new(BlockAccessIndex::new(2), Bytes::from_static(&[0x60, 0x00]))]
+        );
+        assert_eq!(
+            bal[1].storage_changes,
+            vec![SlotChanges::new(
+                U256::from(5),
+                vec![StorageChange::new(BlockAccessIndex::new(2), U256::from(50))],
+            )]
+        );
+
+        // The original position still observes pre-override state, the returned index observes
+        // the override, and positions past the shifted suffix observe the original final value.
+        assert_eq!(balance_at(&bal[0], position), Some(U256::from(100)));
+        assert_eq!(balance_at(&bal[0], positioned_index), Some(U256::from(1000)));
+        assert_eq!(balance_at(&bal[0], BlockAccessIndex::new(5)), Some(U256::from(300)));
+    }
+
     #[test]
     fn bal_sort_orders_all_eip7928_lists() {
         let address_1 = Address::from([0x11; 20]);
