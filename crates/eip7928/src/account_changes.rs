@@ -3,7 +3,8 @@
 //! This eliminates address redundancy across different change types.
 
 use crate::{
-    SlotChanges, balance_change::BalanceChange, code_change::CodeChange, nonce_change::NonceChange,
+    BlockAccessIndex, SlotChanges, balance_change::BalanceChange, code_change::CodeChange,
+    nonce_change::NonceChange,
 };
 use alloc::vec::Vec;
 use alloy_primitives::{
@@ -62,6 +63,26 @@ impl AccountChanges {
     #[inline]
     pub const fn address(&self) -> Address {
         self.address
+    }
+
+    /// Returns `true` if this account change set contains no changes or reads.
+    ///
+    /// A [`SlotChanges`] entry with an empty change list does not count as data, so an entry
+    /// that only carries the address (or empty slot entries) is considered empty.
+    pub fn is_empty(&self) -> bool {
+        let Self {
+            address: _,
+            storage_changes,
+            storage_reads,
+            balance_changes,
+            nonce_changes,
+            code_changes,
+        } = self;
+        storage_changes.iter().all(SlotChanges::is_empty)
+            && storage_reads.is_empty()
+            && balance_changes.is_empty()
+            && nonce_changes.is_empty()
+            && code_changes.is_empty()
     }
 
     /// Returns the storage changes for this account.
@@ -169,6 +190,66 @@ impl AccountChanges {
         self.code_changes.sort_unstable_by_key(|change| change.block_access_index);
     }
 
+    /// Renormalizes this account change set in place.
+    ///
+    /// Empty [`SlotChanges`] entries are dropped, duplicate slot entries are folded together
+    /// (preserving the relative order of their changes), and storage reads are deduplicated and
+    /// pruned against written slots, restoring the EIP-7928 invariant that a slot appears in
+    /// either reads or changes but not both.
+    pub fn normalize(&mut self) {
+        self.storage_changes.retain(|slot_changes| !slot_changes.is_empty());
+        let incoming = core::mem::replace(self, Self::new(self.address));
+        self.merge(incoming);
+    }
+
+    /// Collapses each change list to its last entry and assigns that entry to `at`.
+    ///
+    /// The last entry of each list is treated as the effective value ("last write wins"),
+    /// matching [`Self::storage_post_states`]. Storage reads carry no block access index and are
+    /// left untouched.
+    pub fn collapse_changes_at(&mut self, at: BlockAccessIndex) {
+        let Self {
+            address: _,
+            storage_changes,
+            storage_reads: _,
+            balance_changes,
+            nonce_changes,
+            code_changes,
+        } = self;
+        for slot_changes in storage_changes.iter_mut() {
+            keep_last(&mut slot_changes.changes, |change| change.block_access_index = at);
+        }
+        keep_last(balance_changes, |change| change.block_access_index = at);
+        keep_last(nonce_changes, |change| change.block_access_index = at);
+        keep_last(code_changes, |change| change.block_access_index = at);
+    }
+
+    /// Shifts every recorded block access index at or after `from` forward by one.
+    ///
+    /// Indices saturate at `u64::MAX` instead of overflowing.
+    pub fn shift_indices_from(&mut self, from: BlockAccessIndex) {
+        let Self {
+            address: _,
+            storage_changes,
+            storage_reads: _,
+            balance_changes,
+            nonce_changes,
+            code_changes,
+        } = self;
+        let storage = storage_changes
+            .iter_mut()
+            .flat_map(|slot_changes| slot_changes.changes.iter_mut())
+            .map(|change| &mut change.block_access_index);
+        let balances = balance_changes.iter_mut().map(|change| &mut change.block_access_index);
+        let nonces = nonce_changes.iter_mut().map(|change| &mut change.block_access_index);
+        let codes = code_changes.iter_mut().map(|change| &mut change.block_access_index);
+        for index in storage.chain(balances).chain(nonces).chain(codes) {
+            if *index >= from {
+                index.saturating_increment();
+            }
+        }
+    }
+
     /// Set the address.
     pub const fn with_address(mut self, address: Address) -> Self {
         self.address = address;
@@ -221,6 +302,15 @@ impl AccountChanges {
     {
         self.storage_changes.extend(iter);
         self
+    }
+}
+
+/// Keeps only the last entry of the list, applying `stamp` to it.
+fn keep_last<T>(changes: &mut Vec<T>, stamp: impl FnOnce(&mut T)) {
+    if let Some(mut change) = changes.pop() {
+        stamp(&mut change);
+        changes.clear();
+        changes.push(change);
     }
 }
 
