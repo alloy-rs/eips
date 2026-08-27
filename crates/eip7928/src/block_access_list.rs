@@ -192,6 +192,23 @@ pub mod bal {
         /// `block_access_index` should use the returned index to observe the inserted changes while
         /// preserving the original BAL state at that position.
         ///
+        /// BAL reads observe changes strictly before the positioned index, so inserting a layer
+        /// moves the read position forward with the original suffix:
+        ///
+        /// ```text
+        /// before: [change 0] [change 1] | read @ 2 | [change 2] [change 3]
+        /// after:  [change 0] [change 1] [override @ 2] | read @ 3 | [change 3] [change 4]
+        /// ```
+        ///
+        /// This effectively allows RPC-style state overrides to be applied directly to a positioned
+        /// BAL: convert the overridden balance, nonce, code, and storage values into
+        /// [`AccountChanges`], insert them at the current position, then continue reading at the
+        /// returned index. No parallel override field or cache is required.
+        ///
+        /// A full storage replacement cannot be represented completely by a BAL alone. Known BAL
+        /// slots can be zeroed in the inserted layer, but fallback reads for slots absent from the
+        /// BAL still require replacement-aware backing state.
+        ///
         /// If `incoming` contains no account data, the BAL and returned index are unchanged.
         pub fn insert_changes_at<I>(
             &mut self,
