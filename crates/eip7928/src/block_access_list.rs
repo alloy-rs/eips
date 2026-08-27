@@ -315,6 +315,37 @@ pub mod bal {
             Ok(())
         }
 
+        /// Decodes one RLP-encoded BAL after validating that its total number of decoded
+        /// collection entries does not exceed `max_entries`.
+        ///
+        /// The entry count includes accounts, changed and read storage slots, and every storage,
+        /// balance, nonce, and code change. The validation pass does not allocate, and the input is
+        /// advanced only after both validation and decoding succeed.
+        #[cfg(feature = "rlp")]
+        pub fn decode_with_max_entries(
+            buf: &mut &[u8],
+            max_entries: usize,
+        ) -> Result<Self, BalDecodeError> {
+            let input = *buf;
+            let mut payload = input;
+            let header = alloy_rlp::Header::decode(&mut payload)?;
+            let header_len = input.len() - payload.len();
+            let raw_len =
+                header_len.checked_add(header.payload_length).ok_or(alloy_rlp::Error::Overflow)?;
+            let raw = &input[..raw_len];
+
+            validate_bal_rlp(raw, max_entries)?;
+
+            let mut raw_buf = raw;
+            let decoded = <Self as alloy_rlp::Decodable>::decode(&mut raw_buf)?;
+            if !raw_buf.is_empty() {
+                return Err(alloy_rlp::Error::UnexpectedLength.into());
+            }
+
+            *buf = &input[raw_len..];
+            Ok(decoded)
+        }
+
         /// Computes the hash of this block access list.
         #[cfg(feature = "rlp")]
         pub fn compute_hash(&self) -> alloy_primitives::B256 {
@@ -350,6 +381,153 @@ pub mod bal {
         pub nonce: usize,
         /// Total number of code changes.
         pub code: usize,
+    }
+
+    /// Error returned when bounded BAL decoding fails.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+    pub enum BalDecodeError {
+        /// The input is not a valid RLP-encoded BAL.
+        #[error("RLP error: {0}")]
+        Rlp(alloy_rlp::Error),
+        /// The cumulative number of entries exceeds the configured limit.
+        #[error("BAL decoded entry limit exceeded: entries={entries}, max_entries={max_entries}")]
+        EntryLimitExceeded {
+            /// Number of entries encountered across the BAL.
+            entries: usize,
+            /// Maximum number of entries allowed across the BAL.
+            max_entries: usize,
+        },
+        /// A contract code value exceeds the EIP-7928 byte limit.
+        #[error(
+            "BAL code size exceeds limit: code_size={code_size}, max_code_size={max_code_size}"
+        )]
+        CodeSizeLimitExceeded {
+            /// Byte length of the code value.
+            code_size: usize,
+            /// Maximum byte length allowed for one code value.
+            max_code_size: usize,
+        },
+    }
+
+    impl From<alloy_rlp::Error> for BalDecodeError {
+        #[inline]
+        fn from(error: alloy_rlp::Error) -> Self {
+            Self::Rlp(error)
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    #[derive(Clone, Copy, Debug)]
+    struct BalRlpPreflight {
+        max_entries: usize,
+        entries: usize,
+    }
+
+    #[cfg(feature = "rlp")]
+    impl BalRlpPreflight {
+        const fn new(max_entries: usize) -> Self {
+            Self { max_entries, entries: 0 }
+        }
+
+        fn validate(mut self, raw: &[u8]) -> Result<(), BalDecodeError> {
+            let mut input = raw;
+            let mut accounts = decode_list(&mut input)?;
+            ensure_empty(input)?;
+
+            while !accounts.is_empty() {
+                self.add_entry()?;
+                let mut account = decode_list(&mut accounts)?;
+
+                skip_item(&mut account)?;
+
+                let mut storage_changes = decode_list(&mut account)?;
+                while !storage_changes.is_empty() {
+                    self.add_entry()?;
+                    let mut slot_changes = decode_list(&mut storage_changes)?;
+                    skip_item(&mut slot_changes)?;
+                    let mut changes = decode_list(&mut slot_changes)?;
+                    self.validate_change_list(&mut changes, false)?;
+                    ensure_empty(slot_changes)?;
+                }
+
+                let mut storage_reads = decode_list(&mut account)?;
+                while !storage_reads.is_empty() {
+                    self.add_entry()?;
+                    skip_item(&mut storage_reads)?;
+                }
+
+                let mut balance_changes = decode_list(&mut account)?;
+                self.validate_change_list(&mut balance_changes, false)?;
+                let mut nonce_changes = decode_list(&mut account)?;
+                self.validate_change_list(&mut nonce_changes, false)?;
+                let mut code_changes = decode_list(&mut account)?;
+                self.validate_change_list(&mut code_changes, true)?;
+
+                ensure_empty(account)?;
+            }
+
+            Ok(())
+        }
+
+        fn validate_change_list(
+            &mut self,
+            changes: &mut &[u8],
+            contains_code: bool,
+        ) -> Result<(), BalDecodeError> {
+            while !changes.is_empty() {
+                self.add_entry()?;
+
+                let mut change = decode_list(changes)?;
+                skip_item(&mut change)?;
+                if contains_code {
+                    let code = alloy_rlp::Header::decode_bytes(&mut change, false)?;
+                    if code.len() > crate::constants::MAX_CODE_SIZE {
+                        return Err(BalDecodeError::CodeSizeLimitExceeded {
+                            code_size: code.len(),
+                            max_code_size: crate::constants::MAX_CODE_SIZE,
+                        });
+                    }
+                } else {
+                    skip_item(&mut change)?;
+                }
+                ensure_empty(change)?;
+            }
+            Ok(())
+        }
+
+        fn add_entry(&mut self) -> Result<(), BalDecodeError> {
+            let entries = self.entries.checked_add(1).ok_or(alloy_rlp::Error::Overflow)?;
+            if entries > self.max_entries {
+                return Err(BalDecodeError::EntryLimitExceeded {
+                    entries,
+                    max_entries: self.max_entries,
+                });
+            }
+            self.entries = entries;
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    fn validate_bal_rlp(raw: &[u8], max_entries: usize) -> Result<(), BalDecodeError> {
+        BalRlpPreflight::new(max_entries).validate(raw)
+    }
+
+    #[cfg(feature = "rlp")]
+    fn decode_list<'a>(buf: &mut &'a [u8]) -> Result<&'a [u8], BalDecodeError> {
+        alloy_rlp::Header::decode_bytes(buf, true).map_err(Into::into)
+    }
+
+    #[cfg(feature = "rlp")]
+    fn skip_item(buf: &mut &[u8]) -> Result<(), BalDecodeError> {
+        let header = alloy_rlp::Header::decode(buf)?;
+        *buf = &buf[header.payload_length..];
+        Ok(())
+    }
+
+    #[cfg(feature = "rlp")]
+    fn ensure_empty(buf: &[u8]) -> Result<(), BalDecodeError> {
+        if buf.is_empty() { Ok(()) } else { Err(alloy_rlp::Error::UnexpectedLength.into()) }
     }
 
     /// Raw RLP bytes for a block access list with lazy hash computation.
@@ -615,6 +793,31 @@ pub mod bal {
         #[inline]
         pub fn from_raw_bal(raw: RawBal) -> Result<Self, alloy_rlp::Error> {
             Self::from_raw_bal_as(raw)
+        }
+
+        /// Creates a new [`DecodedBal`] after validating that the total number of decoded
+        /// collection entries does not exceed `max_entries`.
+        #[inline]
+        pub fn from_rlp_bytes_with_max_entries(
+            raw: Bytes,
+            max_entries: usize,
+        ) -> Result<Self, BalDecodeError> {
+            Self::from_raw_bal_with_max_entries(RawBal::new(raw), max_entries)
+        }
+
+        /// Creates a new [`DecodedBal`] after validating that the total number of decoded
+        /// collection entries does not exceed `max_entries`.
+        #[inline]
+        pub fn from_raw_bal_with_max_entries(
+            raw: RawBal,
+            max_entries: usize,
+        ) -> Result<Self, BalDecodeError> {
+            let mut slice = raw.as_raw().as_ref();
+            let decoded = Bal::decode_with_max_entries(&mut slice, max_entries)?;
+            if !slice.is_empty() {
+                return Err(alloy_rlp::Error::UnexpectedLength.into());
+            }
+            Ok(Self::with_raw_bal(decoded, raw))
         }
 
         /// Creates a new [`DecodedBal`] by decoding from raw RLP bytes into `T`.
@@ -1518,10 +1721,11 @@ mod hash_tests {
 
 #[cfg(all(test, feature = "rlp"))]
 mod tests {
-    use super::bal::{Bal, DecodedBal, RawBal, RawOrDecodedBal};
+    use super::bal::{Bal, BalDecodeError, DecodedBal, RawBal, RawOrDecodedBal};
     use crate::{
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
-        StorageChange, constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
+        StorageChange,
+        constants::{EMPTY_BLOCK_ACCESS_LIST_HASH, MAX_CODE_SIZE},
     };
     use alloy_primitives::{Address, Bytes, U256};
 
@@ -1549,6 +1753,97 @@ mod tests {
                     vec![StorageChange::new(BlockAccessIndex::new(4), U256::from(0xbb))],
                 )),
         ])
+    }
+
+    fn encoded_sample_bal() -> Bytes {
+        Bytes::from(alloy_rlp::encode(sample_bal()))
+    }
+
+    #[test]
+    fn bounded_bal_decode_accepts_exact_entry_limit() {
+        let raw = encoded_sample_bal();
+        let decoded = DecodedBal::from_rlp_bytes_with_max_entries(raw.clone(), 11).unwrap();
+
+        assert_eq!(decoded.as_bal(), &sample_bal());
+        assert_eq!(decoded.as_raw(), &raw);
+    }
+
+    #[test]
+    fn bounded_bal_decode_rejects_entry_limit() {
+        let err =
+            DecodedBal::from_rlp_bytes_with_max_entries(encoded_sample_bal(), 10).unwrap_err();
+
+        assert_eq!(err, BalDecodeError::EntryLimitExceeded { entries: 11, max_entries: 10 });
+    }
+
+    #[test]
+    fn bounded_bal_decode_rejects_oversized_code() {
+        let bal = Bal::new(vec![AccountChanges::new(Address::ZERO).with_code_change(
+            CodeChange::new(BlockAccessIndex::new(0), Bytes::from(vec![0; MAX_CODE_SIZE + 1])),
+        )]);
+        let err =
+            DecodedBal::from_rlp_bytes_with_max_entries(Bytes::from(alloy_rlp::encode(bal)), 2)
+                .unwrap_err();
+
+        assert_eq!(
+            err,
+            BalDecodeError::CodeSizeLimitExceeded {
+                code_size: MAX_CODE_SIZE + 1,
+                max_code_size: MAX_CODE_SIZE,
+            }
+        );
+    }
+
+    #[test]
+    fn bounded_bal_decode_accepts_multiple_max_sized_codes() {
+        let bal = Bal::new(vec![
+            AccountChanges::new(Address::ZERO)
+                .with_code_change(CodeChange::new(
+                    BlockAccessIndex::new(0),
+                    Bytes::from(vec![0; MAX_CODE_SIZE]),
+                ))
+                .with_code_change(CodeChange::new(
+                    BlockAccessIndex::new(1),
+                    Bytes::from(vec![0; MAX_CODE_SIZE]),
+                )),
+        ]);
+        let raw = Bytes::from(alloy_rlp::encode(&bal));
+        let decoded = DecodedBal::from_rlp_bytes_with_max_entries(raw, 3).unwrap();
+
+        assert_eq!(decoded.as_bal(), &bal);
+    }
+
+    #[test]
+    fn bounded_bal_decode_rejects_trailing_bytes() {
+        let mut raw = encoded_sample_bal().to_vec();
+        raw.push(alloy_rlp::EMPTY_LIST_CODE);
+        let err = DecodedBal::from_rlp_bytes_with_max_entries(Bytes::from(raw), 11).unwrap_err();
+
+        assert_eq!(err, BalDecodeError::Rlp(alloy_rlp::Error::UnexpectedLength));
+    }
+
+    #[test]
+    fn failed_bounded_bal_decode_does_not_advance_input() {
+        let encoded = encoded_sample_bal();
+        let mut slice = encoded.as_ref();
+
+        let err = Bal::decode_with_max_entries(&mut slice, 10).unwrap_err();
+
+        assert_eq!(err, BalDecodeError::EntryLimitExceeded { entries: 11, max_entries: 10 });
+        assert_eq!(slice, encoded.as_ref());
+    }
+
+    #[test]
+    fn bounded_bal_decode_advances_one_item() {
+        let encoded = encoded_sample_bal();
+        let mut stream = encoded.to_vec();
+        stream.push(alloy_rlp::EMPTY_LIST_CODE);
+        let mut slice = stream.as_slice();
+
+        let decoded = Bal::decode_with_max_entries(&mut slice, 11).unwrap();
+
+        assert_eq!(decoded, sample_bal());
+        assert_eq!(slice, &[alloy_rlp::EMPTY_LIST_CODE]);
     }
 
     #[test]
