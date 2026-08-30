@@ -365,6 +365,23 @@ impl RecoveredAuthorization {
         self.authority.address()
     }
 
+    /// Returns the recovered authority if this authorization can apply to `chain_id`.
+    ///
+    /// The authorization chain ID must be zero (valid for any chain) or match `chain_id`, its
+    /// nonce must be less than [`u64::MAX`], and authority recovery must have succeeded.
+    ///
+    /// This does not validate the authority account's code or state nonce.
+    pub fn authority_for_chain_id(&self, chain_id: u64) -> Option<Address> {
+        let auth_chain_id = self.chain_id();
+        if !auth_chain_id.is_zero() && *auth_chain_id != U256::from(chain_id) {
+            return None;
+        }
+        if self.nonce() == u64::MAX {
+            return None;
+        }
+        self.authority()
+    }
+
     /// Splits the authorization into parts.
     pub const fn into_parts(self) -> (Authorization, RecoveredAuthority) {
         (self.inner, self.authority)
@@ -567,6 +584,39 @@ mod tests {
         let decoded = SignedAuthorization::decode(&mut buf.as_ref()).unwrap();
         assert_eq!(buf.len(), auth.length());
         assert_eq!(decoded, auth);
+    }
+
+    #[test]
+    fn recovered_authorization_authority_for_chain_id() {
+        const CHAIN_ID: u64 = 1;
+
+        let authority = Address::left_padding_from(&[1]);
+        let authorization = |chain_id, nonce, recovered_authority| {
+            RecoveredAuthorization::new_unchecked(
+                Authorization { chain_id: U256::from(chain_id), address: Address::ZERO, nonce },
+                recovered_authority,
+            )
+        };
+
+        let valid = RecoveredAuthority::Valid(authority);
+        assert_eq!(
+            authorization(CHAIN_ID, 0, valid.clone()).authority_for_chain_id(CHAIN_ID),
+            Some(authority)
+        );
+        assert_eq!(
+            authorization(0, 0, valid.clone()).authority_for_chain_id(CHAIN_ID),
+            Some(authority)
+        );
+        assert_eq!(
+            authorization(CHAIN_ID + 1, 0, valid.clone()).authority_for_chain_id(CHAIN_ID),
+            None
+        );
+        assert_eq!(authorization(CHAIN_ID, u64::MAX, valid).authority_for_chain_id(CHAIN_ID), None);
+        assert_eq!(
+            authorization(CHAIN_ID, 0, RecoveredAuthority::Invalid)
+                .authority_for_chain_id(CHAIN_ID),
+            None
+        );
     }
 
     #[cfg(feature = "serde")]
