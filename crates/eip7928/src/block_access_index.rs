@@ -53,6 +53,12 @@ impl BlockAccessIndex {
         self.0 += 1;
     }
 
+    /// Bumps the index by 1, saturating at `u64::MAX` instead of overflowing.
+    #[inline]
+    pub const fn saturating_increment(&mut self) {
+        self.0 = self.0.saturating_add(1);
+    }
+
     /// Classifies this index into a [`BlockAccessPhase`], given the number of transactions
     /// in the block.
     ///

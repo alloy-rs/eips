@@ -43,8 +43,8 @@ pub fn total_bal_items(bal: &[AccountChanges]) -> u64 {
 pub mod bal {
     use super::OnceLock;
     use crate::{
-        BlockAccessListGasError, BlockAccessListHashMismatch, account_changes::AccountChanges,
-        diff::BalDiff,
+        BlockAccessIndex, BlockAccessListGasError, BlockAccessListHashMismatch,
+        account_changes::AccountChanges, diff::BalDiff,
     };
     use alloc::vec::{IntoIter, Vec};
     use alloy_primitives::{B256, Bytes, map::HashMap};
@@ -179,6 +179,91 @@ pub mod bal {
             }
 
             self.0 = merged_accounts;
+        }
+
+        /// Inserts a synthetic change layer at `block_access_index`.
+        ///
+        /// The supplied change sets are normalized first: duplicate accounts and duplicate slot
+        /// entries are folded, empty slot entries are dropped, storage reads are deduplicated and
+        /// pruned against written slots, and duplicate writes within the inserted layer collapse
+        /// to the last supplied value. Accounts that carry no data after normalization are
+        /// ignored.
+        ///
+        /// Existing changes at or after the insertion point are shifted forward by one
+        /// (saturating at `u64::MAX`), the collapsed changes are assigned to the insertion point,
+        /// and the BAL is renormalized into canonical EIP-7928 order, which also folds any
+        /// duplicate account entries that were already present. Inserting a layer grows the
+        /// block's index domain by one, so classifying shifted indices with
+        /// [`BlockAccessIndex::phase`] requires the grown transaction count.
+        ///
+        /// Returns the index immediately after the inserted layer. Callers positioned at
+        /// `block_access_index` should use the returned index to observe the inserted changes while
+        /// preserving the original BAL state at that position.
+        ///
+        /// BAL reads observe changes strictly before the positioned index, so inserting a layer
+        /// moves the read position forward with the original suffix:
+        ///
+        /// ```text
+        /// before: [change 0] [change 1] | read @ 2 | [change 2] [change 3]
+        /// after:  [change 0] [change 1] [override @ 2] | read @ 3 | [change 3] [change 4]
+        /// ```
+        ///
+        /// This effectively allows RPC-style state overrides to be applied directly to a positioned
+        /// BAL: convert the overridden balance, nonce, code, and storage values into
+        /// [`AccountChanges`], insert them at the current position, then continue reading at the
+        /// returned index. No parallel override field or cache is required.
+        ///
+        /// A full storage replacement cannot be represented completely by a BAL alone. Known BAL
+        /// slots can be zeroed in the inserted layer, but fallback reads for slots absent from the
+        /// BAL still require replacement-aware backing state.
+        ///
+        /// Storage reads carry no block access index: supplied reads are merged into the affected
+        /// accounts without reserving a layer, so input that normalizes to reads only leaves all
+        /// indices (and the returned index) unchanged. If `incoming` contains no account data, the
+        /// BAL and returned index are unchanged.
+        #[must_use = "the returned index replaces the caller's position after the inserted layer"]
+        pub fn insert_changes_at<I>(
+            &mut self,
+            block_access_index: BlockAccessIndex,
+            incoming: I,
+        ) -> BlockAccessIndex
+        where
+            I: IntoIterator<Item = AccountChanges>,
+        {
+            let mut inserted = Self::default();
+            // Empty slot entries must be dropped before merging so they cannot mask a supplied
+            // read of the same slot as written.
+            inserted.merge(incoming.into_iter().map(|mut account| {
+                account.storage_changes.retain(|slot_changes| !slot_changes.is_empty());
+                account
+            }));
+            for account in &mut inserted.0 {
+                account.normalize();
+                account.collapse_changes_at(block_access_index);
+            }
+            inserted.0.retain(|account| !account.is_empty());
+            if inserted.is_empty() {
+                return block_access_index;
+            }
+
+            // Reads carry no index, so a layer (and the associated suffix shift) is only needed
+            // when at least one indexed change is inserted.
+            let inserts_layer = inserted.0.iter().any(has_indexed_changes);
+            if inserts_layer {
+                for account in &mut self.0 {
+                    account.shift_indices_from(block_access_index);
+                }
+            }
+
+            self.merge(inserted);
+            self.sort();
+
+            if !inserts_layer {
+                return block_access_index;
+            }
+            let mut positioned_index = block_access_index;
+            positioned_index.saturating_increment();
+            positioned_index
         }
 
         /// Returns `true` if the list contains no elements.
@@ -335,6 +420,22 @@ pub mod bal {
             }
             super::compute_block_access_list_hash_with_buf(&self.0, buf)
         }
+    }
+
+    /// Returns `true` if the account carries changes that occupy a block access index.
+    const fn has_indexed_changes(account: &AccountChanges) -> bool {
+        let AccountChanges {
+            address: _,
+            storage_changes,
+            storage_reads: _,
+            balance_changes,
+            nonce_changes,
+            code_changes,
+        } = account;
+        !storage_changes.is_empty()
+            || !balance_changes.is_empty()
+            || !nonce_changes.is_empty()
+            || !code_changes.is_empty()
     }
 
     /// Summary of change counts in a BAL for metrics reporting.
@@ -1359,6 +1460,468 @@ mod hash_tests {
             bal[0].code_changes,
             vec![CodeChange::new(BlockAccessIndex::new(1), Bytes::from_static(&[0xaa]))]
         );
+    }
+
+    #[test]
+    fn bal_insert_changes_shifts_suffix_and_normalizes_inserted_layer() {
+        let existing_address = Address::from([0x22; 20]);
+        let new_address = Address::from([0x11; 20]);
+        let slot = U256::from(1);
+        let mut bal = Bal::new(vec![AccountChanges {
+            address: existing_address,
+            storage_changes: vec![SlotChanges::new(
+                slot,
+                vec![StorageChange::new(BlockAccessIndex::new(2), U256::from(20))],
+            )],
+            storage_reads: vec![U256::from(2)],
+            balance_changes: vec![
+                BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)),
+                BalanceChange::new(BlockAccessIndex::new(2), U256::from(200)),
+                BalanceChange::new(BlockAccessIndex::new(3), U256::from(300)),
+            ],
+            nonce_changes: vec![NonceChange::new(BlockAccessIndex::new(2), 2)],
+            code_changes: vec![CodeChange::new(
+                BlockAccessIndex::new(2),
+                Bytes::from_static(&[0x60, 0x02]),
+            )],
+        }]);
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(2),
+            [
+                AccountChanges::new(existing_address)
+                    .with_storage_change(SlotChanges::new(
+                        slot,
+                        vec![StorageChange::new(BlockAccessIndex::new(90), U256::from(900))],
+                    ))
+                    .with_balance_change(BalanceChange::new(
+                        BlockAccessIndex::new(90),
+                        U256::from(900),
+                    )),
+                AccountChanges::new(existing_address)
+                    .with_storage_change(SlotChanges::new(
+                        slot,
+                        vec![StorageChange::new(BlockAccessIndex::new(91), U256::from(901))],
+                    ))
+                    .with_balance_change(BalanceChange::new(
+                        BlockAccessIndex::new(91),
+                        U256::from(901),
+                    ))
+                    .with_nonce_change(NonceChange::new(BlockAccessIndex::new(91), 9)),
+                AccountChanges::new(new_address).with_code_change(CodeChange::new(
+                    BlockAccessIndex::new(92),
+                    Bytes::from_static(&[0x60, 0x09]),
+                )),
+            ],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(3));
+        assert_eq!(
+            bal.iter().map(AccountChanges::address).collect::<Vec<_>>(),
+            vec![new_address, existing_address]
+        );
+
+        assert_eq!(
+            bal[0].code_changes,
+            vec![CodeChange::new(BlockAccessIndex::new(2), Bytes::from_static(&[0x60, 0x09]))]
+        );
+        assert_eq!(
+            bal[1].balance_changes,
+            vec![
+                BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)),
+                BalanceChange::new(BlockAccessIndex::new(2), U256::from(901)),
+                BalanceChange::new(BlockAccessIndex::new(3), U256::from(200)),
+                BalanceChange::new(BlockAccessIndex::new(4), U256::from(300)),
+            ]
+        );
+        assert_eq!(
+            bal[1].storage_changes[0].changes,
+            vec![
+                StorageChange::new(BlockAccessIndex::new(2), U256::from(901)),
+                StorageChange::new(BlockAccessIndex::new(3), U256::from(20)),
+            ]
+        );
+        assert_eq!(
+            bal[1].nonce_changes,
+            vec![
+                NonceChange::new(BlockAccessIndex::new(2), 9),
+                NonceChange::new(BlockAccessIndex::new(3), 2),
+            ]
+        );
+        assert_eq!(
+            bal[1].code_changes,
+            vec![CodeChange::new(BlockAccessIndex::new(3), Bytes::from_static(&[0x60, 0x02]))]
+        );
+        assert_eq!(bal[1].storage_reads, vec![U256::from(2)]);
+    }
+
+    #[test]
+    fn bal_insert_empty_changes_is_noop() {
+        let original =
+            Bal::new(vec![AccountChanges::new(Address::from([0x11; 20])).with_balance_change(
+                BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)),
+            )]);
+        let mut bal = original.clone();
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(1),
+            [AccountChanges::new(Address::from([0x22; 20]))],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(1));
+        assert_eq!(bal, original);
+    }
+
+    #[test]
+    fn bal_insert_shifts_untouched_accounts() {
+        let touched = Address::from([0x11; 20]);
+        let bystander = Address::from([0x22; 20]);
+        let mut bal = Bal::new(vec![
+            AccountChanges::new(touched)
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(2), U256::from(100))),
+            AccountChanges::new(bystander)
+                .with_storage_change(SlotChanges::new(
+                    U256::from(1),
+                    vec![StorageChange::new(BlockAccessIndex::new(2), U256::from(20))],
+                ))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(50)))
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(2), 7))
+                .with_code_change(CodeChange::new(
+                    BlockAccessIndex::new(3),
+                    Bytes::from_static(&[0x60]),
+                )),
+        ]);
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(2),
+            [AccountChanges::new(touched).with_balance_change(BalanceChange::new(
+                BlockAccessIndex::new(0),
+                U256::from(900),
+            ))],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(3));
+        assert_eq!(
+            bal[0].balance_changes,
+            vec![
+                BalanceChange::new(BlockAccessIndex::new(2), U256::from(900)),
+                BalanceChange::new(BlockAccessIndex::new(3), U256::from(100)),
+            ]
+        );
+        assert_eq!(bal[1].address, bystander);
+        assert_eq!(
+            bal[1].storage_changes,
+            vec![SlotChanges::new(
+                U256::from(1),
+                vec![StorageChange::new(BlockAccessIndex::new(3), U256::from(20))],
+            )]
+        );
+        assert_eq!(
+            bal[1].balance_changes,
+            vec![BalanceChange::new(BlockAccessIndex::new(1), U256::from(50))]
+        );
+        assert_eq!(bal[1].nonce_changes, vec![NonceChange::new(BlockAccessIndex::new(3), 7)]);
+        assert_eq!(
+            bal[1].code_changes,
+            vec![CodeChange::new(BlockAccessIndex::new(4), Bytes::from_static(&[0x60]))]
+        );
+    }
+
+    #[test]
+    fn bal_insert_folds_duplicate_slot_entries() {
+        let slot = U256::from(7);
+
+        let new_address = Address::from([0x11; 20]);
+        let mut bal = Bal::default();
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(1),
+            [AccountChanges::new(new_address)
+                .with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![StorageChange::new(BlockAccessIndex::new(90), U256::from(900))],
+                ))
+                .with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![StorageChange::new(BlockAccessIndex::new(91), U256::from(901))],
+                ))],
+        );
+        assert_eq!(positioned_index, BlockAccessIndex::new(2));
+        assert_eq!(
+            bal[0].storage_changes,
+            vec![SlotChanges::new(
+                slot,
+                vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(901))],
+            )]
+        );
+
+        let existing = Address::from([0x22; 20]);
+        let mut bal =
+            Bal::new(vec![AccountChanges::new(existing).with_storage_change(SlotChanges::new(
+                slot,
+                vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(10))],
+            ))]);
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(1),
+            [AccountChanges::new(existing)
+                .with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![StorageChange::new(BlockAccessIndex::new(90), U256::from(900))],
+                ))
+                .with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![StorageChange::new(BlockAccessIndex::new(91), U256::from(901))],
+                ))],
+        );
+        assert_eq!(positioned_index, BlockAccessIndex::new(2));
+        assert_eq!(
+            bal[0].storage_changes,
+            vec![SlotChanges::new(
+                slot,
+                vec![
+                    StorageChange::new(BlockAccessIndex::new(1), U256::from(901)),
+                    StorageChange::new(BlockAccessIndex::new(2), U256::from(10)),
+                ],
+            )]
+        );
+    }
+
+    #[test]
+    fn bal_insert_normalizes_reads_for_new_accounts() {
+        let address = Address::from([0x11; 20]);
+        let written = U256::from(1);
+        let read = U256::from(2);
+        let mut bal = Bal::default();
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(0),
+            [AccountChanges::new(address)
+                .with_storage_read(written)
+                .with_storage_read(read)
+                .with_storage_read(read)
+                .with_storage_change(SlotChanges::new(
+                    written,
+                    vec![StorageChange::new(BlockAccessIndex::new(9), U256::from(90))],
+                ))],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(1));
+        assert_eq!(
+            bal[0].storage_changes,
+            vec![SlotChanges::new(
+                written,
+                vec![StorageChange::new(BlockAccessIndex::new(0), U256::from(90))],
+            )]
+        );
+        assert_eq!(bal[0].storage_reads, vec![read]);
+    }
+
+    #[test]
+    fn bal_insert_empty_slot_entries_are_noop() {
+        let original =
+            Bal::new(vec![AccountChanges::new(Address::from([0x11; 20])).with_balance_change(
+                BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)),
+            )]);
+        let mut bal = original.clone();
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(1),
+            [AccountChanges::new(Address::from([0x22; 20]))
+                .with_storage_change(SlotChanges::new(U256::from(1), vec![]))],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(1));
+        assert_eq!(bal, original);
+    }
+
+    #[test]
+    fn bal_insert_empty_slot_entry_does_not_swallow_read() {
+        let address = Address::from([0x11; 20]);
+        let slot = U256::from(42);
+        let mut bal = Bal::default();
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(3),
+            [
+                AccountChanges::new(address).with_storage_read(slot),
+                AccountChanges::new(address).with_storage_change(SlotChanges::new(slot, vec![])),
+            ],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(3));
+        assert_eq!(bal[0].storage_reads, vec![slot]);
+        assert!(bal[0].storage_changes.is_empty());
+    }
+
+    #[test]
+    fn bal_insert_reads_only_does_not_shift() {
+        let address = Address::from([0x11; 20]);
+        let written = U256::from(1);
+        let mut bal =
+            Bal::new(vec![AccountChanges::new(address).with_storage_change(SlotChanges::new(
+                written,
+                vec![StorageChange::new(BlockAccessIndex::new(4), U256::from(40))],
+            ))]);
+        let original = bal.clone();
+
+        // a read of an already written slot is absorbed entirely
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(1),
+            [AccountChanges::new(address).with_storage_read(written)],
+        );
+        assert_eq!(positioned_index, BlockAccessIndex::new(1));
+        assert_eq!(bal, original);
+
+        // novel reads are merged without reserving a layer
+        let novel = U256::from(2);
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(1),
+            [AccountChanges::new(address).with_storage_read(novel)],
+        );
+        assert_eq!(positioned_index, BlockAccessIndex::new(1));
+        assert_eq!(bal[0].storage_reads, vec![novel]);
+        assert_eq!(bal[0].storage_changes, original[0].storage_changes);
+    }
+
+    #[test]
+    fn bal_insert_saturates_index_overflow() {
+        let address = Address::from([0x11; 20]);
+        let mut bal = Bal::new(vec![AccountChanges::new(address).with_balance_change(
+            BalanceChange::new(BlockAccessIndex::new(u64::MAX), U256::from(1)),
+        )]);
+
+        let positioned_index = bal.insert_changes_at(
+            BlockAccessIndex::new(u64::MAX),
+            [AccountChanges::new(address)
+                .with_nonce_change(NonceChange::new(BlockAccessIndex::new(0), 1))],
+        );
+
+        assert_eq!(positioned_index, BlockAccessIndex::new(u64::MAX));
+        assert_eq!(
+            bal[0].balance_changes,
+            vec![BalanceChange::new(BlockAccessIndex::new(u64::MAX), U256::from(1))]
+        );
+        assert_eq!(
+            bal[0].nonce_changes,
+            vec![NonceChange::new(BlockAccessIndex::new(u64::MAX), 1)]
+        );
+    }
+
+    /// Demonstrates how RPC-style state overrides — nested per-account override data built from
+    /// plain primitives — are applied to a positioned BAL and observed at the returned index.
+    #[test]
+    fn bal_insert_applies_state_overrides() {
+        let alice = Address::from([0xaa; 20]);
+        let bob = Address::from([0xbb; 20]);
+        let slot = U256::from(1);
+
+        // BAL for a 3-tx block: alice's balance and storage slot are written by txs 0..=2
+        // (block access indices 1..=3). The caller simulates positioned at index 2.
+        let mut bal = Bal::new(vec![
+            AccountChanges::new(alice)
+                .with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![
+                        StorageChange::new(BlockAccessIndex::new(2), U256::from(20)),
+                        StorageChange::new(BlockAccessIndex::new(3), U256::from(30)),
+                    ],
+                ))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(2), U256::from(200)))
+                .with_balance_change(BalanceChange::new(BlockAccessIndex::new(3), U256::from(300))),
+        ]);
+
+        // Effective balance at a position: latest change strictly before it.
+        let balance_at = |account: &AccountChanges, position: BlockAccessIndex| {
+            account
+                .balance_changes
+                .iter()
+                .rfind(|change| change.block_access_index < position)
+                .map(|change| change.post_balance)
+        };
+        let position = BlockAccessIndex::new(2);
+        assert_eq!(balance_at(&bal[0], position), Some(U256::from(100)));
+
+        // Override data as an RPC layer would carry it:
+        // (address, balance, nonce, code, [(slot, value)]) — no BAL indices involved.
+        let overrides = [
+            (alice, Some(U256::from(999)), None, None, vec![(slot, U256::from(90))]),
+            (
+                bob,
+                None,
+                Some(7),
+                Some(Bytes::from_static(&[0x60, 0x00])),
+                vec![(U256::from(5), U256::from(50))],
+            ),
+            // a later entry for an already overridden account wins
+            (alice, Some(U256::from(1000)), None, None, vec![]),
+        ];
+
+        // Conversion uses a placeholder index; `insert_changes_at` restamps every change to the
+        // insertion point.
+        let placeholder = BlockAccessIndex::PRE_EXECUTION;
+        let overlay = overrides.into_iter().map(|(address, balance, nonce, code, slots)| {
+            let mut account = AccountChanges::new(address);
+            if let Some(balance) = balance {
+                account = account.with_balance_change(BalanceChange::new(placeholder, balance));
+            }
+            if let Some(nonce) = nonce {
+                account = account.with_nonce_change(NonceChange::new(placeholder, nonce));
+            }
+            if let Some(code) = code {
+                account = account.with_code_change(CodeChange::new(placeholder, code));
+            }
+            for (slot, value) in slots {
+                account = account.with_storage_change(SlotChanges::new(
+                    slot,
+                    vec![StorageChange::new(placeholder, value)],
+                ));
+            }
+            account
+        });
+
+        let positioned_index = bal.insert_changes_at(position, overlay);
+        assert_eq!(positioned_index, BlockAccessIndex::new(3));
+
+        // The override layer sits at the insertion point, the original suffix follows it.
+        assert_eq!(
+            bal[0].balance_changes,
+            vec![
+                BalanceChange::new(BlockAccessIndex::new(1), U256::from(100)),
+                BalanceChange::new(BlockAccessIndex::new(2), U256::from(1000)),
+                BalanceChange::new(BlockAccessIndex::new(3), U256::from(200)),
+                BalanceChange::new(BlockAccessIndex::new(4), U256::from(300)),
+            ]
+        );
+        assert_eq!(
+            bal[0].storage_changes,
+            vec![SlotChanges::new(
+                slot,
+                vec![
+                    StorageChange::new(BlockAccessIndex::new(2), U256::from(90)),
+                    StorageChange::new(BlockAccessIndex::new(3), U256::from(20)),
+                    StorageChange::new(BlockAccessIndex::new(4), U256::from(30)),
+                ],
+            )]
+        );
+        assert_eq!(bal[1].address, bob);
+        assert_eq!(bal[1].nonce_changes, vec![NonceChange::new(BlockAccessIndex::new(2), 7)]);
+        assert_eq!(
+            bal[1].code_changes,
+            vec![CodeChange::new(BlockAccessIndex::new(2), Bytes::from_static(&[0x60, 0x00]))]
+        );
+        assert_eq!(
+            bal[1].storage_changes,
+            vec![SlotChanges::new(
+                U256::from(5),
+                vec![StorageChange::new(BlockAccessIndex::new(2), U256::from(50))],
+            )]
+        );
+
+        // The original position still observes pre-override state, the returned index observes
+        // the override, and positions past the shifted suffix observe the original final value.
+        assert_eq!(balance_at(&bal[0], position), Some(U256::from(100)));
+        assert_eq!(balance_at(&bal[0], positioned_index), Some(U256::from(1000)));
+        assert_eq!(balance_at(&bal[0], BlockAccessIndex::new(5)), Some(U256::from(300)));
     }
 
     #[test]
