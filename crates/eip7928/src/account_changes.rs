@@ -95,15 +95,11 @@ impl AccountChanges {
     ///
     /// Changed slots are yielded first, followed by read slots.
     #[inline]
-    pub fn storage_slots(&self) -> impl ExactSizeIterator<Item = U256> + '_ {
-        let changed_len = self.storage_changes.len();
-        (0..changed_len + self.storage_reads.len()).map(move |index| {
-            if index < changed_len {
-                self.storage_changes[index].slot
-            } else {
-                self.storage_reads[index - changed_len]
-            }
-        })
+    pub fn storage_slots(&self) -> impl Iterator<Item = U256> + '_ {
+        self.storage_changes
+            .iter()
+            .map(|changes| changes.slot)
+            .chain(self.storage_reads.iter().copied())
     }
 
     /// Returns an iterator over the post-state value for each changed storage slot.
@@ -605,11 +601,10 @@ mod storage_slots_tests {
             ))
             .extend_storage_reads([U256::from(3), U256::from(4)]);
 
-        let mut slots = account.storage_slots();
-        assert_eq!(slots.len(), 4);
-        assert_eq!(slots.next(), Some(U256::from(1)));
-        assert_eq!(slots.len(), 3);
-        assert_eq!(slots.collect::<Vec<_>>(), vec![U256::from(2), U256::from(3), U256::from(4)]);
+        assert_eq!(
+            account.storage_slots().collect::<Vec<_>>(),
+            vec![U256::from(1), U256::from(2), U256::from(3), U256::from(4)]
+        );
     }
 }
 
