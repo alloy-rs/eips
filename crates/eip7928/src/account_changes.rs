@@ -91,6 +91,17 @@ impl AccountChanges {
         &self.storage_changes
     }
 
+    /// Returns an iterator over storage slots present in this account's changes and reads.
+    ///
+    /// Changed slots are yielded first, followed by read slots.
+    #[inline]
+    pub fn storage_slots(&self) -> impl Iterator<Item = U256> + '_ {
+        self.storage_changes
+            .iter()
+            .map(|changes| changes.slot)
+            .chain(self.storage_reads.iter().copied())
+    }
+
     /// Returns an iterator over the post-state value for each changed storage slot.
     ///
     /// The post-state value is taken from the last recorded change for each slot.
@@ -567,6 +578,32 @@ mod post_state_tests {
         assert_eq!(
             post_states,
             vec![(U256::from(1), U256::from(0xbb)), (U256::from(3), U256::from(0xdd))]
+        );
+    }
+}
+
+#[cfg(test)]
+mod storage_slots_tests {
+    use crate::{BlockAccessIndex, StorageChange};
+
+    use super::*;
+
+    #[test]
+    fn storage_slots_yields_changed_then_read_slots() {
+        let account = AccountChanges::new(Address::ZERO)
+            .with_storage_change(SlotChanges::new(
+                U256::from(1),
+                vec![StorageChange::new(BlockAccessIndex::new(0), U256::ZERO)],
+            ))
+            .with_storage_change(SlotChanges::new(
+                U256::from(2),
+                vec![StorageChange::new(BlockAccessIndex::new(1), U256::ZERO)],
+            ))
+            .extend_storage_reads([U256::from(3), U256::from(4)]);
+
+        assert_eq!(
+            account.storage_slots().collect::<Vec<_>>(),
+            vec![U256::from(1), U256::from(2), U256::from(3), U256::from(4)]
         );
     }
 }
