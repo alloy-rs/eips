@@ -8,7 +8,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloy_primitives::{
-    Address, U256,
+    Address, Bytes, U256,
     map::{HashMap, HashSet},
 };
 
@@ -110,6 +110,24 @@ impl AccountChanges {
         self.storage_changes.iter().filter_map(|changes| {
             changes.changes.last().map(|change| (changes.slot, change.new_value))
         })
+    }
+
+    /// Returns the balance from the last recorded change, or `None` if unchanged.
+    #[inline]
+    pub fn balance_post_state(&self) -> Option<U256> {
+        self.balance_changes.last().map(|change| change.post_balance)
+    }
+
+    /// Returns the nonce from the last recorded change, or `None` if unchanged.
+    #[inline]
+    pub fn nonce_post_state(&self) -> Option<u64> {
+        self.nonce_changes.last().map(|change| change.new_nonce)
+    }
+
+    /// Returns the code from the last recorded change, or `None` if unchanged.
+    #[inline]
+    pub fn code_post_state(&self) -> Option<&Bytes> {
+        self.code_changes.last().map(|change| &change.new_code)
     }
 
     /// Merges another account change set into this one.
@@ -554,6 +572,58 @@ mod post_state_tests {
     use crate::{BlockAccessIndex, StorageChange};
 
     use super::*;
+
+    #[test]
+    fn account_post_states_are_absent_for_unchanged_fields() {
+        let account = AccountChanges::new(Address::ZERO)
+            .with_storage_read(U256::from(1))
+            .with_storage_change(SlotChanges::new(
+                U256::from(2),
+                vec![StorageChange::new(BlockAccessIndex::new(1), U256::from(3))],
+            ));
+
+        assert_eq!(account.balance_post_state(), None);
+        assert_eq!(account.nonce_post_state(), None);
+        assert_eq!(account.code_post_state(), None);
+    }
+
+    #[test]
+    fn account_post_states_use_last_recorded_change() {
+        for indices in [&[0][..], &[0, 1, 2][..], &[2, 1, 0][..]] {
+            let mut account = AccountChanges::new(Address::ZERO);
+            for (position, &index) in indices.iter().enumerate() {
+                let index = BlockAccessIndex::new(index);
+                let value = (position + 1) as u64;
+                account.balance_changes.push(BalanceChange::new(index, U256::from(value)));
+                account.nonce_changes.push(NonceChange::new(index, value));
+                account.code_changes.push(CodeChange::new(index, Bytes::from(vec![value as u8])));
+            }
+
+            let expected = indices.len() as u64;
+            assert_eq!(account.balance_post_state(), Some(U256::from(expected)));
+            assert_eq!(account.nonce_post_state(), Some(expected));
+            assert_eq!(account.code_post_state(), Some(&Bytes::from(vec![expected as u8])));
+        }
+    }
+
+    #[test]
+    fn account_post_states_preserve_zero_values_and_cleared_code() {
+        let mut account = AccountChanges::new(Address::ZERO)
+            .with_balance_change(BalanceChange::new(BlockAccessIndex::new(0), U256::from(10)))
+            .with_nonce_change(NonceChange::new(BlockAccessIndex::new(0), 1))
+            .with_code_change(CodeChange::new(
+                BlockAccessIndex::new(0),
+                Bytes::from_static(&[0x60]),
+            ));
+        let index = BlockAccessIndex::new(1);
+        account.balance_changes.push(BalanceChange::new(index, U256::ZERO));
+        account.nonce_changes.push(NonceChange::new(index, 0));
+        account.code_changes.push(CodeChange::new(index, Bytes::new()));
+
+        assert_eq!(account.balance_post_state(), Some(U256::ZERO));
+        assert_eq!(account.nonce_post_state(), Some(0));
+        assert_eq!(account.code_post_state(), Some(&Bytes::new()));
+    }
 
     #[test]
     fn storage_post_states_yields_last_change_per_slot() {
