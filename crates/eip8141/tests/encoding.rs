@@ -54,8 +54,8 @@ fn rlp_fixtures() {
 #[test]
 fn optional_addresses_preserve_encoding_and_reject_invalid_lengths() {
     for address in [FrameAddress::Empty, Address::ZERO.into(), Address::repeat_byte(1).into()] {
-        let raw =
-            address.address().map_or_else(Bytes::new, |a| Bytes::copy_from_slice(a.as_slice()));
+        let raw = Bytes::copy_from_slice(address.as_bytes());
+        assert_eq!(raw.len(), address.address().map_or(0, |_| 20));
         assert_eq!(alloy_rlp::encode(address), alloy_rlp::encode(raw));
         roundtrip(address);
     }

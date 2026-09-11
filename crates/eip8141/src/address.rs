@@ -42,6 +42,14 @@ impl FrameAddress {
     pub const fn is_empty(self) -> bool {
         matches!(self, Self::Empty)
     }
+
+    /// Returns the byte string carried on the wire: empty when the address is omitted.
+    pub const fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Empty => &[],
+            Self::Address(address) => address.0.as_slice(),
+        }
+    }
 }
 
 impl From<Address> for FrameAddress {
