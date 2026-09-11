@@ -4,6 +4,7 @@ set -eo pipefail
 no_std_packages=(
     alloy-eip7702
     alloy-eip2930
+    alloy-eip8141
 )
 
 for package in "${no_std_packages[@]}"; do

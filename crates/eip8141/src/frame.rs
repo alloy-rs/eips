@@ -1,11 +1,12 @@
 use alloy_primitives::{Address, Bytes, U256};
 use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
 
+use crate::FrameAddress;
+
 /// EIP-8141 frame execution mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
 pub enum FrameMode {
@@ -29,6 +30,8 @@ impl FrameMode {
         }
     }
 }
+
+impl_u8_conversions!(FrameMode, InvalidMode);
 
 impl From<FrameMode> for u8 {
     fn from(value: FrameMode) -> Self {
@@ -57,7 +60,6 @@ impl Decodable for FrameMode {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
 pub enum ApprovalScope {
@@ -85,6 +87,8 @@ impl ApprovalScope {
     }
 }
 
+impl_u8_conversions!(ApprovalScope, InvalidScope);
+
 impl From<ApprovalScope> for u8 {
     fn from(value: ApprovalScope) -> Self {
         value as Self
@@ -99,8 +103,10 @@ impl From<ApprovalScope> for u8 {
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameLimits {
     /// Maximum execution gas available to the frame.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub execution: u64,
     /// Maximum state gas available to the frame.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub state: u64,
 }
 
@@ -114,9 +120,10 @@ pub struct Frame {
     /// The frame execution mode.
     pub mode: FrameMode,
     /// Frame flags. Bits 0-1 encode approval scope, bit 2 encodes atomic batching.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity_u8"))]
     pub flags: u8,
-    /// Encoded target account. Empty bytes resolve to the transaction sender.
-    pub target: Bytes,
+    /// Target account. An empty address resolves to the transaction sender.
+    pub target: FrameAddress,
     /// Independent execution and state gas limits for this frame.
     pub limits: FrameLimits,
     /// Wei value transferred by this frame. Non-zero value is valid only for `SENDER` frames.
@@ -130,7 +137,7 @@ impl Frame {
     pub const fn new(
         mode: FrameMode,
         flags: u8,
-        target: Bytes,
+        target: FrameAddress,
         limits: FrameLimits,
         value: U256,
         data: Bytes,
@@ -139,26 +146,18 @@ impl Frame {
     }
 
     /// Returns the target address, or `None` when the frame resolves to the transaction sender.
-    pub fn target_address(&self) -> Option<Address> {
-        if self.target.is_empty() {
-            None
-        } else if self.target.len() == 20 {
-            let mut bytes = [0u8; 20];
-            bytes.copy_from_slice(&self.target);
-            Some(Address::from(bytes))
-        } else {
-            None
-        }
-    }
-
-    /// Returns true if the target is encoded as either empty bytes or a 20-byte address.
-    pub fn has_valid_target_encoding(&self) -> bool {
-        self.target.is_empty() || self.target.len() == 20
+    pub const fn target_address(&self) -> Option<Address> {
+        self.target.address()
     }
 
     /// Returns the allowed approval scope encoded in this frame's flags.
-    pub const fn allowed_scope(&self) -> u8 {
-        self.flags & crate::APPROVE_SCOPE_MASK
+    pub const fn allowed_scope(&self) -> ApprovalScope {
+        match self.flags & crate::APPROVE_SCOPE_MASK {
+            0 => ApprovalScope::None,
+            1 => ApprovalScope::Payment,
+            2 => ApprovalScope::Execution,
+            _ => ApprovalScope::ExecutionAndPayment,
+        }
     }
 
     /// Returns true if this frame has the atomic batch flag set.
@@ -206,7 +205,7 @@ mod tests {
     fn expiry_frame() -> Frame {
         Frame {
             mode: FrameMode::Verify,
-            target: Bytes::copy_from_slice(crate::EXPIRY_VERIFIER.as_slice()),
+            target: crate::EXPIRY_VERIFIER.into(),
             data: Bytes::from(vec![0; crate::EXPIRY_DATA_LENGTH]),
             ..Default::default()
         }

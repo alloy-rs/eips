@@ -7,7 +7,6 @@ use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
 pub enum FrameStatus {
@@ -31,6 +30,8 @@ impl FrameStatus {
         }
     }
 }
+
+impl_u8_conversions!(FrameStatus, InvalidStatus);
 
 impl From<FrameStatus> for u8 {
     fn from(value: FrameStatus) -> Self {
@@ -63,8 +64,10 @@ impl Decodable for FrameStatus {
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameGasUsed {
     /// Execution gas used by the frame, before transaction-level refunds.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub execution: u64,
     /// State gas attributed to the frame after refills and rollbacks.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub state: u64,
 }
 
@@ -91,6 +94,7 @@ pub struct FrameReceipt<Log = alloy_primitives::Log> {
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameReceiptPayload<Log = alloy_primitives::Log> {
     /// Cumulative gas used by the block after this transaction.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub cumulative_gas_used: u64,
     /// Account that paid the transaction fee.
     pub payer: Address,
