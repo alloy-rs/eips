@@ -1,8 +1,10 @@
 //! Errors returned when converting or validating EIP-8141 fields.
 
+use alloy_primitives::Address;
+
 /// An invalid EIP-8141 field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum FrameError {
+pub enum Eip8141Error {
     /// Unknown frame execution mode.
     #[error("invalid frame mode: {0}")]
     InvalidMode(u8),
@@ -41,4 +43,12 @@ pub enum FrameError {
     /// A signature scalar is zero, out of range, or not low-s.
     #[error("signature scalars must be canonical and low-s")]
     InvalidSignatureScalar,
+    /// A P-256 public key does not hash to the resolved signer.
+    #[error("p256 public key resolves to {derived}, expected signer {expected}")]
+    P256SignerMismatch {
+        /// Signer resolved from the entry and the transaction sender.
+        expected: Address,
+        /// Address derived from the public key carried in the signature.
+        derived: Address,
+    },
 }

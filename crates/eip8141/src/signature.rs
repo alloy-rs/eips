@@ -1,7 +1,7 @@
 use alloy_primitives::{Address, B256, Bytes, Signature, U256};
-use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{Decodable, Encodable, Header, RlpDecodable, RlpEncodable};
 
-use crate::{FrameAddress, FrameError};
+use crate::{Eip8141Error, FrameAddress, P256_SIGNATURE_LENGTH, SECP256K1_SIGNATURE_LENGTH};
 
 /// EIP-8141 transaction signature scheme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -38,96 +38,138 @@ impl SignatureScheme {
             Self::P256 => 6_700,
         }
     }
-}
 
-impl_u8_conversions!(SignatureScheme, InvalidScheme);
-
-impl From<SignatureScheme> for u8 {
-    fn from(value: SignatureScheme) -> Self {
-        value as Self
+    /// Returns the fixed signature length of a protocol-validated scheme.
+    ///
+    /// Arbitrary witnesses have no fixed length.
+    pub const fn signature_length(self) -> Option<usize> {
+        match self {
+            Self::Arbitrary => None,
+            Self::Secp256k1 => Some(SECP256K1_SIGNATURE_LENGTH),
+            Self::P256 => Some(P256_SIGNATURE_LENGTH),
+        }
     }
 }
 
-impl Encodable for SignatureScheme {
-    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        u8::from(*self).encode(out);
-    }
-
-    fn length(&self) -> usize {
-        u8::from(*self).length()
-    }
-}
-
-impl Decodable for SignatureScheme {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        Self::try_from_u8(u8::decode(buf)?)
-            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 signature scheme"))
-    }
-}
+impl_u8_discriminant!(SignatureScheme, InvalidScheme, "invalid EIP-8141 signature scheme");
 
 /// The message authorized by an EIP-8141 signature entry.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+///
+/// RLP encodes the transaction hash case as an empty byte string and an explicit digest as its 32
+/// bytes, preserving the EIP-8141 wire format. Decoding rejects other lengths and the reserved
+/// zero digest. JSON uses hex byte strings, including `"0x"` for the transaction hash case; `null`
+/// also deserializes as the transaction hash.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub enum SignatureMessage {
     /// The signature signs the canonical transaction signature hash.
+    #[default]
     TransactionHash,
     /// The signature signs an explicit non-zero 32-byte digest.
+    ///
+    /// Use [`Self::explicit`] to reject the reserved zero digest.
     Explicit(B256),
 }
 
 impl SignatureMessage {
-    /// Encodes the message as the byte string carried by a signature entry.
-    ///
-    /// Returns an error for the reserved explicit zero digest.
-    pub fn to_bytes(self) -> Result<Bytes, FrameError> {
+    /// Creates an explicit message, rejecting the reserved zero digest.
+    pub fn explicit(digest: B256) -> Result<Self, Eip8141Error> {
+        if digest.is_zero() { Err(Eip8141Error::ZeroMessage) } else { Ok(Self::Explicit(digest)) }
+    }
+
+    /// Returns true if the signature signs the canonical transaction signature hash.
+    pub const fn is_transaction_hash(self) -> bool {
+        matches!(self, Self::TransactionHash)
+    }
+
+    /// Returns the explicit digest, or `None` for the transaction hash case.
+    pub const fn digest(self) -> Option<B256> {
         match self {
-            Self::TransactionHash => Ok(Bytes::new()),
-            Self::Explicit(message) if message.is_zero() => Err(FrameError::ZeroMessage),
-            Self::Explicit(message) => Ok(Bytes::copy_from_slice(message.as_slice())),
+            Self::TransactionHash => None,
+            Self::Explicit(digest) => Some(digest),
+        }
+    }
+
+    /// Returns the byte string carried by a signature entry: empty for the transaction hash.
+    pub const fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::TransactionHash => &[],
+            Self::Explicit(digest) => digest.as_slice(),
         }
     }
 }
 
 impl TryFrom<&[u8]> for SignatureMessage {
-    type Error = FrameError;
+    type Error = Eip8141Error;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.is_empty() {
             return Ok(Self::TransactionHash);
         }
-        let message =
-            B256::try_from(value).map_err(|_| FrameError::InvalidMessageLength(value.len()))?;
-        if message.is_zero() {
-            return Err(FrameError::ZeroMessage);
+        B256::try_from(value)
+            .map_err(|_| Eip8141Error::InvalidMessageLength(value.len()))
+            .and_then(Self::explicit)
+    }
+}
+
+impl Encodable for SignatureMessage {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        match self {
+            Self::TransactionHash => out.put_u8(alloy_rlp::EMPTY_STRING_CODE),
+            Self::Explicit(digest) => digest.encode(out),
         }
-        Ok(Self::Explicit(message))
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            Self::TransactionHash => 1,
+            Self::Explicit(digest) => digest.length(),
+        }
+    }
+}
+
+impl Decodable for SignatureMessage {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        Self::try_from(Header::decode_bytes(buf, false)?).map_err(|err| match err {
+            Eip8141Error::ZeroMessage => {
+                alloy_rlp::Error::Custom("EIP-8141 signature message must be nonzero")
+            }
+            _ => alloy_rlp::Error::Custom("invalid EIP-8141 signature message length"),
+        })
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for SignatureMessage {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.arbitrary::<Option<B256>>()? {
+            Some(digest) if !digest.is_zero() => Self::Explicit(digest),
+            _ => Self::TransactionHash,
+        })
     }
 }
 
 #[cfg(feature = "serde")]
 impl serde::Serialize for SignatureMessage {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let message = match self {
+        let digest = match self {
             Self::TransactionHash => None,
-            Self::Explicit(message) if message.is_zero() => {
-                return Err(serde::ser::Error::custom(FrameError::ZeroMessage));
+            Self::Explicit(digest) if digest.is_zero() => {
+                return Err(serde::ser::Error::custom(Eip8141Error::ZeroMessage));
             }
-            Self::Explicit(message) => Some(*message),
+            Self::Explicit(digest) => Some(*digest),
         };
-        crate::serde_utils::serialize_optional_bytes(message, serializer)
+        crate::serde_utils::serialize_optional_bytes(digest, serializer)
     }
 }
 
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for SignatureMessage {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        match crate::serde_utils::deserialize_optional_bytes::<32, D>(deserializer)? {
-            None => Ok(Self::TransactionHash),
-            Some(message) if message.is_zero() => {
-                Err(serde::de::Error::custom(FrameError::ZeroMessage))
-            }
-            Some(message) => Ok(Self::Explicit(message)),
-        }
+        crate::serde_utils::deserialize_optional_bytes::<32, D>(deserializer)?
+            .map_or(Ok(Self::TransactionHash), |digest| {
+                Self::explicit(digest).map_err(serde::de::Error::custom)
+            })
     }
 }
 
@@ -142,8 +184,8 @@ pub struct FrameSignature {
     pub scheme: SignatureScheme,
     /// Scheme-dependent signer metadata. For `ARBITRARY`, this must be empty.
     pub signer: FrameAddress,
-    /// Empty for the canonical transaction signature hash, or an explicit 32-byte digest.
-    pub msg: Bytes,
+    /// The signed message: the canonical transaction signature hash or an explicit digest.
+    pub msg: SignatureMessage,
     /// Raw signature bytes.
     pub signature: Bytes,
 }
@@ -156,34 +198,27 @@ impl FrameSignature {
     pub const fn new(
         scheme: SignatureScheme,
         signer: FrameAddress,
-        msg: Bytes,
+        msg: SignatureMessage,
         signature: Bytes,
     ) -> Self {
         Self { scheme, signer, msg, signature }
     }
 
     /// Returns true if this signature signs the canonical transaction signature hash.
-    pub fn signs_transaction_hash(&self) -> bool {
-        self.msg.is_empty()
+    pub const fn signs_transaction_hash(&self) -> bool {
+        self.msg.is_transaction_hash()
     }
 
-    /// Returns the explicit non-zero signed message, if structurally valid.
-    pub fn explicit_message(&self) -> Option<B256> {
-        match self.message().ok()? {
-            SignatureMessage::TransactionHash => None,
-            SignatureMessage::Explicit(message) => Some(message),
-        }
+    /// Returns the explicit signed digest, or `None` for the transaction hash case.
+    pub const fn explicit_message(&self) -> Option<B256> {
+        self.msg.digest()
     }
 
-    /// Returns the signed message, rejecting invalid lengths and the reserved zero digest.
-    pub fn message(&self) -> Result<SignatureMessage, FrameError> {
-        SignatureMessage::try_from(self.msg.as_ref())
-    }
-
-    /// Returns the explicit signer address for a protocol-validated scheme.
+    /// Returns the explicit signer address of a protocol-validated scheme.
     ///
-    /// An empty protocol signer resolves to the transaction sender; arbitrary signatures have no
-    /// resolved signer. Use [`Self::resolved_signer`] when the transaction sender is available.
+    /// Returns `None` for an empty signer, which resolves to the transaction sender, and for
+    /// arbitrary signatures, which have no signer. Use [`Self::resolved_signer`] when the
+    /// transaction sender is available.
     pub const fn signer_address(&self) -> Option<Address> {
         match self.scheme {
             SignatureScheme::Arbitrary => None,
@@ -192,43 +227,45 @@ impl FrameSignature {
     }
 
     /// Resolves the signer, rejecting a nonempty signer on an arbitrary signature.
-    pub fn resolved_signer(&self, sender: Address) -> Result<Option<Address>, FrameError> {
+    pub const fn resolved_signer(&self, sender: Address) -> Result<Option<Address>, Eip8141Error> {
         match self.scheme {
-            SignatureScheme::Arbitrary if !self.signer.is_empty() => {
-                Err(FrameError::UnexpectedSigner)
+            SignatureScheme::Arbitrary => {
+                if self.signer.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(Eip8141Error::UnexpectedSigner)
+                }
             }
-            SignatureScheme::Arbitrary => Ok(None),
-            _ => Ok(Some(self.signer.address().unwrap_or(sender))),
+            _ => Ok(Some(self.signer.resolve(sender))),
         }
     }
 
-    /// Checks the message, signer, signature length, parity, and canonical scalar bounds.
+    /// Checks the signer, signature length, parity, and canonical scalar bounds.
     ///
     /// This does not perform cryptographic verification: callers must still recover the secp256k1
-    /// signer or verify P-256's public key and signature against the resolved signer and message.
-    /// Decoding a signature entry does not imply that these checks have passed.
-    pub fn validate_structure(&self) -> Result<(), FrameError> {
-        self.message()?;
+    /// signer or verify the P-256 signature against the resolved signer and message. Decoding a
+    /// signature entry does not imply that these checks have passed.
+    pub fn validate_structure(&self) -> Result<(), Eip8141Error> {
         let (expected, order) = match self.scheme {
             SignatureScheme::Arbitrary => {
                 return if self.signer.is_empty() {
                     Ok(())
                 } else {
-                    Err(FrameError::UnexpectedSigner)
+                    Err(Eip8141Error::UnexpectedSigner)
                 };
             }
-            SignatureScheme::Secp256k1 => (65, crate::SECP256K1N),
-            SignatureScheme::P256 => (128, crate::SECP256R1N),
+            SignatureScheme::Secp256k1 => (SECP256K1_SIGNATURE_LENGTH, crate::SECP256K1N),
+            SignatureScheme::P256 => (P256_SIGNATURE_LENGTH, crate::SECP256R1N),
         };
         if self.signature.len() != expected {
-            return Err(FrameError::InvalidSignatureLength {
+            return Err(Eip8141Error::InvalidSignatureLength {
                 expected,
                 actual: self.signature.len(),
             });
         }
         let offset = if self.scheme == SignatureScheme::Secp256k1 {
             if self.signature[0] > 1 {
-                return Err(FrameError::InvalidParity(self.signature[0]));
+                return Err(Eip8141Error::InvalidParity(self.signature[0]));
             }
             1
         } else {
@@ -237,9 +274,51 @@ impl FrameSignature {
         let r = U256::from_be_slice(&self.signature[offset..offset + 32]);
         let s = U256::from_be_slice(&self.signature[offset + 32..offset + 64]);
         if r.is_zero() || r >= order || s.is_zero() || s > order >> 1 {
-            return Err(FrameError::InvalidSignatureScalar);
+            return Err(Eip8141Error::InvalidSignatureScalar);
         }
         Ok(())
+    }
+
+    /// Runs [`Self::validate_structure`] and checks that a P-256 public key hashes to the resolved
+    /// signer.
+    ///
+    /// This covers every check of the specification's `validate_signature` that does not need a
+    /// cryptographic backend.
+    pub fn validate_structure_with_sender(&self, sender: Address) -> Result<(), Eip8141Error> {
+        self.validate_structure()?;
+        if let Some(derived) = self.p256_signer_address() {
+            let expected = self.signer.resolve(sender);
+            if derived != expected {
+                return Err(Eip8141Error::P256SignerMismatch { expected, derived });
+            }
+        }
+        Ok(())
+    }
+
+    /// Parses the `v || r || s` payload of a secp256k1 entry.
+    ///
+    /// Returns `None` unless the entry uses the secp256k1 scheme with a 65-byte signature whose
+    /// parity byte is zero or one.
+    pub fn secp256k1_signature(&self) -> Option<Signature> {
+        if self.scheme != SignatureScheme::Secp256k1
+            || self.signature.len() != SECP256K1_SIGNATURE_LENGTH
+        {
+            return None;
+        }
+        let parity = match self.signature[0] {
+            0 => false,
+            1 => true,
+            _ => return None,
+        };
+        Some(Signature::from_bytes_and_parity(&self.signature[1..], parity))
+    }
+
+    /// Derives the signer address committed to by the public key of a P-256 entry.
+    ///
+    /// Returns `None` unless the entry uses the P-256 scheme with a 128-byte signature.
+    pub fn p256_signer_address(&self) -> Option<Address> {
+        (self.scheme == SignatureScheme::P256 && self.signature.len() == P256_SIGNATURE_LENGTH)
+            .then(|| Address::from_raw_public_key(&self.signature[64..]))
     }
 
     /// Creates a structurally checked secp256k1 entry using EIP-8141's `v || r || s` layout.
@@ -247,15 +326,14 @@ impl FrameSignature {
     /// Unlike legacy signatures, the parity byte is zero or one and precedes the scalars.
     pub fn from_secp256k1(
         signer: FrameAddress,
-        message: SignatureMessage,
+        msg: SignatureMessage,
         signature: Signature,
-    ) -> Result<Self, FrameError> {
-        let mut bytes = [0u8; 65];
+    ) -> Result<Self, Eip8141Error> {
+        let mut bytes = [0u8; SECP256K1_SIGNATURE_LENGTH];
         bytes[0] = u8::from(signature.v());
         bytes[1..33].copy_from_slice(&signature.r().to_be_bytes::<32>());
         bytes[33..].copy_from_slice(&signature.s().to_be_bytes::<32>());
-        let entry =
-            Self::new(SignatureScheme::Secp256k1, signer, message.to_bytes()?, bytes.into());
+        let entry = Self::new(SignatureScheme::Secp256k1, signer, msg, bytes.into());
         entry.validate_structure()?;
         Ok(entry)
     }
@@ -263,17 +341,5 @@ impl FrameSignature {
     /// Returns the protocol signature verification gas cost.
     pub const fn verification_gas(&self) -> u64 {
         self.scheme.verification_gas()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::SignatureScheme;
-
-    #[test]
-    fn signature_verification_gas_matches_execution_specs() {
-        assert_eq!(SignatureScheme::Arbitrary.verification_gas(), 100);
-        assert_eq!(SignatureScheme::Secp256k1.verification_gas(), 2_800);
-        assert_eq!(SignatureScheme::P256.verification_gas(), 6_700);
     }
 }

@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 use crate::FrameAddress;
 
@@ -31,30 +31,7 @@ impl FrameMode {
     }
 }
 
-impl_u8_conversions!(FrameMode, InvalidMode);
-
-impl From<FrameMode> for u8 {
-    fn from(value: FrameMode) -> Self {
-        value as Self
-    }
-}
-
-impl Encodable for FrameMode {
-    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        u8::from(*self).encode(out);
-    }
-
-    fn length(&self) -> usize {
-        u8::from(*self).length()
-    }
-}
-
-impl Decodable for FrameMode {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        Self::try_from_u8(u8::decode(buf)?)
-            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 frame mode"))
-    }
-}
+impl_u8_discriminant!(FrameMode, InvalidMode, "invalid EIP-8141 frame mode");
 
 /// EIP-8141 approval scope.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -87,13 +64,7 @@ impl ApprovalScope {
     }
 }
 
-impl_u8_conversions!(ApprovalScope, InvalidScope);
-
-impl From<ApprovalScope> for u8 {
-    fn from(value: ApprovalScope) -> Self {
-        value as Self
-    }
-}
+impl_u8_discriminant!(ApprovalScope, InvalidScope);
 
 /// The independent execution and state gas budgets carried by an EIP-8141 frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
@@ -150,6 +121,11 @@ impl Frame {
         self.target.address()
     }
 
+    /// Resolves the target, substituting the transaction sender for an empty target.
+    pub const fn resolved_target(&self, sender: Address) -> Address {
+        self.target.resolve(sender)
+    }
+
     /// Returns the allowed approval scope encoded in this frame's flags.
     pub const fn allowed_scope(&self) -> ApprovalScope {
         match self.flags & crate::APPROVE_SCOPE_MASK {
@@ -163,6 +139,11 @@ impl Frame {
     /// Returns true if this frame has the atomic batch flag set.
     pub const fn is_atomic_batch(&self) -> bool {
         self.flags & crate::ATOMIC_BATCH_FLAG != 0
+    }
+
+    /// Returns true if any reserved flag bit is set, which makes the transaction invalid.
+    pub const fn has_reserved_flags(&self) -> bool {
+        self.flags & !crate::FRAME_FLAGS_MASK != 0
     }
 
     /// Returns true if this frame is an expiry verifier frame.

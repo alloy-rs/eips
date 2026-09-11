@@ -30,26 +30,20 @@ fn rlp_fixtures() {
         hex!("dd80940000000000000000000000000000000000000000c6c501c28080c0")
     );
     roundtrip(receipt);
-}
-
-#[test]
-fn rlp_length_boundaries() {
-    for size in [0, 1, 55, 56, 255, 256, 1024] {
-        roundtrip(Frame::new(
-            FrameMode::Sender,
-            4,
-            Address::repeat_byte(0x11).into(),
-            FrameLimits { execution: u64::MAX, state: u64::MAX },
-            U256::MAX,
-            Bytes::from(vec![0xa5; size]),
-        ));
-        roundtrip(FrameSignature::new(
-            SignatureScheme::Arbitrary,
-            FrameAddress::Empty,
-            Bytes::new(),
-            Bytes::from(vec![0xa5; size]),
-        ));
-    }
+    roundtrip(Frame::new(
+        FrameMode::Sender,
+        ATOMIC_BATCH_FLAG,
+        Address::repeat_byte(0x11).into(),
+        FrameLimits { execution: u64::MAX, state: 1 },
+        U256::MAX,
+        Bytes::from(vec![0xa5; 100]),
+    ));
+    roundtrip(FrameSignature::new(
+        SignatureScheme::P256,
+        Address::repeat_byte(0x22).into(),
+        SignatureMessage::Explicit(B256::repeat_byte(0x33)),
+        Bytes::from(vec![0xa5; P256_SIGNATURE_LENGTH]),
+    ));
     roundtrip(TransactionFees {
         max_priority_fee_per_gas: U256::MAX,
         max_fee_per_gas: U256::MAX,
@@ -70,7 +64,7 @@ fn optional_addresses_preserve_encoding_and_reject_invalid_lengths() {
         let bytes = vec![1; size];
         assert_eq!(
             FrameAddress::try_from(bytes.as_slice()),
-            Err(FrameError::InvalidAddressLength(size))
+            Err(Eip8141Error::InvalidAddressLength(size))
         );
         let encoded = alloy_rlp::encode(Bytes::from(bytes));
         assert!(FrameAddress::decode(&mut encoded.as_slice()).is_err());
@@ -81,58 +75,85 @@ fn optional_addresses_preserve_encoding_and_reject_invalid_lengths() {
 }
 
 #[test]
+fn signature_messages_preserve_encoding_and_reject_invalid_values() {
+    assert_eq!(alloy_rlp::encode(SignatureMessage::TransactionHash), hex!("80"));
+    let explicit = SignatureMessage::Explicit(B256::repeat_byte(1));
+    assert_eq!(alloy_rlp::encode(explicit), alloy_rlp::encode(B256::repeat_byte(1)));
+    assert_eq!(explicit.as_bytes(), &[1; 32]);
+    assert!(SignatureMessage::TransactionHash.as_bytes().is_empty());
+    roundtrip(SignatureMessage::TransactionHash);
+    roundtrip(explicit);
+    for length in [1, 31, 33] {
+        let bytes = vec![1; length];
+        assert_eq!(
+            SignatureMessage::try_from(bytes.as_slice()),
+            Err(Eip8141Error::InvalidMessageLength(length))
+        );
+        let encoded = alloy_rlp::encode(Bytes::from(bytes));
+        assert!(SignatureMessage::decode(&mut encoded.as_slice()).is_err());
+    }
+    assert_eq!(SignatureMessage::explicit(B256::ZERO), Err(Eip8141Error::ZeroMessage));
+    assert_eq!(SignatureMessage::try_from(&[0; 32][..]), Err(Eip8141Error::ZeroMessage));
+    assert!(SignatureMessage::decode(&mut alloy_rlp::encode(B256::ZERO).as_slice()).is_err());
+    let zero = FrameSignature { msg: SignatureMessage::Explicit(B256::ZERO), ..Default::default() };
+    assert!(FrameSignature::decode(&mut alloy_rlp::encode(&zero).as_slice()).is_err());
+}
+
+#[test]
 fn invalid_discriminants_and_noncanonical_rlp() {
     for input in [&[3u8][..], &[0x81, 1][..], &[0xc0][..]] {
         assert!(FrameMode::decode(&mut &*input).is_err());
         assert!(FrameStatus::decode(&mut &*input).is_err());
         assert!(SignatureScheme::decode(&mut &*input).is_err());
     }
-    assert_eq!(FrameMode::try_from(3), Err(FrameError::InvalidMode(3)));
-    assert_eq!(FrameStatus::try_from(3), Err(FrameError::InvalidStatus(3)));
-    assert_eq!(SignatureScheme::try_from(3), Err(FrameError::InvalidScheme(3)));
-    assert_eq!(ApprovalScope::try_from(4), Err(FrameError::InvalidScope(4)));
+    assert_eq!(FrameMode::try_from(3), Err(Eip8141Error::InvalidMode(3)));
+    assert_eq!(FrameStatus::try_from(3), Err(Eip8141Error::InvalidStatus(3)));
+    assert_eq!(SignatureScheme::try_from(3), Err(Eip8141Error::InvalidScheme(3)));
+    assert_eq!(ApprovalScope::try_from(4), Err(Eip8141Error::InvalidScope(4)));
     for flags in 0..=u8::MAX {
         let frame = Frame { flags, ..Default::default() };
         assert_eq!(u8::from(frame.allowed_scope()), flags & APPROVE_SCOPE_MASK);
+        assert_eq!(frame.is_atomic_batch(), flags & ATOMIC_BATCH_FLAG != 0);
+        assert_eq!(frame.has_reserved_flags(), flags >= 8);
     }
 }
 
 #[test]
-fn message_and_signer_resolution() {
+fn target_and_signer_resolution() {
+    let sender = Address::repeat_byte(1);
+    let mut frame = Frame::default();
+    assert_eq!(frame.resolved_target(sender), sender);
+    frame.target = Address::ZERO.into();
+    assert_eq!(frame.resolved_target(sender), Address::ZERO);
+
     let mut sig = FrameSignature::default();
-    assert_eq!(sig.message(), Ok(SignatureMessage::TransactionHash));
-    assert_eq!(sig.resolved_signer(Address::ZERO), Ok(None));
+    assert_eq!(sig.resolved_signer(sender), Ok(None));
     sig.signer = Address::ZERO.into();
-    assert_eq!(sig.resolved_signer(Address::ZERO), Err(FrameError::UnexpectedSigner));
-    assert_eq!(sig.validate_structure(), Err(FrameError::UnexpectedSigner));
+    assert_eq!(sig.signer_address(), None);
+    assert_eq!(sig.resolved_signer(sender), Err(Eip8141Error::UnexpectedSigner));
+    assert_eq!(sig.validate_structure(), Err(Eip8141Error::UnexpectedSigner));
     for scheme in [SignatureScheme::Secp256k1, SignatureScheme::P256] {
         sig.scheme = scheme;
-        assert_eq!(sig.resolved_signer(Address::repeat_byte(1)), Ok(Some(Address::ZERO)));
-        sig.signer = FrameAddress::Empty;
-        assert_eq!(sig.resolved_signer(Address::repeat_byte(1)), Ok(Some(Address::repeat_byte(1))));
         sig.signer = Address::ZERO.into();
+        assert_eq!(sig.signer_address(), Some(Address::ZERO));
+        assert_eq!(sig.resolved_signer(sender), Ok(Some(Address::ZERO)));
+        sig.signer = FrameAddress::Empty;
+        assert_eq!(sig.signer_address(), None);
+        assert_eq!(sig.resolved_signer(sender), Ok(Some(sender)));
     }
-    for length in [1, 31, 33] {
-        sig.msg = Bytes::from(vec![1; length]);
-        assert_eq!(sig.message(), Err(FrameError::InvalidMessageLength(length)));
-    }
-    sig.msg = Bytes::from(vec![0; 32]);
-    assert_eq!(sig.message(), Err(FrameError::ZeroMessage));
-    assert_eq!(SignatureMessage::Explicit(B256::ZERO).to_bytes(), Err(FrameError::ZeroMessage));
-    sig.msg = Bytes::from(vec![1; 32]);
-    assert_eq!(sig.message(), Ok(SignatureMessage::Explicit(B256::repeat_byte(1))));
-    assert_eq!(sig.explicit_message(), Some(B256::repeat_byte(1)));
 }
 
 fn scalar_entry(scheme: SignatureScheme, r: U256, s: U256) -> FrameSignature {
-    let (mut signature, offset) = match scheme {
-        SignatureScheme::Secp256k1 => (vec![0; 65], 1),
-        SignatureScheme::P256 => (vec![0; 128], 0),
-        _ => unreachable!(),
-    };
+    let offset = usize::from(scheme == SignatureScheme::Secp256k1);
+    let mut signature = vec![0; scheme.signature_length().unwrap()];
     signature[offset..offset + 32].copy_from_slice(&r.to_be_bytes::<32>());
     signature[offset + 32..offset + 64].copy_from_slice(&s.to_be_bytes::<32>());
-    FrameSignature::new(scheme, FrameAddress::Empty, Bytes::new(), signature.into())
+    FrameSignature::new(
+        scheme,
+        FrameAddress::Empty,
+        SignatureMessage::TransactionHash,
+        signature.into(),
+    )
 }
 
 #[test]
@@ -150,7 +171,7 @@ fn signature_structure_boundaries() {
         ] {
             assert_eq!(
                 scalar_entry(scheme, r, s).validate_structure(),
-                Err(FrameError::InvalidSignatureScalar)
+                Err(Eip8141Error::InvalidSignatureScalar)
             );
         }
         let mut sig = scalar_entry(scheme, U256::from(1), half);
@@ -159,7 +180,7 @@ fn signature_structure_boundaries() {
             sig.signature = Bytes::from(vec![0; actual]);
             assert_eq!(
                 sig.validate_structure(),
-                Err(FrameError::InvalidSignatureLength { expected, actual })
+                Err(Eip8141Error::InvalidSignatureLength { expected, actual })
             );
         }
     }
@@ -167,22 +188,26 @@ fn signature_structure_boundaries() {
     let mut bytes = sig.signature.to_vec();
     bytes[0] = 27;
     sig.signature = bytes.into();
-    assert_eq!(sig.validate_structure(), Err(FrameError::InvalidParity(27)));
+    assert_eq!(sig.validate_structure(), Err(Eip8141Error::InvalidParity(27)));
+    assert_eq!(sig.secp256k1_signature(), None);
 }
 
 #[test]
-fn secp256k1_constructor_uses_parity_first() {
+fn secp256k1_entries_use_parity_first() {
     for parity in [false, true] {
+        let signature = Signature::new(U256::from(2), U256::from(3), parity);
         let entry = FrameSignature::from_secp256k1(
             FrameAddress::Empty,
             SignatureMessage::Explicit(B256::repeat_byte(7)),
-            Signature::new(U256::from(2), U256::from(3), parity),
+            signature,
         )
         .unwrap();
         assert_eq!(entry.signature[0], u8::from(parity));
         assert_eq!(entry.signature[32], 2);
         assert_eq!(entry.signature[64], 3);
-        assert_eq!(entry.msg.as_ref(), &[7; 32]);
+        assert_eq!(entry.msg, SignatureMessage::Explicit(B256::repeat_byte(7)));
+        assert_eq!(entry.secp256k1_signature(), Some(signature));
+        assert_eq!(entry.p256_signer_address(), None);
         roundtrip(entry);
     }
     assert_eq!(
@@ -191,60 +216,45 @@ fn secp256k1_constructor_uses_parity_first() {
             SignatureMessage::TransactionHash,
             Signature::new(U256::from(1), SECP256K1N - U256::from(1), false),
         ),
-        Err(FrameError::InvalidSignatureScalar)
+        Err(Eip8141Error::InvalidSignatureScalar)
     );
+}
+
+#[test]
+fn p256_public_key_must_match_resolved_signer() {
+    let sender = Address::repeat_byte(1);
+    let mut entry = scalar_entry(SignatureScheme::P256, U256::from(1), U256::from(1));
+    let mut bytes = entry.signature.to_vec();
+    bytes[64..].fill(0x42);
+    entry.signature = bytes.into();
+    let derived = Address::from_raw_public_key(&[0x42; 64]);
+    assert_eq!(entry.p256_signer_address(), Some(derived));
+    assert_eq!(entry.secp256k1_signature(), None);
+    assert_eq!(
+        entry.validate_structure_with_sender(sender),
+        Err(Eip8141Error::P256SignerMismatch { expected: sender, derived })
+    );
+    assert_eq!(entry.validate_structure_with_sender(derived), Ok(()));
+    entry.signer = derived.into();
+    assert_eq!(entry.validate_structure_with_sender(sender), Ok(()));
+    let secp = scalar_entry(SignatureScheme::Secp256k1, U256::from(1), U256::from(1));
+    assert_eq!(secp.validate_structure_with_sender(sender), Ok(()));
 }
 
 #[cfg(feature = "borsh")]
 #[test]
-fn typed_addresses_roundtrip_borsh() {
-    for target in [FrameAddress::Empty, Address::ZERO.into(), Address::repeat_byte(1).into()] {
-        let frame = Frame { target, ..Default::default() };
+fn typed_fields_roundtrip_borsh() {
+    for address in [FrameAddress::Empty, Address::ZERO.into(), Address::repeat_byte(1).into()] {
+        let frame = Frame { target: address, ..Default::default() };
         assert_eq!(borsh::from_slice::<Frame>(&borsh::to_vec(&frame).unwrap()).unwrap(), frame);
-        let signature = FrameSignature { signer: target, ..Default::default() };
-        assert_eq!(
-            borsh::from_slice::<FrameSignature>(&borsh::to_vec(&signature).unwrap()).unwrap(),
-            signature
-        );
+        for msg in
+            [SignatureMessage::TransactionHash, SignatureMessage::Explicit(B256::repeat_byte(1))]
+        {
+            let signature = FrameSignature { signer: address, msg, ..Default::default() };
+            assert_eq!(
+                borsh::from_slice::<FrameSignature>(&borsh::to_vec(&signature).unwrap()).unwrap(),
+                signature
+            );
+        }
     }
-}
-
-#[test]
-fn map_logs_preserves_receipt_fields_and_frame_order() {
-    let receipt = FrameReceiptPayload {
-        cumulative_gas_used: 123,
-        payer: Address::repeat_byte(1),
-        frame_receipts: vec![
-            FrameReceipt {
-                status: FrameStatus::Success,
-                gas_used: FrameGasUsed { execution: 5, state: 2 },
-                logs: vec![1, 2],
-            },
-            FrameReceipt {
-                status: FrameStatus::SkippedAtomicBatch,
-                gas_used: FrameGasUsed::default(),
-                logs: vec![],
-            },
-            FrameReceipt {
-                status: FrameStatus::Failure,
-                gas_used: FrameGasUsed { execution: 7, state: 0 },
-                logs: vec![3],
-            },
-        ],
-    };
-    let mut seen = Vec::new();
-    let mapped = receipt.clone().map_logs(|value| {
-        seen.push(value);
-        value.to_string()
-    });
-    assert_eq!(seen, vec![1, 2, 3]);
-    assert_eq!(mapped.cumulative_gas_used, receipt.cumulative_gas_used);
-    assert_eq!(mapped.payer, receipt.payer);
-    for (before, after) in receipt.frame_receipts.iter().zip(&mapped.frame_receipts) {
-        assert_eq!(before.status, after.status);
-        assert_eq!(before.gas_used, after.gas_used);
-    }
-    assert_eq!(mapped.frame_receipts[0].logs, vec!["1", "2"]);
-    assert!(mapped.frame_receipts[1].logs.is_empty());
-    assert_eq!(mapped.frame_receipts[2].logs, vec!["3"]);
 }

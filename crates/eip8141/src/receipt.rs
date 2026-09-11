@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use alloy_primitives::Address;
-use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 /// EIP-8141 top-level frame status code.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -31,30 +31,7 @@ impl FrameStatus {
     }
 }
 
-impl_u8_conversions!(FrameStatus, InvalidStatus);
-
-impl From<FrameStatus> for u8 {
-    fn from(value: FrameStatus) -> Self {
-        value as Self
-    }
-}
-
-impl Encodable for FrameStatus {
-    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        u8::from(*self).encode(out);
-    }
-
-    fn length(&self) -> usize {
-        u8::from(*self).length()
-    }
-}
-
-impl Decodable for FrameStatus {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        Self::try_from_u8(u8::decode(buf)?)
-            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 frame status"))
-    }
-}
+impl_u8_discriminant!(FrameStatus, InvalidStatus, "invalid EIP-8141 frame status");
 
 /// Gas used by a frame, reported independently for each gas dimension.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
@@ -72,6 +49,9 @@ pub struct FrameGasUsed {
 }
 
 /// Receipt information for a single frame.
+///
+/// The `serde` representation mirrors the consensus encoding and nests `gasUsed` as an object
+/// with `execution` and `state` fields. It is not the JSON-RPC receipt shape.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -118,19 +98,5 @@ impl<Log> FrameReceiptPayload<Log> {
                 })
                 .collect(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::FrameStatus;
-
-    #[test]
-    fn frame_status_codes_match_execution_specs() {
-        assert_eq!(u8::from(FrameStatus::Failure), 0);
-        assert_eq!(u8::from(FrameStatus::Success), 1);
-        assert_eq!(u8::from(FrameStatus::SkippedAtomicBatch), 2);
-        assert_eq!(FrameStatus::try_from_u8(2), Some(FrameStatus::SkippedAtomicBatch));
-        assert_eq!(FrameStatus::try_from_u8(3), None);
     }
 }

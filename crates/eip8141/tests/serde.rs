@@ -68,7 +68,10 @@ fn frame_json_fixture() {
         U256::from(1),
         Bytes::from_static(&[0xab, 0xcd]),
     );
-    assert_eq!(roundtrip(frame), expected);
+    assert_eq!(roundtrip(frame.clone()), expected);
+    let mut null_target = expected.clone();
+    null_target["target"] = json!(null);
+    assert_eq!(serde_json::from_value::<Frame>(null_target).unwrap(), frame);
     let mut malformed = expected;
     malformed["target"] = json!("0x01");
     assert!(serde_json::from_value::<Frame>(malformed).is_err());
@@ -122,16 +125,23 @@ fn optional_addresses_and_messages_use_byte_strings() {
         roundtrip(SignatureMessage::Explicit(B256::repeat_byte(1))),
         json!(B256::repeat_byte(1))
     );
-    for bytes in [vec![], vec![1; 20]] {
-        assert!(serde_json::from_value::<FrameAddress>(json!(bytes)).is_ok());
+    for empty in [json!(null), json!(""), json!([])] {
+        assert_eq!(
+            serde_json::from_value::<FrameAddress>(empty.clone()).unwrap(),
+            FrameAddress::Empty
+        );
+        assert_eq!(
+            serde_json::from_value::<SignatureMessage>(empty).unwrap(),
+            SignatureMessage::TransactionHash
+        );
     }
-    for bytes in [vec![], vec![1; 32]] {
-        assert!(serde_json::from_value::<SignatureMessage>(json!(bytes)).is_ok());
-    }
+    assert!(serde_json::from_value::<FrameAddress>(json!(vec![1; 20])).is_ok());
+    assert!(serde_json::from_value::<SignatureMessage>(json!(vec![1; 32])).is_ok());
     for size in [1, 19, 21, 31, 33] {
         let bytes = Bytes::from(vec![1; size]);
         assert!(serde_json::from_value::<FrameAddress>(json!(bytes)).is_err());
         assert!(serde_json::from_value::<SignatureMessage>(json!(bytes)).is_err());
+        assert!(serde_json::from_value::<FrameAddress>(json!(vec![1; size])).is_err());
     }
     assert!(serde_json::from_value::<SignatureMessage>(json!(B256::ZERO)).is_err());
     assert!(serde_json::to_value(SignatureMessage::Explicit(B256::ZERO)).is_err());
@@ -143,20 +153,18 @@ fn optional_addresses_and_messages_use_byte_strings() {
 
 #[test]
 fn signature_message_matches_entry_representation() {
-    for message in
-        [SignatureMessage::TransactionHash, SignatureMessage::Explicit(B256::repeat_byte(1))]
+    for msg in [SignatureMessage::TransactionHash, SignatureMessage::Explicit(B256::repeat_byte(1))]
     {
         let signature = FrameSignature::new(
             SignatureScheme::Arbitrary,
             FrameAddress::Empty,
-            message.to_bytes().unwrap(),
+            msg,
             Bytes::from_static(&[1, 2]),
         );
-        assert_eq!(signature.message(), Ok(message));
         let value = roundtrip(signature);
         assert_eq!(value["scheme"], json!("0x0"));
         assert_eq!(value["signer"], json!("0x"));
-        assert_eq!(value["msg"], serde_json::to_value(message).unwrap());
+        assert_eq!(value["msg"], serde_json::to_value(msg).unwrap());
     }
 }
 

@@ -1,14 +1,15 @@
 use alloy_primitives::Address;
 use alloy_rlp::{Decodable, Encodable, Header};
 
-use crate::FrameError;
+use crate::Eip8141Error;
 
 /// An empty or explicit address in a frame transaction.
 ///
 /// Empty targets resolve to the transaction sender. Empty signature signers resolve to the sender
 /// for protocol-validated schemes and represent no signer for arbitrary signatures.
 /// RLP encodes the empty case as an empty byte string, preserving the EIP-8141 wire format.
-/// JSON uses hex byte strings, including `"0x"` for the empty case.
+/// JSON uses hex byte strings, including `"0x"` for the empty case; `null` also deserializes as
+/// empty.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
@@ -26,6 +27,14 @@ impl FrameAddress {
         match self {
             Self::Empty => None,
             Self::Address(address) => Some(address),
+        }
+    }
+
+    /// Returns the explicit address, or `sender` when the address is omitted.
+    pub const fn resolve(self, sender: Address) -> Address {
+        match self {
+            Self::Empty => sender,
+            Self::Address(address) => address,
         }
     }
 
@@ -48,7 +57,7 @@ impl From<Option<Address>> for FrameAddress {
 }
 
 impl TryFrom<&[u8]> for FrameAddress {
-    type Error = FrameError;
+    type Error = Eip8141Error;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.is_empty() {
@@ -56,7 +65,7 @@ impl TryFrom<&[u8]> for FrameAddress {
         } else {
             Address::try_from(value)
                 .map(Self::Address)
-                .map_err(|_| FrameError::InvalidAddressLength(value.len()))
+                .map_err(|_| Eip8141Error::InvalidAddressLength(value.len()))
         }
     }
 }
