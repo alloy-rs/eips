@@ -1,11 +1,12 @@
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{RlpDecodable, RlpEncodable};
+
+use crate::FrameAddress;
 
 /// EIP-8141 frame execution mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
 pub enum FrameMode {
@@ -30,34 +31,12 @@ impl FrameMode {
     }
 }
 
-impl From<FrameMode> for u8 {
-    fn from(value: FrameMode) -> Self {
-        value as Self
-    }
-}
-
-impl Encodable for FrameMode {
-    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        u8::from(*self).encode(out);
-    }
-
-    fn length(&self) -> usize {
-        u8::from(*self).length()
-    }
-}
-
-impl Decodable for FrameMode {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        Self::try_from_u8(u8::decode(buf)?)
-            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 frame mode"))
-    }
-}
+impl_u8_discriminant!(FrameMode, InvalidMode, "invalid EIP-8141 frame mode");
 
 /// EIP-8141 approval scope.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
 pub enum ApprovalScope {
@@ -85,11 +64,7 @@ impl ApprovalScope {
     }
 }
 
-impl From<ApprovalScope> for u8 {
-    fn from(value: ApprovalScope) -> Self {
-        value as Self
-    }
-}
+impl_u8_discriminant!(ApprovalScope, InvalidScope);
 
 /// The independent execution and state gas budgets carried by an EIP-8141 frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
@@ -99,8 +74,10 @@ impl From<ApprovalScope> for u8 {
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameLimits {
     /// Maximum execution gas available to the frame.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub execution: u64,
     /// Maximum state gas available to the frame.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub state: u64,
 }
 
@@ -114,9 +91,10 @@ pub struct Frame {
     /// The frame execution mode.
     pub mode: FrameMode,
     /// Frame flags. Bits 0-1 encode approval scope, bit 2 encodes atomic batching.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity_u8"))]
     pub flags: u8,
-    /// Encoded target account. Empty bytes resolve to the transaction sender.
-    pub target: Bytes,
+    /// Target account. An empty address resolves to the transaction sender.
+    pub target: FrameAddress,
     /// Independent execution and state gas limits for this frame.
     pub limits: FrameLimits,
     /// Wei value transferred by this frame. Non-zero value is valid only for `SENDER` frames.
@@ -130,7 +108,7 @@ impl Frame {
     pub const fn new(
         mode: FrameMode,
         flags: u8,
-        target: Bytes,
+        target: FrameAddress,
         limits: FrameLimits,
         value: U256,
         data: Bytes,
@@ -139,31 +117,33 @@ impl Frame {
     }
 
     /// Returns the target address, or `None` when the frame resolves to the transaction sender.
-    pub fn target_address(&self) -> Option<Address> {
-        if self.target.is_empty() {
-            None
-        } else if self.target.len() == 20 {
-            let mut bytes = [0u8; 20];
-            bytes.copy_from_slice(&self.target);
-            Some(Address::from(bytes))
-        } else {
-            None
-        }
+    pub const fn target_address(&self) -> Option<Address> {
+        self.target.address()
     }
 
-    /// Returns true if the target is encoded as either empty bytes or a 20-byte address.
-    pub fn has_valid_target_encoding(&self) -> bool {
-        self.target.is_empty() || self.target.len() == 20
+    /// Resolves the target, substituting the transaction sender for an empty target.
+    pub const fn resolved_target(&self, sender: Address) -> Address {
+        self.target.resolve(sender)
     }
 
     /// Returns the allowed approval scope encoded in this frame's flags.
-    pub const fn allowed_scope(&self) -> u8 {
-        self.flags & crate::APPROVE_SCOPE_MASK
+    pub const fn allowed_scope(&self) -> ApprovalScope {
+        match self.flags & crate::APPROVE_SCOPE_MASK {
+            0 => ApprovalScope::None,
+            1 => ApprovalScope::Payment,
+            2 => ApprovalScope::Execution,
+            _ => ApprovalScope::ExecutionAndPayment,
+        }
     }
 
     /// Returns true if this frame has the atomic batch flag set.
     pub const fn is_atomic_batch(&self) -> bool {
         self.flags & crate::ATOMIC_BATCH_FLAG != 0
+    }
+
+    /// Returns true if any reserved flag bit is set, which makes the transaction invalid.
+    pub const fn has_reserved_flags(&self) -> bool {
+        self.flags & !crate::FRAME_FLAGS_MASK != 0
     }
 
     /// Returns true if this frame is an expiry verifier frame.
@@ -206,7 +186,7 @@ mod tests {
     fn expiry_frame() -> Frame {
         Frame {
             mode: FrameMode::Verify,
-            target: Bytes::copy_from_slice(crate::EXPIRY_VERIFIER.as_slice()),
+            target: crate::EXPIRY_VERIFIER.into(),
             data: Bytes::from(vec![0; crate::EXPIRY_DATA_LENGTH]),
             ..Default::default()
         }

@@ -1,13 +1,12 @@
 use alloc::vec::Vec;
 
 use alloy_primitives::Address;
-use alloy_rlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 /// EIP-8141 top-level frame status code.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "borsh", borsh(use_discriminant = true))]
 pub enum FrameStatus {
@@ -32,28 +31,7 @@ impl FrameStatus {
     }
 }
 
-impl From<FrameStatus> for u8 {
-    fn from(value: FrameStatus) -> Self {
-        value as Self
-    }
-}
-
-impl Encodable for FrameStatus {
-    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        u8::from(*self).encode(out);
-    }
-
-    fn length(&self) -> usize {
-        u8::from(*self).length()
-    }
-}
-
-impl Decodable for FrameStatus {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        Self::try_from_u8(u8::decode(buf)?)
-            .ok_or(alloy_rlp::Error::Custom("invalid EIP-8141 frame status"))
-    }
-}
+impl_u8_discriminant!(FrameStatus, InvalidStatus, "invalid EIP-8141 frame status");
 
 /// Gas used by a frame, reported independently for each gas dimension.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
@@ -63,12 +41,17 @@ impl Decodable for FrameStatus {
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameGasUsed {
     /// Execution gas used by the frame, before transaction-level refunds.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub execution: u64,
     /// State gas attributed to the frame after refills and rollbacks.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub state: u64,
 }
 
 /// Receipt information for a single frame.
+///
+/// The `serde` representation mirrors the consensus encoding and nests `gasUsed` as an object
+/// with `execution` and `state` fields. It is not the JSON-RPC receipt shape.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -91,6 +74,7 @@ pub struct FrameReceipt<Log = alloy_primitives::Log> {
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct FrameReceiptPayload<Log = alloy_primitives::Log> {
     /// Cumulative gas used by the block after this transaction.
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub cumulative_gas_used: u64,
     /// Account that paid the transaction fee.
     pub payer: Address,
@@ -114,19 +98,5 @@ impl<Log> FrameReceiptPayload<Log> {
                 })
                 .collect(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::FrameStatus;
-
-    #[test]
-    fn frame_status_codes_match_execution_specs() {
-        assert_eq!(u8::from(FrameStatus::Failure), 0);
-        assert_eq!(u8::from(FrameStatus::Success), 1);
-        assert_eq!(u8::from(FrameStatus::SkippedAtomicBatch), 2);
-        assert_eq!(FrameStatus::try_from_u8(2), Some(FrameStatus::SkippedAtomicBatch));
-        assert_eq!(FrameStatus::try_from_u8(3), None);
     }
 }

@@ -49,6 +49,12 @@ pub const SECP256K1N: U256 =
 pub const SECP256R1N: U256 =
     U256::from_be_bytes(hex!("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"));
 
+/// Byte length of a secp256k1 signature entry: `v || r || s`.
+pub const SECP256K1_SIGNATURE_LENGTH: usize = 65;
+
+/// Byte length of a P-256 signature entry: `r || s || qx || qy`.
+pub const P256_SIGNATURE_LENGTH: usize = 128;
+
 /// Maximum validation work for public mempool admission.
 pub const MAX_VERIFY_GAS: u64 = 100_000;
 
