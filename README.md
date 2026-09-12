@@ -12,3 +12,4 @@ EIP implementations apart from the ones listed below can be found in [alloy-rs/a
 - [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)
 - [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702)
 - [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
+- [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
