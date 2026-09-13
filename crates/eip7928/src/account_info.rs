@@ -45,6 +45,17 @@ impl BalAccountInfo {
         self.balance.is_none() && self.nonce.is_none() && self.code_hash.is_none()
     }
 
+    /// Returns `true` if the entry this info came from contributes to the block's post-state,
+    /// and therefore to the state root: it changed an account-level field, or it wrote storage.
+    ///
+    /// `changes` must be the entry this info was extracted from. Prefer this over
+    /// [`AccountChanges::has_changes`] once the info has been extracted, it reuses the
+    /// account-level fields instead of scanning their change lists again.
+    #[inline]
+    pub fn changes_state_root(&self, changes: &AccountChanges) -> bool {
+        !self.is_empty() || changes.has_storage_changes()
+    }
+
     /// Returns `true` if the block changed every account-level field.
     ///
     /// A complete entry describes the account's post-block state on its own, so consumers
@@ -64,7 +75,9 @@ impl From<&AccountChanges> for BalAccountInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BalanceChange, BlockAccessIndex, CodeChange, NonceChange};
+    use crate::{
+        BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges, StorageChange,
+    };
     use alloy_primitives::{Address, Bytes, KECCAK256_EMPTY, bytes, keccak256};
 
     const fn index(value: u64) -> BlockAccessIndex {
@@ -111,7 +124,43 @@ mod tests {
         let info = BalAccountInfo::from_changes(&changes);
 
         assert!(info.is_empty());
+        assert!(!info.changes_state_root(&changes));
         assert_eq!(info, BalAccountInfo::default());
+    }
+
+    #[test]
+    fn storage_only_entries_change_the_state_root_while_empty() {
+        let changes = AccountChanges::new(Address::repeat_byte(0xbb)).with_storage_change(
+            SlotChanges::new(U256::from(1), vec![StorageChange::new(index(0), U256::from(2))]),
+        );
+
+        let info = BalAccountInfo::from_changes(&changes);
+
+        assert!(info.is_empty());
+        assert!(info.changes_state_root(&changes));
+    }
+
+    #[test]
+    fn changing_the_state_root_agrees_with_the_entry() {
+        let entries = [
+            AccountChanges::new(Address::ZERO).with_storage_read(U256::from(1)),
+            AccountChanges::new(Address::ZERO)
+                .with_storage_change(SlotChanges::new(U256::from(1), Vec::new())),
+            AccountChanges::new(Address::ZERO).with_storage_change(SlotChanges::new(
+                U256::from(1),
+                vec![StorageChange::new(index(0), U256::from(2))],
+            )),
+            AccountChanges::new(Address::ZERO)
+                .with_balance_change(BalanceChange::new(index(0), U256::from(1))),
+            AccountChanges::new(Address::ZERO).with_nonce_change(NonceChange::new(index(0), 1)),
+            AccountChanges::new(Address::ZERO)
+                .with_code_change(CodeChange::new(index(0), Bytes::new())),
+        ];
+
+        for changes in entries {
+            let info = BalAccountInfo::from_changes(&changes);
+            assert_eq!(info.changes_state_root(&changes), changes.has_changes());
+        }
     }
 
     #[test]

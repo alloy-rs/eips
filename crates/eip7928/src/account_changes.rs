@@ -154,16 +154,22 @@ impl AccountChanges {
         BalAccountInfo::from_changes(self)
     }
 
+    /// Returns `true` if this entry writes at least one storage slot.
+    ///
+    /// [`SlotChanges`] entries without changes are ignored, mirroring [`Self::is_empty`].
+    pub fn has_storage_changes(&self) -> bool {
+        self.storage_changes.iter().any(|changes| !changes.is_empty())
+    }
+
     /// Returns `true` if this entry records at least one state change.
     ///
     /// Entries that only record reads leave the account untouched and do not contribute to the
-    /// block's post-state. [`SlotChanges`] entries without changes are ignored, mirroring
-    /// [`Self::is_empty`].
+    /// block's post-state.
     pub fn has_changes(&self) -> bool {
         !self.balance_changes.is_empty()
             || !self.nonce_changes.is_empty()
             || !self.code_changes.is_empty()
-            || self.storage_changes.iter().any(|changes| !changes.is_empty())
+            || self.has_storage_changes()
     }
 
     /// Merges another account change set into this one.
