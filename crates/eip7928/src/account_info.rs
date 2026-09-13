@@ -145,7 +145,7 @@ mod tests {
         let entries = [
             AccountChanges::new(Address::ZERO).with_storage_read(U256::from(1)),
             AccountChanges::new(Address::ZERO)
-                .with_storage_change(SlotChanges::new(U256::from(1), Vec::new())),
+                .with_storage_change(SlotChanges::new(U256::from(1), vec![])),
             AccountChanges::new(Address::ZERO).with_storage_change(SlotChanges::new(
                 U256::from(1),
                 vec![StorageChange::new(index(0), U256::from(2))],
