@@ -3,12 +3,12 @@
 //! This eliminates address redundancy across different change types.
 
 use crate::{
-    BlockAccessIndex, SlotChanges, balance_change::BalanceChange, code_change::CodeChange,
-    nonce_change::NonceChange,
+    BalAccountInfo, BlockAccessIndex, SlotChanges, balance_change::BalanceChange,
+    code_change::CodeChange, nonce_change::NonceChange,
 };
 use alloc::vec::Vec;
 use alloy_primitives::{
-    Address, Bytes, U256,
+    Address, B256, Bytes, KECCAK256_EMPTY, U256, keccak256,
     map::{HashMap, HashSet},
 };
 
@@ -128,6 +128,48 @@ impl AccountChanges {
     #[inline]
     pub fn code_post_state(&self) -> Option<&Bytes> {
         self.code_changes.last().map(|change| &change.new_code)
+    }
+
+    /// Returns the hash of the code from the last recorded change, or `None` if unchanged.
+    ///
+    /// [`KECCAK256_EMPTY`] is returned when the code was set to empty.
+    #[inline]
+    pub fn code_hash_post_state(&self) -> Option<B256> {
+        self.code_post_state().map(|code| code_hash(code))
+    }
+
+    /// Returns the code from the last recorded change together with its hash, or `None` if
+    /// unchanged.
+    ///
+    /// Use this over hashing [`Self::code_post_state`] separately when both the code and its hash
+    /// are needed, for example when storing the deployed bytecode by hash.
+    #[inline]
+    pub fn code_post_state_with_hash(&self) -> Option<(B256, &Bytes)> {
+        self.code_post_state().map(|code| (code_hash(code), code))
+    }
+
+    /// Returns the account-level fields this entry changed, see [`BalAccountInfo`].
+    #[inline]
+    pub fn account_info(&self) -> BalAccountInfo {
+        BalAccountInfo::from_changes(self)
+    }
+
+    /// Returns `true` if this entry writes at least one storage slot.
+    ///
+    /// [`SlotChanges`] entries without changes are ignored, mirroring [`Self::is_empty`].
+    pub fn has_storage_changes(&self) -> bool {
+        self.storage_changes.iter().any(|changes| !changes.is_empty())
+    }
+
+    /// Returns `true` if this entry records at least one state change.
+    ///
+    /// Entries that only record reads leave the account untouched and do not contribute to the
+    /// block's post-state.
+    pub fn has_changes(&self) -> bool {
+        !self.balance_changes.is_empty()
+            || !self.nonce_changes.is_empty()
+            || !self.code_changes.is_empty()
+            || self.has_storage_changes()
     }
 
     /// Merges another account change set into this one.
@@ -332,6 +374,11 @@ impl AccountChanges {
         self.storage_changes.extend(iter);
         self
     }
+}
+
+/// Hashes the given code, avoiding the hash of the empty code.
+fn code_hash(code: &[u8]) -> B256 {
+    if code.is_empty() { KECCAK256_EMPTY } else { keccak256(code) }
 }
 
 /// Keeps only the last entry of the list, applying `stamp` to it.
@@ -649,6 +696,89 @@ mod post_state_tests {
             post_states,
             vec![(U256::from(1), U256::from(0xbb)), (U256::from(3), U256::from(0xdd))]
         );
+    }
+
+    #[test]
+    fn code_post_state_hash_matches_the_last_recorded_code() {
+        let code = Bytes::from_static(&[0x60, 0x00, 0x56]);
+        let account = AccountChanges::new(Address::ZERO)
+            .with_code_change(CodeChange::new(
+                BlockAccessIndex::new(0),
+                Bytes::from_static(&[0x00]),
+            ))
+            .with_code_change(CodeChange::new(BlockAccessIndex::new(1), code.clone()));
+
+        assert_eq!(account.code_hash_post_state(), Some(keccak256(&code)));
+        assert_eq!(account.code_post_state_with_hash(), Some((keccak256(&code), &code)));
+    }
+
+    #[test]
+    fn cleared_code_post_state_hashes_to_the_empty_code_hash() {
+        let account = AccountChanges::new(Address::ZERO)
+            .with_code_change(CodeChange::new(BlockAccessIndex::new(0), Bytes::new()));
+
+        assert_eq!(account.code_hash_post_state(), Some(KECCAK256_EMPTY));
+        assert_eq!(account.code_post_state_with_hash(), Some((KECCAK256_EMPTY, &Bytes::new())));
+    }
+
+    #[test]
+    fn unchanged_code_has_no_post_state_hash() {
+        let account = AccountChanges::new(Address::ZERO).with_storage_read(U256::from(1));
+
+        assert_eq!(account.code_hash_post_state(), None);
+        assert_eq!(account.code_post_state_with_hash(), None);
+    }
+}
+
+#[cfg(test)]
+mod has_changes_tests {
+    use super::*;
+    use crate::{BlockAccessIndex, StorageChange};
+
+    #[test]
+    fn read_only_entries_have_no_changes() {
+        let account = AccountChanges::new(Address::ZERO).with_storage_read(U256::from(1));
+
+        assert!(!account.has_changes());
+        assert!(!account.is_empty());
+        assert!(account.account_info().is_empty());
+    }
+
+    #[test]
+    fn empty_slot_entries_have_no_changes() {
+        let account = AccountChanges::new(Address::ZERO)
+            .with_storage_change(SlotChanges::new(U256::from(1), Vec::new()));
+
+        assert!(!account.has_changes());
+    }
+
+    #[test]
+    fn every_change_kind_counts_as_a_change() {
+        let index = BlockAccessIndex::new(0);
+        let entries = [
+            AccountChanges::new(Address::ZERO).with_storage_change(SlotChanges::new(
+                U256::from(1),
+                vec![StorageChange::new(index, U256::from(2))],
+            )),
+            AccountChanges::new(Address::ZERO)
+                .with_balance_change(BalanceChange::new(index, U256::from(1))),
+            AccountChanges::new(Address::ZERO).with_nonce_change(NonceChange::new(index, 1)),
+            AccountChanges::new(Address::ZERO)
+                .with_code_change(CodeChange::new(index, Bytes::new())),
+        ];
+
+        for account in entries {
+            assert!(account.has_changes());
+        }
+    }
+
+    #[test]
+    fn account_info_matches_the_post_state_accessors() {
+        let account = AccountChanges::new(Address::ZERO)
+            .with_balance_change(BalanceChange::new(BlockAccessIndex::new(0), U256::from(7)));
+
+        assert_eq!(account.account_info(), BalAccountInfo::from_changes(&account));
+        assert_eq!(account.account_info().balance, account.balance_post_state());
     }
 }
 
