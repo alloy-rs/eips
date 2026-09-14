@@ -335,7 +335,10 @@ mod tests {
 
     #[test]
     fn accepts_canonical_block_access_list() {
-        assert_eq!(validate_block_access_list(&[account(1), account(2)], 2), Ok(()));
+        let bal = crate::bal::Bal::new(vec![account(1), account(2)]);
+
+        assert_eq!(validate_block_access_list(bal.as_slice(), 2), Ok(()));
+        assert_eq!(bal.validate_structure(2), Ok(()));
     }
 
     #[test]
