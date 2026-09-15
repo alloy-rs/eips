@@ -8,7 +8,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloy_primitives::{
-    Address, B256, Bytes, KECCAK256_EMPTY, U256, keccak256,
+    Address, B256, Bytes, U256,
     map::{HashMap, HashSet},
 };
 
@@ -127,15 +127,16 @@ impl AccountChanges {
     /// Returns the code from the last recorded change, or `None` if unchanged.
     #[inline]
     pub fn code_post_state(&self) -> Option<&Bytes> {
-        self.code_changes.last().map(|change| &change.new_code)
+        self.code_changes.last().map(CodeChange::new_code)
     }
 
     /// Returns the hash of the code from the last recorded change, or `None` if unchanged.
     ///
-    /// [`KECCAK256_EMPTY`] is returned when the code was set to empty.
+    /// [`KECCAK256_EMPTY`](alloy_primitives::KECCAK256_EMPTY) is returned when the code was set to
+    /// empty.
     #[inline]
     pub fn code_hash_post_state(&self) -> Option<B256> {
-        self.code_post_state().map(|code| code_hash(code))
+        self.code_changes.last().map(CodeChange::code_hash)
     }
 
     /// Returns the code from the last recorded change together with its hash, or `None` if
@@ -145,7 +146,7 @@ impl AccountChanges {
     /// are needed, for example when storing the deployed bytecode by hash.
     #[inline]
     pub fn code_post_state_with_hash(&self) -> Option<(B256, &Bytes)> {
-        self.code_post_state().map(|code| (code_hash(code), code))
+        self.code_changes.last().map(|change| (change.code_hash(), change.new_code()))
     }
 
     /// Returns the account-level fields this entry changed, see [`BalAccountInfo`].
@@ -374,11 +375,6 @@ impl AccountChanges {
         self.storage_changes.extend(iter);
         self
     }
-}
-
-/// Hashes the given code, avoiding the hash of the empty code.
-fn code_hash(code: &[u8]) -> B256 {
-    if code.is_empty() { KECCAK256_EMPTY } else { keccak256(code) }
 }
 
 /// Keeps only the last entry of the list, applying `stamp` to it.
@@ -617,6 +613,7 @@ mod sort_tests {
 #[cfg(test)]
 mod post_state_tests {
     use crate::{BlockAccessIndex, StorageChange};
+    use alloy_primitives::{KECCAK256_EMPTY, keccak256};
 
     use super::*;
 
@@ -836,10 +833,10 @@ mod tests {
                 block_access_index: BlockAccessIndex::new(2),
                 new_nonce: 42,
             }],
-            code_changes: vec![CodeChange {
-                block_access_index: BlockAccessIndex::new(3),
-                new_code: Bytes::from(vec![0x60, 0x00]),
-            }],
+            code_changes: vec![CodeChange::new(
+                BlockAccessIndex::new(3),
+                Bytes::from(vec![0x60, 0x00]),
+            )],
         };
 
         let json = serde_json::to_string(&acc).unwrap();
@@ -954,10 +951,9 @@ mod tests {
                 new_nonce: 42,
             });
 
-        let acc3 = AccountChanges::new(Address::from([0x33; 20])).with_code_change(CodeChange {
-            block_access_index: BlockAccessIndex::new(3),
-            new_code: Bytes::from(vec![0x60, 0x00]),
-        });
+        let acc3 = AccountChanges::new(Address::from([0x33; 20])).with_code_change(
+            CodeChange::new(BlockAccessIndex::new(3), Bytes::from(vec![0x60, 0x00])),
+        );
 
         let vec_acc = vec![acc1, acc2, acc3];
 
