@@ -47,6 +47,10 @@ pub use account_info::*;
 pub mod block_access_list;
 pub use block_access_list::*;
 
+/// Module for validating decoded block access lists.
+pub mod validation;
+pub use validation::*;
+
 /// Module for comparing block access lists.
 pub mod diff;
 pub use diff::*;

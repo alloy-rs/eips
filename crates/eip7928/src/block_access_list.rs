@@ -388,6 +388,18 @@ pub mod bal {
             super::total_bal_items(&self.0)
         }
 
+        /// Validates this block access list's structure and block access indices.
+        ///
+        /// This is a convenience wrapper around [`crate::validate_block_access_list`]. It checks
+        /// canonical ordering, uniqueness, non-empty storage change lists, and bounds every block
+        /// access index by this block's `transaction_count`.
+        pub fn validate_structure(
+            &self,
+            transaction_count: usize,
+        ) -> Result<(), crate::BlockAccessListValidationError> {
+            crate::validate_block_access_list(self.as_slice(), transaction_count)
+        }
+
         /// Validates this block access list against the block gas limit.
         ///
         /// EIP-7928 specifies that the total cost of the block access list items must not exceed
