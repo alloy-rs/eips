@@ -20,6 +20,21 @@ pub enum FrameStatus {
 }
 
 impl FrameStatus {
+    /// Returns true if this is [`Self::Failure`].
+    pub const fn is_failure(self) -> bool {
+        matches!(self, Self::Failure)
+    }
+
+    /// Returns true if this is [`Self::Success`].
+    pub const fn is_success(self) -> bool {
+        matches!(self, Self::Success)
+    }
+
+    /// Returns true if this is [`Self::SkippedAtomicBatch`].
+    pub const fn is_skipped_atomic_batch(self) -> bool {
+        matches!(self, Self::SkippedAtomicBatch)
+    }
+
     /// Attempts to convert a raw status byte into a [`FrameStatus`].
     pub const fn try_from_u8(value: u8) -> Option<Self> {
         match value {

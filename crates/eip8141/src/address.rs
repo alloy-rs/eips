@@ -22,6 +22,11 @@ pub enum FrameAddress {
 }
 
 impl FrameAddress {
+    /// Returns true if this is [`Self::Address`].
+    pub const fn is_address(self) -> bool {
+        matches!(self, Self::Address(_))
+    }
+
     /// Returns the explicit address, if present.
     pub const fn address(self) -> Option<Address> {
         match self {

@@ -52,3 +52,65 @@ pub enum Eip8141Error {
         derived: Address,
     },
 }
+
+impl Eip8141Error {
+    /// Returns true if this is [`Self::InvalidMode`].
+    pub const fn is_invalid_mode(self) -> bool {
+        matches!(self, Self::InvalidMode(_))
+    }
+
+    /// Returns true if this is [`Self::InvalidScope`].
+    pub const fn is_invalid_scope(self) -> bool {
+        matches!(self, Self::InvalidScope(_))
+    }
+
+    /// Returns true if this is [`Self::InvalidStatus`].
+    pub const fn is_invalid_status(self) -> bool {
+        matches!(self, Self::InvalidStatus(_))
+    }
+
+    /// Returns true if this is [`Self::InvalidScheme`].
+    pub const fn is_invalid_scheme(self) -> bool {
+        matches!(self, Self::InvalidScheme(_))
+    }
+
+    /// Returns true if this is [`Self::InvalidAddressLength`].
+    pub const fn is_invalid_address_length(self) -> bool {
+        matches!(self, Self::InvalidAddressLength(_))
+    }
+
+    /// Returns true if this is [`Self::InvalidMessageLength`].
+    pub const fn is_invalid_message_length(self) -> bool {
+        matches!(self, Self::InvalidMessageLength(_))
+    }
+
+    /// Returns true if this is [`Self::ZeroMessage`].
+    pub const fn is_zero_message(self) -> bool {
+        matches!(self, Self::ZeroMessage)
+    }
+
+    /// Returns true if this is [`Self::UnexpectedSigner`].
+    pub const fn is_unexpected_signer(self) -> bool {
+        matches!(self, Self::UnexpectedSigner)
+    }
+
+    /// Returns true if this is [`Self::InvalidSignatureLength`].
+    pub const fn is_invalid_signature_length(self) -> bool {
+        matches!(self, Self::InvalidSignatureLength { .. })
+    }
+
+    /// Returns true if this is [`Self::InvalidParity`].
+    pub const fn is_invalid_parity(self) -> bool {
+        matches!(self, Self::InvalidParity(_))
+    }
+
+    /// Returns true if this is [`Self::InvalidSignatureScalar`].
+    pub const fn is_invalid_signature_scalar(self) -> bool {
+        matches!(self, Self::InvalidSignatureScalar)
+    }
+
+    /// Returns true if this is [`Self::P256SignerMismatch`].
+    pub const fn is_p256_signer_mismatch(self) -> bool {
+        matches!(self, Self::P256SignerMismatch { .. })
+    }
+}
