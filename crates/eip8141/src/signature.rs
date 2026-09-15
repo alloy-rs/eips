@@ -234,6 +234,20 @@ impl FrameSignature {
         self.msg.digest()
     }
 
+    /// Returns a borrowed RLP view for the transaction's signing preimage.
+    ///
+    /// The view preserves the scheme, signer, and message. It encodes an empty signature when
+    /// [`Self::signs_transaction_hash`] is true to avoid self-reference; explicit-message entries
+    /// retain their signature bytes. This does not validate or modify the entry.
+    pub fn as_signing(&self) -> SigningFrameSignature<'_> {
+        SigningFrameSignature {
+            scheme: self.scheme,
+            signer: self.signer,
+            msg: self.msg,
+            signature: if self.signs_transaction_hash() { &[] } else { &self.signature },
+        }
+    }
+
     /// Returns the explicit signer address of a protocol-validated scheme.
     ///
     /// Returns `None` for an empty signer, which resolves to the transaction sender, and for
@@ -361,5 +375,53 @@ impl FrameSignature {
     /// Returns the protocol signature verification gas cost.
     pub const fn verification_gas(&self) -> u64 {
         self.scheme.verification_gas()
+    }
+}
+
+/// Borrowed RLP view of a signature entry in a transaction's signing preimage.
+///
+/// Created by [`FrameSignature::as_signing`]. Its [`Encodable`] implementation includes the entry's
+/// list header and applies signature elision independently of the signature scheme.
+#[derive(Clone, Copy, Debug, RlpEncodable)]
+pub struct SigningFrameSignature<'a> {
+    scheme: SignatureScheme,
+    signer: FrameAddress,
+    msg: SignatureMessage,
+    signature: &'a [u8],
+}
+
+/// Borrowed RLP view of a signature list in a transaction's signing preimage.
+///
+/// Each entry is encoded through [`FrameSignature::as_signing`], and the outer RLP list header
+/// reflects the transformed entries' lengths. Encoding does not allocate or modify the entries.
+///
+/// ```
+/// use alloy_eip8141::{FrameSignature, SigningFrameSignatures};
+/// use alloy_rlp::Encodable;
+///
+/// let entries = [FrameSignature::default()];
+/// let signing = SigningFrameSignatures::new(&entries);
+/// let encoded = alloy_rlp::encode(signing);
+/// assert_eq!(encoded.len(), signing.length());
+/// assert_eq!(encoded, [0xc5, 0xc4, 0x80, 0x80, 0x80, 0x80]);
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct SigningFrameSignatures<'a>(&'a [FrameSignature]);
+
+impl<'a> SigningFrameSignatures<'a> {
+    /// Creates a signing-preimage view of the signature list.
+    pub const fn new(signatures: &'a [FrameSignature]) -> Self {
+        Self(signatures)
+    }
+}
+
+impl Encodable for SigningFrameSignatures<'_> {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        alloy_rlp::encode_iter(self.0.iter().map(FrameSignature::as_signing), out);
+    }
+
+    fn length(&self) -> usize {
+        let payload_length = self.0.iter().map(|signature| signature.as_signing().length()).sum();
+        Header { list: true, payload_length }.length_with_payload()
     }
 }
