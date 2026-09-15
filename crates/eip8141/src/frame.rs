@@ -20,6 +20,21 @@ pub enum FrameMode {
 }
 
 impl FrameMode {
+    /// Returns true if this is [`Self::Default`].
+    pub const fn is_default(self) -> bool {
+        matches!(self, Self::Default)
+    }
+
+    /// Returns true if this is [`Self::Verify`].
+    pub const fn is_verify(self) -> bool {
+        matches!(self, Self::Verify)
+    }
+
+    /// Returns true if this is [`Self::Sender`].
+    pub const fn is_sender(self) -> bool {
+        matches!(self, Self::Sender)
+    }
+
     /// Attempts to convert a raw mode byte into a [`FrameMode`].
     pub const fn try_from_u8(value: u8) -> Option<Self> {
         match value {
@@ -52,6 +67,38 @@ pub enum ApprovalScope {
 }
 
 impl ApprovalScope {
+    /// Returns true if this is [`Self::None`].
+    pub const fn is_none(self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    /// Returns true if this is [`Self::Payment`].
+    pub const fn is_payment(self) -> bool {
+        matches!(self, Self::Payment)
+    }
+
+    /// Returns true if this is [`Self::Execution`].
+    pub const fn is_execution(self) -> bool {
+        matches!(self, Self::Execution)
+    }
+
+    /// Returns true if this is [`Self::ExecutionAndPayment`].
+    pub const fn is_execution_and_payment(self) -> bool {
+        matches!(self, Self::ExecutionAndPayment)
+    }
+
+    /// Returns true if this scope allows execution approval, including
+    /// [`Self::ExecutionAndPayment`].
+    pub const fn allows_execution(self) -> bool {
+        matches!(self, Self::Execution | Self::ExecutionAndPayment)
+    }
+
+    /// Returns true if this scope allows payment approval, including
+    /// [`Self::ExecutionAndPayment`].
+    pub const fn allows_payment(self) -> bool {
+        matches!(self, Self::Payment | Self::ExecutionAndPayment)
+    }
+
     /// Attempts to convert a raw scope byte into an [`ApprovalScope`].
     pub const fn try_from_u8(value: u8) -> Option<Self> {
         match value {
@@ -182,6 +229,19 @@ pub struct TransactionFees {
 mod tests {
     use super::{Frame, FrameMode};
     use alloy_primitives::{Bytes, U256};
+
+    #[test]
+    fn approval_permissions_from_frame_flags() {
+        for (scope, execution, payment) in
+            [(0, false, false), (1, false, true), (2, true, false), (3, true, true)]
+        {
+            for atomic in [0, crate::ATOMIC_BATCH_FLAG] {
+                let frame = Frame { flags: scope | atomic, ..Default::default() };
+                assert_eq!(frame.allowed_scope().allows_execution(), execution);
+                assert_eq!(frame.allowed_scope().allows_payment(), payment);
+            }
+        }
+    }
 
     fn expiry_frame() -> Frame {
         Frame {

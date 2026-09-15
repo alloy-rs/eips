@@ -20,6 +20,21 @@ pub enum SignatureScheme {
 }
 
 impl SignatureScheme {
+    /// Returns true if this is [`Self::Arbitrary`].
+    pub const fn is_arbitrary(self) -> bool {
+        matches!(self, Self::Arbitrary)
+    }
+
+    /// Returns true if this is [`Self::Secp256k1`].
+    pub const fn is_secp256k1(self) -> bool {
+        matches!(self, Self::Secp256k1)
+    }
+
+    /// Returns true if this is [`Self::P256`].
+    pub const fn is_p256(self) -> bool {
+        matches!(self, Self::P256)
+    }
+
     /// Attempts to convert a raw scheme byte into a [`SignatureScheme`].
     pub const fn try_from_u8(value: u8) -> Option<Self> {
         match value {
@@ -72,6 +87,11 @@ pub enum SignatureMessage {
 }
 
 impl SignatureMessage {
+    /// Returns true if this is [`Self::Explicit`].
+    pub const fn is_explicit(self) -> bool {
+        matches!(self, Self::Explicit(_))
+    }
+
     /// Creates an explicit message, rejecting the reserved zero digest.
     pub fn explicit(digest: B256) -> Result<Self, Eip8141Error> {
         if digest.is_zero() { Err(Eip8141Error::ZeroMessage) } else { Ok(Self::Explicit(digest)) }
