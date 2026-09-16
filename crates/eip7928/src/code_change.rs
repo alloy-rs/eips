@@ -67,7 +67,16 @@ impl CodeChange {
 
 impl PartialEq for CodeChange {
     fn eq(&self, other: &Self) -> bool {
-        self.block_access_index == other.block_access_index && self.new_code == other.new_code
+        if self.block_access_index != other.block_access_index {
+            return false;
+        }
+        if let (Some(hash), Some(other_hash)) = (self.hash.get(), other.hash.get())
+            && hash != other_hash
+        {
+            return false;
+        }
+        // Preserve exact equality regardless of whether either cache is populated.
+        self.new_code == other.new_code
     }
 }
 
@@ -128,6 +137,23 @@ mod tests {
             assert_eq!(change, uncached);
             assert_eq!(change.clone().hash.get(), change.hash.get());
         }
+    }
+
+    #[test]
+    fn equality_with_cached_hashes() {
+        let a = CodeChange::new(BlockAccessIndex::new(1), bytes!("6000"));
+        let b = a.clone();
+        let c = CodeChange::new(BlockAccessIndex::new(1), bytes!("6001"));
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        a.code_hash();
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        b.code_hash();
+        c.code_hash();
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_ne!(a, CodeChange::new(BlockAccessIndex::new(2), bytes!("6000")));
     }
 
     #[cfg(feature = "std")]
@@ -191,11 +217,5 @@ mod tests {
         let decoded: CodeChange = borsh::from_slice(&encoded).unwrap();
         assert!(decoded.hash.get().is_none());
         assert_eq!(decoded, change);
-    }
-
-    /// Consumes the change and returns the new code.
-    #[inline]
-    pub fn into_code(self) -> Bytes {
-        self.new_code
     }
 }
