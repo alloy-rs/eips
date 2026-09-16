@@ -38,4 +38,10 @@ impl CodeChange {
     pub const fn new_code(&self) -> &Bytes {
         &self.new_code
     }
+
+    /// Consumes the change and returns the new code.
+    #[inline]
+    pub fn into_code(self) -> Bytes {
+        self.new_code
+    }
 }
