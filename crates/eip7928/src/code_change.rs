@@ -192,4 +192,10 @@ mod tests {
         assert!(decoded.hash.get().is_none());
         assert_eq!(decoded, change);
     }
+
+    /// Consumes the change and returns the new code.
+    #[inline]
+    pub fn into_code(self) -> Bytes {
+        self.new_code
+    }
 }
