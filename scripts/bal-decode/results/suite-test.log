@@ -1,0 +1,73 @@
+    Updating crates.io index
+     Locking 2 packages to latest Rust 1.96.1 compatible versions
+      Adding alloy-rlp v0.3.16
+      Adding alloy-rlp-derive v0.3.16
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.25
+   Compiling typenum v1.20.1
+   Compiling unicode-segmentation v1.13.3
+   Compiling cfg-if v1.0.5
+   Compiling unicode-xid v0.2.6
+   Compiling paste v1.0.15
+   Compiling bytes v1.12.1
+   Compiling serde_core v1.0.229
+   Compiling foldhash v0.2.0
+   Compiling itoa v1.0.18
+   Compiling zmij v1.0.23
+   Compiling ruint-macro v1.2.1
+   Compiling cpufeatures v0.2.17
+   Compiling thiserror v2.0.20
+   Compiling serde_json v1.0.151
+   Compiling memchr v2.8.3
+   Compiling once_cell v1.21.4
+   Compiling keccak v0.2.2
+   Compiling const-hex v1.19.3
+   Compiling hashbrown v0.17.1
+   Compiling convert_case v0.10.0
+   Compiling syn v2.0.119
+   Compiling syn v3.0.6
+   Compiling hybrid-array v0.4.15
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling digest v0.11.3
+   Compiling sha3 v0.11.0
+   Compiling thiserror-impl v2.0.20
+   Compiling alloy-rlp-derive v0.3.16
+   Compiling derive_more-impl v2.1.1
+   Compiling alloy-rlp v0.3.16
+   Compiling ruint v1.20.1
+   Compiling derive_more v2.1.1
+   Compiling alloy-primitives v1.7.3
+   Compiling alloy-eip7928 v0.4.11 (/home/ubuntu/bal-rlp-20260916/eips/crates/eip7928)
+   Compiling bal-decode-study v0.1.0 (/home/ubuntu/bal-rlp-20260916/eips/scripts/bal-decode/bench)
+    Finished `release` profile [optimized + debuginfo] target(s) in 7.49s
+     Running unittests src/main.rs (target/release/deps/bal_decode_study-c16cee5d570db875)
+
+running 2 tests
+test tests::integer_equivalence ... ok
+test tests::differential ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/bin/integers.rs (target/release/deps/integers-e7f845cf3ca13bb3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling bal-decode-study v0.1.0 (/home/ubuntu/bal-rlp-20260916/eips/scripts/bal-decode/bench)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1.51s
+     Running unittests src/main.rs (target/release/deps/bal_decode_study-13dd319e92ebb48a)
+
+running 2 tests
+test tests::integer_equivalence ... ok
+test tests::differential ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/bin/integers.rs (target/release/deps/integers-6e5e77183d2a6874)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

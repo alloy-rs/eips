@@ -1,0 +1,4 @@
+RUSTFLAGS None
+CARGO_ENCODED_RUSTFLAGS None
+RUSTC_WRAPPER None
+cpu boost unavailable

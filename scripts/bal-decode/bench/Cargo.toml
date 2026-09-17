@@ -1,0 +1,16 @@
+[package]
+name = "bal-decode-study"
+version = "0.1.0"
+edition = "2024"
+[dependencies]
+alloy-eip7928 = { path = "../../../crates/eip7928", features = ["rlp"] }
+alloy-primitives = { version = "1.4", features = ["rlp"] }
+alloy-rlp = "0.3"
+serde_json = "1"
+[profile.release]
+debug = 1
+
+[features]
+alloc-count = []
+
+[workspace]

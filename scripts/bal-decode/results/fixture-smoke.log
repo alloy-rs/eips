@@ -1,0 +1,3 @@
+   Compiling bal-decode-study v0.1.0 (/home/ubuntu/bal-rlp-20260916/eips/scripts/bal-decode/bench)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2.84s
+     Running `target/release/bal-decode-study ../fixtures 2`

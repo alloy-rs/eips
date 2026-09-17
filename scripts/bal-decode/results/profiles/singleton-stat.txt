@@ -1,0 +1,13 @@
+# started on Wed Sep 16 23:47:59 2026
+
+
+ Performance counter stats for 'taskset -c 8 ./study-v3 profile corpus/300M-25912202.rlp singleton 2000' (5 runs):
+
+       11558496143      cycles                                                                  ( +-  0.52% )  (83.31%)
+       33608148517      instructions                     #    2.91  insn per cycle              ( +-  0.01% )  (83.32%)
+        6492630950      branches                                                                ( +-  0.00% )  (83.33%)
+         106816487      branch-misses                    #    1.65% of all branches             ( +-  0.21% )  (83.36%)
+         538894206      cache-references                                                        ( +-  0.64% )  (83.37%)
+          44325657      cache-misses                     #    8.23% of all cache refs           ( +-  1.70% )  (83.31%)
+
+            2.2089 +- 0.0120 seconds time elapsed  ( +-  0.54% )

@@ -1,0 +1,13 @@
+# started on Wed Sep 16 23:48:54 2026
+
+
+ Performance counter stats for 'taskset -c 8 ./study-v3 profile corpus/300M-25912202.rlp count 2000' (5 runs):
+
+       11685618560      cycles                                                                  ( +-  1.05% )  (83.30%)
+       38899882094      instructions                     #    3.33  insn per cycle              ( +-  0.01% )  (83.34%)
+        7203703087      branches                                                                ( +-  0.01% )  (83.32%)
+         101298215      branch-misses                    #    1.41% of all branches             ( +-  0.15% )  (83.32%)
+         545917454      cache-references                                                        ( +-  0.40% )  (83.36%)
+          33452267      cache-misses                     #    6.13% of all cache refs           ( +-  3.85% )  (83.36%)
+
+            2.2683 +- 0.0298 seconds time elapsed  ( +-  1.32% )

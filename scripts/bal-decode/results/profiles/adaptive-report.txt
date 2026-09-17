@@ -1,0 +1,372 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 4K of event 'cycles:P'
+# Event count (approx.): 19742217046
+#
+# Overhead  Command   Shared Object      Symbol
+# ........  ........  .................  .................................................................................................................................................
+#
+    19.37%  study-v3  study-v3           [.] bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |
+            |--3.74%--bal_decode_study::list (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |          |
+            |          |--1.09%--bal_decode_study::list (inlined)
+            |          |          bal_decode_study::decode
+            |          |          bal_decode_study::main
+            |          |          core::ops::function::FnOnce::call_once (inlined)
+            |          |          std::sys::backtrace::__rust_begin_short_backtrace
+            |          |          std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h5b69b2058d3b6109 (inlined)
+            |          |          _RNvXs0_NtNtNtCs3BFokC4QLxY_4core3ops8function5implsRDINtB7_2FnuEp6OutputlNtNtBb_6marker4SyncNtNtNtBb_5panic11unwind_safe13RefUnwindSafeEL_INtB7_6FnOnceuE9call_onceCs3JBboNF8E1m_3std (inlined)
+            |          |          _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtB13_6marker4SyncNtNtNtB13_5panic11unwind_safe13RefUnwindSafeEL_lEB6_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindlRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBU_6marker4SyncNtNtNtBU_5panic11unwind_safe13RefUnwindSafeEL_EB4_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBP_6marker4SyncNtNtNtBP_5panic11unwind_safe13RefUnwindSafeEL_lEB4_ (inlined)
+            |          |          _RNCNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal0B5_ (inlined)
+            |          |          _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callNCNvNtB6_2rt19lang_start_internal0iEB6_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindiNCNvNtB4_2rt19lang_start_internal0EB4_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindNCNvNtB4_2rt19lang_start_internal0iEB4_ (inlined)
+            |          |          _RNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal
+            |          |          main
+            |          |          0x79563242a1c9
+            |          |          __libc_start_main
+            |          |          _start
+            |          |
+            |          |--0.77%--0x4
+            |          |
+            |           --0.58%--0xffffffffffffffff
+            |
+            |--3.11%--alloy_rlp::header::Header::decode (inlined)
+            |          alloy_rlp::header::Header::decode_bytes (inlined)
+            |          |
+            |           --2.52%--bal_decode_study::list (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |                     bal_decode_study::record (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |                     |
+            |                     |--0.80%--0x4
+            |                     |
+            |                      --0.79%--bal_decode_study::list (inlined)
+            |                                bal_decode_study::decode
+            |                                bal_decode_study::main
+            |                                core::ops::function::FnOnce::call_once (inlined)
+            |                                std::sys::backtrace::__rust_begin_short_backtrace
+            |                                std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h5b69b2058d3b6109 (inlined)
+            |                                _RNvXs0_NtNtNtCs3BFokC4QLxY_4core3ops8function5implsRDINtB7_2FnuEp6OutputlNtNtBb_6marker4SyncNtNtNtBb_5panic11unwind_safe13RefUnwindSafeEL_INtB7_6FnOnceuE9call_onceCs3JBboNF8E1m_3std (inlined)
+            |                                _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtB13_6marker4SyncNtNtNtB13_5panic11unwind_safe13RefUnwindSafeEL_lEB6_ (inlined)
+            |                                _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindlRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBU_6marker4SyncNtNtNtBU_5panic11unwind_safe13RefUnwindSafeEL_EB4_ (inlined)
+            |                                _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBP_6marker4SyncNtNtNtBP_5panic11unwind_safe13RefUnwindSafeEL_lEB4_ (inlined)
+            |                                _RNCNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal0B5_ (inlined)
+            |                                _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callNCNvNtB6_2rt19lang_start_internal0iEB6_ (inlined)
+            |                                _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindiNCNvNtB4_2rt19lang_start_internal0EB4_ (inlined)
+            |                                _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindNCNvNtB4_2rt19lang_start_internal0iEB4_ (inlined)
+            |                                _RNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal
+            |                                main
+            |                                0x79563242a1c9
+            |                                __libc_start_main
+            |                                _start
+            |
+            |--1.74%--<core::result::Result<T,E> as core::ops::try_trait::Try>::branch (inlined)
+            |          |
+            |          |--0.92%--bal_decode_study::list (inlined)
+            |          |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |          |          bal_decode_study::record (inlined)
+            |          |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |          |
+            |           --0.82%--bal_decode_study::record (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |
+            |--1.49%--bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |          |
+            |          |--0.72%--bal_decode_study::list (inlined)
+            |          |          bal_decode_study::decode
+            |          |          bal_decode_study::main
+            |          |          core::ops::function::FnOnce::call_once (inlined)
+            |          |          std::sys::backtrace::__rust_begin_short_backtrace
+            |          |          std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h5b69b2058d3b6109 (inlined)
+            |          |          _RNvXs0_NtNtNtCs3BFokC4QLxY_4core3ops8function5implsRDINtB7_2FnuEp6OutputlNtNtBb_6marker4SyncNtNtNtBb_5panic11unwind_safe13RefUnwindSafeEL_INtB7_6FnOnceuE9call_onceCs3JBboNF8E1m_3std (inlined)
+            |          |          _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtB13_6marker4SyncNtNtNtB13_5panic11unwind_safe13RefUnwindSafeEL_lEB6_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindlRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBU_6marker4SyncNtNtNtBU_5panic11unwind_safe13RefUnwindSafeEL_EB4_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBP_6marker4SyncNtNtNtBP_5panic11unwind_safe13RefUnwindSafeEL_lEB4_ (inlined)
+            |          |          _RNCNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal0B5_ (inlined)
+            |          |          _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callNCNvNtB6_2rt19lang_start_internal0iEB6_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindiNCNvNtB4_2rt19lang_start_internal0EB4_ (inlined)
+            |          |          _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindNCNvNtB4_2rt19lang_start_internal0iEB4_ (inlined)
+            |          |          _RNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal
+            |          |          main
+            |          |          0x79563242a1c9
+            |          |          __libc_start_main
+            |          |          _start
+            |          |
+            |           --0.50%--0x7
+            |
+            |--1.08%--alloy_rlp::header::get_next_byte (inlined)
+            |          alloy_rlp::header::Header::decode (inlined)
+            |          alloy_rlp::header::Header::decode_bytes (inlined)
+            |          |
+            |           --0.98%--bal_decode_study::list (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |                     bal_decode_study::record (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |
+            |--0.99%--alloc::vec::Vec<T,A>::push_mut (inlined)
+            |          alloc::vec::Vec<T,A>::push (inlined)
+            |          bal_decode_study::list (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |
+            |--0.88%--_RNvNtCs8y6E41fb8tc_5alloc5alloc5alloc (inlined)
+            |          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global18alloc_impl_runtime (inlined)
+            |          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global10alloc_impl (inlined)
+            |          _RNvXs_NtCs8y6E41fb8tc_5alloc5allocNtB4_6GlobalNtNtCs3BFokC4QLxY_4core5alloc9Allocator8allocate (inlined)
+            |          _RNvNtCs8y6E41fb8tc_5alloc5boxed14box_new_uninit (inlined)
+            |          alloc::boxed::Box<T>::new_uninit (inlined)
+            |          bal_decode_study::list (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |          |
+            |           --0.59%--bal_decode_study::list (inlined)
+            |                     bal_decode_study::decode
+            |                     bal_decode_study::main
+            |                     core::ops::function::FnOnce::call_once (inlined)
+            |                     std::sys::backtrace::__rust_begin_short_backtrace
+            |                     std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h5b69b2058d3b6109 (inlined)
+            |                     _RNvXs0_NtNtNtCs3BFokC4QLxY_4core3ops8function5implsRDINtB7_2FnuEp6OutputlNtNtBb_6marker4SyncNtNtNtBb_5panic11unwind_safe13RefUnwindSafeEL_INtB7_6FnOnceuE9call_onceCs3JBboNF8E1m_3std (inlined)
+            |                     _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtB13_6marker4SyncNtNtNtB13_5panic11unwind_safe13RefUnwindSafeEL_lEB6_ (inlined)
+            |                     _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindlRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBU_6marker4SyncNtNtNtBU_5panic11unwind_safe13RefUnwindSafeEL_EB4_ (inlined)
+            |                     _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindRDINtNtNtCs3BFokC4QLxY_4core3ops8function2FnuEp6OutputlNtNtBP_6marker4SyncNtNtNtBP_5panic11unwind_safe13RefUnwindSafeEL_lEB4_ (inlined)
+            |                     _RNCNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal0B5_ (inlined)
+            |                     _RINvNvNtCs3JBboNF8E1m_3std9panicking12catch_unwind7do_callNCNvNtB6_2rt19lang_start_internal0iEB6_ (inlined)
+            |                     _RINvNtCs3JBboNF8E1m_3std9panicking12catch_unwindiNCNvNtB4_2rt19lang_start_internal0EB4_ (inlined)
+            |                     _RINvNtCs3JBboNF8E1m_3std5panic12catch_unwindNCNvNtB4_2rt19lang_start_internal0iEB4_ (inlined)
+            |                     _RNvNtCs3JBboNF8E1m_3std2rt19lang_start_internal
+            |                     main
+            |                     0x79563242a1c9
+            |                     __libc_start_main
+            |                     _start
+            |
+            |--0.87%--bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |
+            |--0.80%--core::slice::index::get_offset_len_noubcheck (inlined)
+            |          <core::ops::range::RangeFrom<usize> as core::slice::index::SliceIndex<[T]>>::index (inlined)
+            |          core::slice::index::<impl core::ops::index::Index<I> for [T]>::index (inlined)
+            |          <&[u8] as bytes::buf::buf_impl::Buf>::advance (inlined)
+            |
+            |--0.65%--core::ptr::write (inlined)
+            |          alloc::vec::Vec<T,A>::push_mut (inlined)
+            |          alloc::vec::Vec<T,A>::push (inlined)
+            |          bal_decode_study::list (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h0402a56a6f1f0ba7 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+            |
+             --0.58%--bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::h5c51fd592cefab23
+
+    17.90%  study-v3  study-v3           [.] ruint::support::alloy_rlp::<impl alloy_rlp::decode::Decodable for ruint::Uint<_,_>>::decode
+            |
+            |--9.56%--ruint::bytes::<impl ruint::Uint<_,_>>::try_from_be_slice (inlined)
+            |          ruint::support::alloy_rlp::<impl alloy_rlp::decode::Decodable for ruint::Uint<_,_>>::decode
+            |          |
+            |          |--3.47%--0xffffffffffffffff
+            |          |
+            |           --1.47%--0x7fffffffffffffff
+            |
+            |--2.23%--alloy_rlp::header::Header::decode (inlined)
+            |          alloy_rlp::header::Header::decode_bytes (inlined)
+            |          ruint::support::alloy_rlp::<impl alloy_rlp::decode::Decodable for ruint::Uint<_,_>>::decode
+            |          |
+            |           --0.65%--0xffffffffffffffff
+            |
+            |--2.16%--ruint::support::alloy_rlp::<impl alloy_rlp::decode::Decodable for ruint::Uint<_,_>>::decode
+            |          |
+            |           --0.97%--0xffffffffffffffff
+            |
+            |--1.67%--core::option::Option<T>::ok_or (inlined)
+            |          ruint::support::alloy_rlp::<impl alloy_rlp::decode::Decodable for ruint::Uint<_,_>>::decode
+            |
+             --0.62%--<&[u8] as bytes::buf::buf_impl::Buf>::advance (inlined)
+
+    10.65%  study-v3  study-v3           [.] bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |
+            |--2.54%--core::ptr::copy_nonoverlapping (inlined)
+            |          core::slice::copy_from_slice_impl (inlined)
+            |          core::slice::<impl [T]>::copy_from_slice (inlined)
+            |          alloy_rlp::decode::static_left_pad (inlined)
+            |          <u64 as alloy_rlp::decode::Decodable>::decode (inlined)
+            |          bal_decode_study::native (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h68b706e3798dfc70 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |          |
+            |           --0.87%--bal_decode_study::list (inlined)
+            |
+            |--2.13%--alloy_rlp::header::Header::decode (inlined)
+            |          alloy_rlp::header::Header::decode_bytes (inlined)
+            |          |
+            |          |--1.49%--bal_decode_study::record (inlined)
+            |          |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |          |
+            |           --0.63%--<u64 as alloy_rlp::decode::Decodable>::decode (inlined)
+            |                     bal_decode_study::native (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h68b706e3798dfc70 (inlined)
+            |                     bal_decode_study::record (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |
+            |--1.49%--bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |
+            |--1.00%--alloy_rlp::decode::static_left_pad (inlined)
+            |          <u64 as alloy_rlp::decode::Decodable>::decode (inlined)
+            |          bal_decode_study::native (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h68b706e3798dfc70 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |
+            |--0.65%--bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h650d00834b2b44d2
+            |
+            |--0.54%--alloy_rlp::header::get_next_byte (inlined)
+            |          alloy_rlp::header::Header::decode (inlined)
+            |          alloy_rlp::header::Header::decode_bytes (inlined)
+            |
+             --0.51%--<&[u8] as bytes::buf::buf_impl::Buf>::advance (inlined)
+
+     7.22%  study-v3  study-v3           [.] bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h9edcec2742513117
+            |
+            |--1.36%--alloy_rlp::header::Header::decode (inlined)
+            |          alloy_rlp::header::Header::decode_bytes (inlined)
+            |          |
+            |           --0.92%--bal_decode_study::record (inlined)
+            |                     bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h9edcec2742513117
+            |
+            |--0.94%--_RNvNtCs8y6E41fb8tc_5alloc5alloc5alloc (inlined)
+            |          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global18alloc_impl_runtime (inlined)
+            |          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global10alloc_impl (inlined)
+            |          _RNvXs_NtCs8y6E41fb8tc_5alloc5allocNtB4_6GlobalNtNtCs3BFokC4QLxY_4core5alloc9Allocator8allocate (inlined)
+            |          _RNvNtCs8y6E41fb8tc_5alloc5boxed14box_new_uninit (inlined)
+            |          alloc::boxed::Box<T>::new_uninit (inlined)
+            |          bal_decode_study::list (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h43787a907346ed23 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h9edcec2742513117
+            |
+            |--0.87%--bal_decode_study::list (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h43787a907346ed23 (inlined)
+            |          bal_decode_study::record (inlined)
+            |          bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h9edcec2742513117
+            |
+            |--0.73%--<core::result::Result<T,E> as core::ops::try_trait::Try>::branch (inlined)
+            |
+             --0.59%--bal_decode_study::record (inlined)
+                       bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::h9edcec2742513117
+
+     5.79%  study-v3  study-v3           [.] bal_decode_study::main
+            |
+            |--2.89%--_RNvXNtNtNtCs3JBboNF8E1m_3std3sys5alloc4unixNtNtB8_5alloc6SystemNtNtNtCs3BFokC4QLxY_4core5alloc6global11GlobalAlloc7dealloc (inlined)
+            |          <bal_decode_study::Alloc as core::alloc::global::GlobalAlloc>::dealloc (inlined)
+            |          _RNvCs4SDFJOLwvtW_7___rustc14___rust_dealloc (inlined)
+            |          _RNvNtCs8y6E41fb8tc_5alloc5alloc15dealloc_nonnull (inlined)
+            |          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global23deallocate_impl_runtime (inlined)
+            |          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global15deallocate_impl (inlined)
+            |          _RNvXs_NtCs8y6E41fb8tc_5alloc5allocNtB4_6GlobalNtNtCs3BFokC4QLxY_4core5alloc9Allocator10deallocate (inlined)
+            |          alloc::raw_vec::RawVecInner<A>::deallocate (inlined)
+            |          <alloc::raw_vec::RawVec<T,A> as core::ops::drop::Drop>::drop (inlined)
+            |          |
+            |          |--1.59%--core::ptr::drop_in_place<alloc::raw_vec::RawVec<alloy_eip7928::storage_change::StorageChange>> (inlined)
+            |          |          core::ptr::drop_in_place<alloc::vec::Vec<alloy_eip7928::storage_change::StorageChange>> (inlined)
+            |          |          core::ptr::drop_in_place<alloy_eip7928::slot_changes::SlotChanges> (inlined)
+            |          |          core::ptr::drop_in_place<[alloy_eip7928::slot_changes::SlotChanges]> (inlined)
+            |          |          <alloc::vec::Vec<T,A> as core::ops::drop::Drop>::drop (inlined)
+            |          |          core::ptr::drop_in_place<alloc::vec::Vec<alloy_eip7928::slot_changes::SlotChanges>> (inlined)
+            |          |          core::ptr::drop_in_place<alloy_eip7928::account_changes::AccountChanges> (inlined)
+            |          |          core::ptr::drop_in_place<[alloy_eip7928::account_changes::AccountChanges]> (inlined)
+            |          |          <alloc::vec::Vec<T,A> as core::ops::drop::Drop>::drop (inlined)
+            |          |          core::ptr::drop_in_place<alloc::vec::Vec<alloy_eip7928::account_changes::AccountChanges>> (inlined)
+            |          |          bal_decode_study::main
+            |          |          |
+            |          |           --0.55%--pthread_getattr_np
+            |          |
+            |           --0.70%--core::ptr::drop_in_place<alloc::raw_vec::RawVec<alloy_eip7928::balance_change::BalanceChange>> (inlined)
+            |                     core::ptr::drop_in_place<alloc::vec::Vec<alloy_eip7928::balance_change::BalanceChange>> (inlined)
+            |                     core::ptr::drop_in_place<alloy_eip7928::account_changes::AccountChanges> (inlined)
+            |                     core::ptr::drop_in_place<[alloy_eip7928::account_changes::AccountChanges]> (inlined)
+            |                     <alloc::vec::Vec<T,A> as core::ops::drop::Drop>::drop (inlined)
+            |                     core::ptr::drop_in_place<alloc::vec::Vec<alloy_eip7928::account_changes::AccountChanges>> (inlined)
+            |                     bal_decode_study::main
+            |
+            |--1.15%--alloc::raw_vec::RawVecInner<A>::current_memory (inlined)
+            |          alloc::raw_vec::RawVecInner<A>::deallocate (inlined)
+            |          <alloc::raw_vec::RawVec<T,A> as core::ops::drop::Drop>::drop (inlined)
+            |
+            |--0.61%--core::ptr::drop_in_place<alloy_eip7928::account_changes::AccountChanges> (inlined)
+            |          core::ptr::drop_in_place<[alloy_eip7928::account_changes::AccountChanges]> (inlined)
+            |          <alloc::vec::Vec<T,A> as core::ops::drop::Drop>::drop (inlined)
+            |          core::ptr::drop_in_place<alloc::vec::Vec<alloy_eip7928::account_changes::AccountChanges>> (inlined)
+            |          bal_decode_study::main
+            |
+             --0.54%--<alloc::raw_vec::RawVec<T,A> as core::ops::drop::Drop>::drop (inlined)
+
+     2.66%  study-v3  libc.so.6          [.] malloc
+            |
+            ---malloc
+
+     2.07%  study-v3  study-v3           [.] alloc::raw_vec::RawVecInner<A>::try_allocate_in
+            |
+             --1.51%--alloc::raw_vec::RawVecInner<A>::try_allocate_in
+
+     1.78%  study-v3  study-v3           [.] bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::hfa4bf01a0359d65f
+            |
+             --0.63%--core::ptr::copy_nonoverlapping (inlined)
+                       core::slice::copy_from_slice_impl (inlined)
+                       core::slice::<impl [T]>::copy_from_slice (inlined)
+                       alloy_rlp::decode::static_left_pad (inlined)
+                       <u64 as alloy_rlp::decode::Decodable>::decode (inlined)
+                       bal_decode_study::native (inlined)
+                       bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::haf801c58e53bf99f (inlined)
+                       bal_decode_study::record (inlined)
+                       bal_decode_study::decode::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::_$u7b$$u7b$closure$u7d$$u7d$::hfa4bf01a0359d65f
+
+     1.67%  study-v3  study-v3           [.] bal_decode_study::decode
+            |
+             --0.88%--<core::result::Result<T,E> as core::ops::try_trait::Try>::branch (inlined)
+                       bal_decode_study::list (inlined)
+                       bal_decode_study::decode
+
+     1.65%  study-v3  libc.so.6          [.] cfree
+            |
+            ---cfree
+               |
+                --0.63%--cfree
+                          _RNvXNtNtNtCs3JBboNF8E1m_3std3sys5alloc4unixNtNtB8_5alloc6SystemNtNtNtCs3BFokC4QLxY_4core5alloc6global11GlobalAlloc7dealloc (inlined)
+                          <bal_decode_study::Alloc as core::alloc::global::GlobalAlloc>::dealloc (inlined)
+                          _RNvCs4SDFJOLwvtW_7___rustc14___rust_dealloc (inlined)
+                          _RNvNtCs8y6E41fb8tc_5alloc5alloc15dealloc_nonnull (inlined)
+                          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global23deallocate_impl_runtime (inlined)
+                          _RNvMNtCs8y6E41fb8tc_5alloc5allocNtB2_6Global15deallocate_impl (inlined)
+                          _RNvXs_NtCs8y6E41fb8tc_5alloc5allocNtB4_6GlobalNtNtCs3BFokC4QLxY_4core5alloc9Allocator10deallocate (inlined)
+                          alloc::raw_vec::RawVecInner<A>::deallocate (inlined)
+                          <alloc::raw_vec::RawVec<T,A> as core::ops::drop::Drop>::drop (inlined)
+
+     1.27%  study-v3  study-v3           [.] <u64 as alloy_rlp::decode::Decodable>::decode
+     0.71%  study-v3  libc.so.6          [.] 0x00000000001a16ba
+            |
+            ---0x7956325a16ba
+
+     0.68%  study-v3  study-v3           [.] _ZN4core3ptr82drop_in_place$LT$alloc..vec..Vec$LT$alloy_eip7928..code_change..CodeChange$GT$$GT$17heddccbcf95a8e5b1E.llvm.6224458868333024961
+     0.51%  study-v3  libc.so.6          [.] 0x00000000001a16b8
+            |
+            ---0x7956325a16b8
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

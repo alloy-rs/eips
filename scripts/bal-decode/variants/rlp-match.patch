@@ -1,0 +1,88 @@
+--- a/crates/rlp/src/decode.rs
++++ b/crates/rlp/src/decode.rs
+@@ -74,8 +74,26 @@
+         impl Decodable for $t {
+             #[inline]
+             fn decode(buf: &mut &[u8]) -> Result<Self> {
+-                let bytes = Header::decode_bytes(buf, false)?;
+-                static_left_pad(bytes).map(<$t>::from_be_bytes)
++                // Short integers avoid constructing and copying a padded byte array.
++                // Only accept canonical encodings here; leave all other cases (including
++                // malformed inputs and values wider than the destination) to the regular decoder.
++                let (value, len) = match *buf {
++                    [value @ 1..=0x7f, ..] => (u32::from(*value), 1),
++                    [0x80, ..] => (0, 1),
++                    [0x81, value @ 0x80..=0xff, ..] => (u32::from(*value), 2),
++                    [0x82, hi @ 1..=0xff, lo, ..] if core::mem::size_of::<$t>() >= 2 => {
++                        ((u32::from(*hi) << 8) | u32::from(*lo), 3)
++                    }
++                    [0x83, hi @ 1..=0xff, mid, lo, ..] if core::mem::size_of::<$t>() >= 3 => {
++                        ((u32::from(*hi) << 16) | (u32::from(*mid) << 8) | u32::from(*lo), 4)
++                    }
++                    _ => {
++                        let bytes = Header::decode_bytes(buf, false)?;
++                        return static_left_pad(bytes).map(<$t>::from_be_bytes);
++                    }
++                };
++                *buf = &buf[len..];
++                Ok(value as $t)
+             }
+         }
+     )+};
+@@ -271,6 +289,56 @@
+ 
+ #[cfg(test)]
+ mod tests {
++    #[test]
++    fn short_integer_decode_matches_generic_decoder() {
++        fn check(input: &[u8]) {
++            macro_rules! check_type {
++                ($($ty:ty),+ $(,)?) => {$(
++                    let mut expected_buf = input;
++                    let expected = super::Header::decode_bytes(&mut expected_buf, false)
++                        .and_then(|bytes| super::static_left_pad(bytes).map(<$ty>::from_be_bytes));
++                    let mut actual_buf = input;
++                    let actual = <$ty as super::Decodable>::decode(&mut actual_buf);
++                    assert_eq!(actual, expected, "{}: {input:02x?}", stringify!($ty));
++                    assert_eq!(actual_buf, expected_buf, "{}: {input:02x?}", stringify!($ty));
++                )+};
++            }
++            check_type!(u8, u16, u32, u64, usize, u128);
++        }
++
++        check(&[]);
++        // Every one- and two-byte input, including noncanonical values and list headers.
++        for first in 0..=255 {
++            check(&[first]);
++            for second in 0..=255 {
++                check(&[first, second]);
++            }
++        }
++        // Canonical values across the short paths, destination overflow and the fallback.
++        for value in 0..=65536u64 {
++            let encoded = crate::encode(value);
++            check(&encoded);
++        }
++        for value in [0xffffff, 0x1000000, u32::MAX as u64, u64::MAX] {
++            let mut encoded = crate::encode(value);
++            for len in 0..=encoded.len() {
++                check(&encoded[..len]);
++            }
++            encoded.extend_from_slice(&[0x80, 0xc0]);
++            check(&encoded);
++        }
++        // All short headers, each possible leading byte, and truncated/extra payloads.
++        for header in 0x80..=0x89 {
++            for first in 0..=255 {
++                for len in 0..=10 {
++                    let mut input = alloc::vec![header, first];
++                    input.extend(core::iter::repeat(0x42).take(len));
++                    check(&input);
++                }
++            }
++        }
++    }
++
+     use super::*;
+     use crate::{encode, Encodable};
+     use core::{

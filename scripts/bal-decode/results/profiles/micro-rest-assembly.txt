@@ -1,0 +1,685 @@
+0000000000015cb0 <integers::base32>:
+   15cb0:	41 57                	push   %r15
+   15cb2:	41 56                	push   %r14
+   15cb4:	41 54                	push   %r12
+   15cb6:	53                   	push   %rbx
+   15cb7:	48 83 ec 18          	sub    $0x18,%rsp
+   15cbb:	48 8b 5f 08          	mov    0x8(%rdi),%rbx
+   15cbf:	48 83 fb 01          	cmp    $0x1,%rbx
+   15cc3:	76 2d                	jbe    15cf2 <integers::base32+0x42>
+   15cc5:	48 8b 37             	mov    (%rdi),%rsi
+   15cc8:	44 0f b6 36          	movzbl (%rsi),%r14d
+   15ccc:	41 80 fe 81          	cmp    $0x81,%r14b
+   15cd0:	75 32                	jne    15d04 <integers::base32+0x54>
+   15cd2:	0f b6 46 01          	movzbl 0x1(%rsi),%eax
+   15cd6:	84 c0                	test   %al,%al
+   15cd8:	0f 89 ac 01 00 00    	jns    15e8a <integers::base32+0x1da>
+   15cde:	48 83 c6 02          	add    $0x2,%rsi
+   15ce2:	48 83 c3 fe          	add    $0xfffffffffffffffe,%rbx
+   15ce6:	48 89 37             	mov    %rsi,(%rdi)
+   15ce9:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15ced:	e9 e2 00 00 00       	jmp    15dd4 <integers::base32+0x124>
+   15cf2:	48 85 db             	test   %rbx,%rbx
+   15cf5:	0f 84 85 01 00 00    	je     15e80 <integers::base32+0x1d0>
+   15cfb:	48 8b 37             	mov    (%rdi),%rsi
+   15cfe:	44 0f b6 36          	movzbl (%rsi),%r14d
+   15d02:	eb 06                	jmp    15d0a <integers::base32+0x5a>
+   15d04:	48 83 fb 02          	cmp    $0x2,%rbx
+   15d08:	75 2a                	jne    15d34 <integers::base32+0x84>
+   15d0a:	44 89 f0             	mov    %r14d,%eax
+   15d0d:	fe c8                	dec    %al
+   15d0f:	78 1a                	js     15d2b <integers::base32+0x7b>
+   15d11:	48 ff c6             	inc    %rsi
+   15d14:	48 ff cb             	dec    %rbx
+   15d17:	48 89 37             	mov    %rsi,(%rdi)
+   15d1a:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15d1e:	41 80 e6 7f          	and    $0x7f,%r14b
+   15d22:	41 0f b6 c6          	movzbl %r14b,%eax
+   15d26:	e9 a9 00 00 00       	jmp    15dd4 <integers::base32+0x124>
+   15d2b:	45 84 f6             	test   %r14b,%r14b
+   15d2e:	78 34                	js     15d64 <integers::base32+0xb4>
+   15d30:	31 c0                	xor    %eax,%eax
+   15d32:	eb 69                	jmp    15d9d <integers::base32+0xed>
+   15d34:	41 80 fe 82          	cmp    $0x82,%r14b
+   15d38:	0f 85 a2 00 00 00    	jne    15de0 <integers::base32+0x130>
+   15d3e:	0f b6 4e 01          	movzbl 0x1(%rsi),%ecx
+   15d42:	85 c9                	test   %ecx,%ecx
+   15d44:	0f 84 19 02 00 00    	je     15f63 <integers::base32+0x2b3>
+   15d4a:	48 8d 46 03          	lea    0x3(%rsi),%rax
+   15d4e:	48 83 c3 fd          	add    $0xfffffffffffffffd,%rbx
+   15d52:	48 89 07             	mov    %rax,(%rdi)
+   15d55:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15d59:	c1 e1 08             	shl    $0x8,%ecx
+   15d5c:	0f b6 46 02          	movzbl 0x2(%rsi),%eax
+   15d60:	09 c8                	or     %ecx,%eax
+   15d62:	eb 70                	jmp    15dd4 <integers::base32+0x124>
+   15d64:	41 80 fe b8          	cmp    $0xb8,%r14b
+   15d68:	0f 83 4e 01 00 00    	jae    15ebc <integers::base32+0x20c>
+   15d6e:	48 ff cb             	dec    %rbx
+   15d71:	48 ff c6             	inc    %rsi
+   15d74:	48 89 37             	mov    %rsi,(%rdi)
+   15d77:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15d7b:	41 80 e6 7f          	and    $0x7f,%r14b
+   15d7f:	41 80 fe 01          	cmp    $0x1,%r14b
+   15d83:	0f 85 98 00 00 00    	jne    15e21 <integers::base32+0x171>
+   15d89:	48 85 db             	test   %rbx,%rbx
+   15d8c:	0f 84 ee 00 00 00    	je     15e80 <integers::base32+0x1d0>
+   15d92:	0f b6 06             	movzbl (%rsi),%eax
+   15d95:	84 c0                	test   %al,%al
+   15d97:	0f 89 31 02 00 00    	jns    15fce <integers::base32+0x31e>
+   15d9d:	48 ff cb             	dec    %rbx
+   15da0:	48 8d 4e 01          	lea    0x1(%rsi),%rcx
+   15da4:	ba 01 00 00 00       	mov    $0x1,%edx
+   15da9:	48 89 0f             	mov    %rcx,(%rdi)
+   15dac:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15db0:	c7 04 24 00 00 00 00 	movl   $0x0,(%rsp)
+   15db7:	84 c0                	test   %al,%al
+   15db9:	0f 84 b3 01 00 00    	je     15f72 <integers::base32+0x2c2>
+   15dbf:	48 89 e7             	mov    %rsp,%rdi
+   15dc2:	48 29 d7             	sub    %rdx,%rdi
+   15dc5:	48 83 c7 04          	add    $0x4,%rdi
+   15dc9:	ff 15 59 21 04 00    	call   *0x42159(%rip)        # 57f28 <memcpy@GLIBC_2.14>
+   15dcf:	8b 04 24             	mov    (%rsp),%eax
+   15dd2:	0f c8                	bswap  %eax
+   15dd4:	48 83 c4 18          	add    $0x18,%rsp
+   15dd8:	5b                   	pop    %rbx
+   15dd9:	41 5c                	pop    %r12
+   15ddb:	41 5e                	pop    %r14
+   15ddd:	41 5f                	pop    %r15
+   15ddf:	c3                   	ret
+   15de0:	48 83 fb 04          	cmp    $0x4,%rbx
+   15de4:	0f 93 c0             	setae  %al
+   15de7:	41 80 fe 83          	cmp    $0x83,%r14b
+   15deb:	0f 94 c1             	sete   %cl
+   15dee:	84 c8                	test   %cl,%al
+   15df0:	0f 84 14 ff ff ff    	je     15d0a <integers::base32+0x5a>
+   15df6:	0f b6 46 01          	movzbl 0x1(%rsi),%eax
+   15dfa:	85 c0                	test   %eax,%eax
+   15dfc:	74 64                	je     15e62 <integers::base32+0x1b2>
+   15dfe:	48 8d 4e 04          	lea    0x4(%rsi),%rcx
+   15e02:	48 83 c3 fc          	add    $0xfffffffffffffffc,%rbx
+   15e06:	48 89 0f             	mov    %rcx,(%rdi)
+   15e09:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15e0d:	c1 e0 10             	shl    $0x10,%eax
+   15e10:	0f b6 4e 02          	movzbl 0x2(%rsi),%ecx
+   15e14:	c1 e1 08             	shl    $0x8,%ecx
+   15e17:	09 c1                	or     %eax,%ecx
+   15e19:	0f b6 46 03          	movzbl 0x3(%rsi),%eax
+   15e1d:	09 c8                	or     %ecx,%eax
+   15e1f:	eb b3                	jmp    15dd4 <integers::base32+0x124>
+   15e21:	41 0f b6 d6          	movzbl %r14b,%edx
+   15e25:	48 29 d3             	sub    %rdx,%rbx
+   15e28:	72 56                	jb     15e80 <integers::base32+0x1d0>
+   15e2a:	48 8d 04 16          	lea    (%rsi,%rdx,1),%rax
+   15e2e:	48 89 07             	mov    %rax,(%rdi)
+   15e31:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15e35:	41 80 fe 04          	cmp    $0x4,%r14b
+   15e39:	0f 87 96 01 00 00    	ja     15fd5 <integers::base32+0x325>
+   15e3f:	c7 04 24 00 00 00 00 	movl   $0x0,(%rsp)
+   15e46:	45 84 f6             	test   %r14b,%r14b
+   15e49:	74 10                	je     15e5b <integers::base32+0x1ab>
+   15e4b:	0f b6 06             	movzbl (%rsi),%eax
+   15e4e:	84 c0                	test   %al,%al
+   15e50:	0f 85 69 ff ff ff    	jne    15dbf <integers::base32+0x10f>
+   15e56:	e9 17 01 00 00       	jmp    15f72 <integers::base32+0x2c2>
+   15e5b:	31 c0                	xor    %eax,%eax
+   15e5d:	e9 72 ff ff ff       	jmp    15dd4 <integers::base32+0x124>
+   15e62:	4c 8d 46 01          	lea    0x1(%rsi),%r8
+   15e66:	48 83 c3 fc          	add    $0xfffffffffffffffc,%rbx
+   15e6a:	48 83 c6 04          	add    $0x4,%rsi
+   15e6e:	ba 03 00 00 00       	mov    $0x3,%edx
+   15e73:	31 c0                	xor    %eax,%eax
+   15e75:	48 89 f1             	mov    %rsi,%rcx
+   15e78:	4c 89 c6             	mov    %r8,%rsi
+   15e7b:	e9 29 ff ff ff       	jmp    15da9 <integers::base32+0xf9>
+   15e80:	b8 02 00 00 00       	mov    $0x2,%eax
+   15e85:	e9 ed 00 00 00       	jmp    15f77 <integers::base32+0x2c7>
+   15e8a:	48 ff c6             	inc    %rsi
+   15e8d:	48 83 fb 02          	cmp    $0x2,%rbx
+   15e91:	75 15                	jne    15ea8 <integers::base32+0x1f8>
+   15e93:	48 89 37             	mov    %rsi,(%rdi)
+   15e96:	48 c7 47 08 01 00 00 	movq   $0x1,0x8(%rdi)
+   15e9d:	00
+   15e9e:	b8 03 00 00 00       	mov    $0x3,%eax
+   15ea3:	e9 cf 00 00 00       	jmp    15f77 <integers::base32+0x2c7>
+   15ea8:	48 ff cb             	dec    %rbx
+   15eab:	48 89 37             	mov    %rsi,(%rdi)
+   15eae:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15eb2:	b8 03 00 00 00       	mov    $0x3,%eax
+   15eb7:	e9 bb 00 00 00       	jmp    15f77 <integers::base32+0x2c7>
+   15ebc:	49 89 ff             	mov    %rdi,%r15
+   15ebf:	41 8d 46 08          	lea    0x8(%r14),%eax
+   15ec3:	3c c8                	cmp    $0xc8,%al
+   15ec5:	0f 83 dc 00 00 00    	jae    15fa7 <integers::base32+0x2f7>
+   15ecb:	41 80 fe f8          	cmp    $0xf8,%r14b
+   15ecf:	0f 93 c0             	setae  %al
+   15ed2:	48 ff cb             	dec    %rbx
+   15ed5:	48 ff c6             	inc    %rsi
+   15ed8:	49 89 37             	mov    %rsi,(%r15)
+   15edb:	c0 e0 06             	shl    $0x6,%al
+   15ede:	0c b7                	or     $0xb7,%al
+   15ee0:	31 d2                	xor    %edx,%edx
+   15ee2:	44 89 f7             	mov    %r14d,%edi
+   15ee5:	40 28 c7             	sub    %al,%dil
+   15ee8:	40 0f b6 c7          	movzbl %dil,%eax
+   15eec:	0f 42 c2             	cmovb  %edx,%eax
+   15eef:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   15ef3:	0f b6 d0             	movzbl %al,%edx
+   15ef6:	b8 02 00 00 00       	mov    $0x2,%eax
+   15efb:	48 29 d3             	sub    %rdx,%rbx
+   15efe:	72 77                	jb     15f77 <integers::base32+0x2c7>
+   15f00:	4c 8d 24 16          	lea    (%rsi,%rdx,1),%r12
+   15f04:	4d 89 27             	mov    %r12,(%r15)
+   15f07:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   15f0b:	48 c7 04 24 00 00 00 	movq   $0x0,(%rsp)
+   15f12:	00
+   15f13:	80 3e 00             	cmpb   $0x0,(%rsi)
+   15f16:	74 5a                	je     15f72 <integers::base32+0x2c2>
+   15f18:	48 89 e7             	mov    %rsp,%rdi
+   15f1b:	48 29 d7             	sub    %rdx,%rdi
+   15f1e:	48 83 c7 08          	add    $0x8,%rdi
+   15f22:	ff 15 00 20 04 00    	call   *0x42000(%rip)        # 57f28 <memcpy@GLIBC_2.14>
+   15f28:	48 8b 0c 24          	mov    (%rsp),%rcx
+   15f2c:	48 0f c9             	bswap  %rcx
+   15f2f:	b8 04 00 00 00       	mov    $0x4,%eax
+   15f34:	48 83 f9 38          	cmp    $0x38,%rcx
+   15f38:	72 3d                	jb     15f77 <integers::base32+0x2c7>
+   15f3a:	31 c0                	xor    %eax,%eax
+   15f3c:	48 39 cb             	cmp    %rcx,%rbx
+   15f3f:	0f 93 c0             	setae  %al
+   15f42:	48 8d 04 80          	lea    (%rax,%rax,4),%rax
+   15f46:	48 83 c0 02          	add    $0x2,%rax
+   15f4a:	41 80 fe f7          	cmp    $0xf7,%r14b
+   15f4e:	77 27                	ja     15f77 <integers::base32+0x2c7>
+   15f50:	48 29 cb             	sub    %rcx,%rbx
+   15f53:	72 22                	jb     15f77 <integers::base32+0x2c7>
+   15f55:	49 01 cc             	add    %rcx,%r12
+   15f58:	4d 89 27             	mov    %r12,(%r15)
+   15f5b:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   15f5f:	31 c0                	xor    %eax,%eax
+   15f61:	eb 14                	jmp    15f77 <integers::base32+0x2c7>
+   15f63:	48 83 c3 fd          	add    $0xfffffffffffffffd,%rbx
+   15f67:	48 83 c6 03          	add    $0x3,%rsi
+   15f6b:	48 89 37             	mov    %rsi,(%rdi)
+   15f6e:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   15f72:	b8 01 00 00 00       	mov    $0x1,%eax
+   15f77:	48 89 04 24          	mov    %rax,(%rsp)
+   15f7b:	48 c7 44 24 08 00 00 	movq   $0x0,0x8(%rsp)
+   15f82:	00 00
+   15f84:	48 8d 3d 7d f2 fe ff 	lea    -0x10d83(%rip),%rdi        # 5208 <__abi_tag+0x4f0c>
+   15f8b:	48 8d 0d b6 fd 03 00 	lea    0x3fdb6(%rip),%rcx        # 55d48 <__frame_dummy_init_array_entry+0x38>
+   15f92:	4c 8d 05 2f fe 03 00 	lea    0x3fe2f(%rip),%r8        # 55dc8 <__frame_dummy_init_array_entry+0xb8>
+   15f99:	48 89 e2             	mov    %rsp,%rdx
+   15f9c:	be 2b 00 00 00       	mov    $0x2b,%esi
+   15fa1:	ff 15 b9 1f 04 00    	call   *0x41fb9(%rip)        # 57f60 <_DYNAMIC+0x2d8>
+   15fa7:	48 ff cb             	dec    %rbx
+   15faa:	48 ff c6             	inc    %rsi
+   15fad:	49 89 37             	mov    %rsi,(%r15)
+   15fb0:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   15fb4:	41 80 c6 40          	add    $0x40,%r14b
+   15fb8:	41 0f b6 c6          	movzbl %r14b,%eax
+   15fbc:	31 c9                	xor    %ecx,%ecx
+   15fbe:	48 39 c3             	cmp    %rax,%rbx
+   15fc1:	0f 93 c1             	setae  %cl
+   15fc4:	48 8d 04 89          	lea    (%rcx,%rcx,4),%rax
+   15fc8:	48 83 c0 02          	add    $0x2,%rax
+   15fcc:	eb a9                	jmp    15f77 <integers::base32+0x2c7>
+   15fce:	b8 03 00 00 00       	mov    $0x3,%eax
+   15fd3:	eb a2                	jmp    15f77 <integers::base32+0x2c7>
+   15fd5:	31 c0                	xor    %eax,%eax
+   15fd7:	eb 9e                	jmp    15f77 <integers::base32+0x2c7>
+   15fd9:	cc                   	int3
+   15fda:	cc                   	int3
+   15fdb:	cc                   	int3
+   15fdc:	cc                   	int3
+   15fdd:	cc                   	int3
+   15fde:	cc                   	int3
+   15fdf:	cc                   	int3
+
+0000000000015fe0 <integers::base64>:
+   15fe0:	41 57                	push   %r15
+   15fe2:	41 56                	push   %r14
+   15fe4:	41 54                	push   %r12
+   15fe6:	53                   	push   %rbx
+   15fe7:	48 83 ec 18          	sub    $0x18,%rsp
+   15feb:	48 8b 5f 08          	mov    0x8(%rdi),%rbx
+   15fef:	48 83 fb 01          	cmp    $0x1,%rbx
+   15ff3:	76 2d                	jbe    16022 <integers::base64+0x42>
+   15ff5:	48 8b 37             	mov    (%rdi),%rsi
+   15ff8:	44 0f b6 36          	movzbl (%rsi),%r14d
+   15ffc:	41 80 fe 81          	cmp    $0x81,%r14b
+   16000:	75 32                	jne    16034 <integers::base64+0x54>
+   16002:	0f b6 46 01          	movzbl 0x1(%rsi),%eax
+   16006:	84 c0                	test   %al,%al
+   16008:	0f 89 b4 01 00 00    	jns    161c2 <integers::base64+0x1e2>
+   1600e:	48 83 c6 02          	add    $0x2,%rsi
+   16012:	48 83 c3 fe          	add    $0xfffffffffffffffe,%rbx
+   16016:	48 89 37             	mov    %rsi,(%rdi)
+   16019:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   1601d:	e9 e7 00 00 00       	jmp    16109 <integers::base64+0x129>
+   16022:	48 85 db             	test   %rbx,%rbx
+   16025:	0f 84 8d 01 00 00    	je     161b8 <integers::base64+0x1d8>
+   1602b:	48 8b 37             	mov    (%rdi),%rsi
+   1602e:	44 0f b6 36          	movzbl (%rsi),%r14d
+   16032:	eb 06                	jmp    1603a <integers::base64+0x5a>
+   16034:	48 83 fb 02          	cmp    $0x2,%rbx
+   16038:	75 2a                	jne    16064 <integers::base64+0x84>
+   1603a:	44 89 f0             	mov    %r14d,%eax
+   1603d:	fe c8                	dec    %al
+   1603f:	78 1a                	js     1605b <integers::base64+0x7b>
+   16041:	48 ff c6             	inc    %rsi
+   16044:	48 ff cb             	dec    %rbx
+   16047:	48 89 37             	mov    %rsi,(%rdi)
+   1604a:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   1604e:	41 80 e6 7f          	and    $0x7f,%r14b
+   16052:	41 0f b6 c6          	movzbl %r14b,%eax
+   16056:	e9 ae 00 00 00       	jmp    16109 <integers::base64+0x129>
+   1605b:	45 84 f6             	test   %r14b,%r14b
+   1605e:	78 36                	js     16096 <integers::base64+0xb6>
+   16060:	31 c0                	xor    %eax,%eax
+   16062:	eb 6b                	jmp    160cf <integers::base64+0xef>
+   16064:	41 80 fe 82          	cmp    $0x82,%r14b
+   16068:	0f 85 a7 00 00 00    	jne    16115 <integers::base64+0x135>
+   1606e:	0f b6 4e 01          	movzbl 0x1(%rsi),%ecx
+   16072:	48 85 c9             	test   %rcx,%rcx
+   16075:	0f 84 20 02 00 00    	je     1629b <integers::base64+0x2bb>
+   1607b:	48 8d 46 03          	lea    0x3(%rsi),%rax
+   1607f:	48 83 c3 fd          	add    $0xfffffffffffffffd,%rbx
+   16083:	48 89 07             	mov    %rax,(%rdi)
+   16086:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   1608a:	c1 e1 08             	shl    $0x8,%ecx
+   1608d:	0f b6 46 02          	movzbl 0x2(%rsi),%eax
+   16091:	48 09 c8             	or     %rcx,%rax
+   16094:	eb 73                	jmp    16109 <integers::base64+0x129>
+   16096:	41 80 fe b8          	cmp    $0xb8,%r14b
+   1609a:	0f 83 54 01 00 00    	jae    161f4 <integers::base64+0x214>
+   160a0:	48 ff cb             	dec    %rbx
+   160a3:	48 ff c6             	inc    %rsi
+   160a6:	48 89 37             	mov    %rsi,(%rdi)
+   160a9:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   160ad:	41 80 e6 7f          	and    $0x7f,%r14b
+   160b1:	41 80 fe 01          	cmp    $0x1,%r14b
+   160b5:	0f 85 9d 00 00 00    	jne    16158 <integers::base64+0x178>
+   160bb:	48 85 db             	test   %rbx,%rbx
+   160be:	0f 84 f4 00 00 00    	je     161b8 <integers::base64+0x1d8>
+   160c4:	0f b6 06             	movzbl (%rsi),%eax
+   160c7:	84 c0                	test   %al,%al
+   160c9:	0f 89 37 02 00 00    	jns    16306 <integers::base64+0x326>
+   160cf:	48 ff cb             	dec    %rbx
+   160d2:	48 8d 4e 01          	lea    0x1(%rsi),%rcx
+   160d6:	ba 01 00 00 00       	mov    $0x1,%edx
+   160db:	48 89 0f             	mov    %rcx,(%rdi)
+   160de:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   160e2:	48 c7 04 24 00 00 00 	movq   $0x0,(%rsp)
+   160e9:	00
+   160ea:	84 c0                	test   %al,%al
+   160ec:	0f 84 b8 01 00 00    	je     162aa <integers::base64+0x2ca>
+   160f2:	48 89 e7             	mov    %rsp,%rdi
+   160f5:	48 29 d7             	sub    %rdx,%rdi
+   160f8:	48 83 c7 08          	add    $0x8,%rdi
+   160fc:	ff 15 26 1e 04 00    	call   *0x41e26(%rip)        # 57f28 <memcpy@GLIBC_2.14>
+   16102:	48 8b 04 24          	mov    (%rsp),%rax
+   16106:	48 0f c8             	bswap  %rax
+   16109:	48 83 c4 18          	add    $0x18,%rsp
+   1610d:	5b                   	pop    %rbx
+   1610e:	41 5c                	pop    %r12
+   16110:	41 5e                	pop    %r14
+   16112:	41 5f                	pop    %r15
+   16114:	c3                   	ret
+   16115:	48 83 fb 04          	cmp    $0x4,%rbx
+   16119:	0f 93 c0             	setae  %al
+   1611c:	41 80 fe 83          	cmp    $0x83,%r14b
+   16120:	0f 94 c1             	sete   %cl
+   16123:	84 c8                	test   %cl,%al
+   16125:	0f 84 0f ff ff ff    	je     1603a <integers::base64+0x5a>
+   1612b:	0f b6 46 01          	movzbl 0x1(%rsi),%eax
+   1612f:	48 85 c0             	test   %rax,%rax
+   16132:	74 66                	je     1619a <integers::base64+0x1ba>
+   16134:	48 8d 4e 04          	lea    0x4(%rsi),%rcx
+   16138:	48 83 c3 fc          	add    $0xfffffffffffffffc,%rbx
+   1613c:	48 89 0f             	mov    %rcx,(%rdi)
+   1613f:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   16143:	c1 e0 10             	shl    $0x10,%eax
+   16146:	0f b6 4e 02          	movzbl 0x2(%rsi),%ecx
+   1614a:	c1 e1 08             	shl    $0x8,%ecx
+   1614d:	09 c1                	or     %eax,%ecx
+   1614f:	0f b6 46 03          	movzbl 0x3(%rsi),%eax
+   16153:	48 09 c8             	or     %rcx,%rax
+   16156:	eb b1                	jmp    16109 <integers::base64+0x129>
+   16158:	41 0f b6 d6          	movzbl %r14b,%edx
+   1615c:	48 29 d3             	sub    %rdx,%rbx
+   1615f:	72 57                	jb     161b8 <integers::base64+0x1d8>
+   16161:	48 8d 04 16          	lea    (%rsi,%rdx,1),%rax
+   16165:	48 89 07             	mov    %rax,(%rdi)
+   16168:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   1616c:	41 80 fe 08          	cmp    $0x8,%r14b
+   16170:	0f 87 97 01 00 00    	ja     1630d <integers::base64+0x32d>
+   16176:	48 c7 04 24 00 00 00 	movq   $0x0,(%rsp)
+   1617d:	00
+   1617e:	45 84 f6             	test   %r14b,%r14b
+   16181:	74 10                	je     16193 <integers::base64+0x1b3>
+   16183:	0f b6 06             	movzbl (%rsi),%eax
+   16186:	84 c0                	test   %al,%al
+   16188:	0f 85 64 ff ff ff    	jne    160f2 <integers::base64+0x112>
+   1618e:	e9 17 01 00 00       	jmp    162aa <integers::base64+0x2ca>
+   16193:	31 c0                	xor    %eax,%eax
+   16195:	e9 6f ff ff ff       	jmp    16109 <integers::base64+0x129>
+   1619a:	4c 8d 46 01          	lea    0x1(%rsi),%r8
+   1619e:	48 83 c3 fc          	add    $0xfffffffffffffffc,%rbx
+   161a2:	48 83 c6 04          	add    $0x4,%rsi
+   161a6:	ba 03 00 00 00       	mov    $0x3,%edx
+   161ab:	31 c0                	xor    %eax,%eax
+   161ad:	48 89 f1             	mov    %rsi,%rcx
+   161b0:	4c 89 c6             	mov    %r8,%rsi
+   161b3:	e9 23 ff ff ff       	jmp    160db <integers::base64+0xfb>
+   161b8:	b8 02 00 00 00       	mov    $0x2,%eax
+   161bd:	e9 ed 00 00 00       	jmp    162af <integers::base64+0x2cf>
+   161c2:	48 ff c6             	inc    %rsi
+   161c5:	48 83 fb 02          	cmp    $0x2,%rbx
+   161c9:	75 15                	jne    161e0 <integers::base64+0x200>
+   161cb:	48 89 37             	mov    %rsi,(%rdi)
+   161ce:	48 c7 47 08 01 00 00 	movq   $0x1,0x8(%rdi)
+   161d5:	00
+   161d6:	b8 03 00 00 00       	mov    $0x3,%eax
+   161db:	e9 cf 00 00 00       	jmp    162af <integers::base64+0x2cf>
+   161e0:	48 ff cb             	dec    %rbx
+   161e3:	48 89 37             	mov    %rsi,(%rdi)
+   161e6:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   161ea:	b8 03 00 00 00       	mov    $0x3,%eax
+   161ef:	e9 bb 00 00 00       	jmp    162af <integers::base64+0x2cf>
+   161f4:	49 89 ff             	mov    %rdi,%r15
+   161f7:	41 8d 46 08          	lea    0x8(%r14),%eax
+   161fb:	3c c8                	cmp    $0xc8,%al
+   161fd:	0f 83 dc 00 00 00    	jae    162df <integers::base64+0x2ff>
+   16203:	41 80 fe f8          	cmp    $0xf8,%r14b
+   16207:	0f 93 c0             	setae  %al
+   1620a:	48 ff cb             	dec    %rbx
+   1620d:	48 ff c6             	inc    %rsi
+   16210:	49 89 37             	mov    %rsi,(%r15)
+   16213:	c0 e0 06             	shl    $0x6,%al
+   16216:	0c b7                	or     $0xb7,%al
+   16218:	31 d2                	xor    %edx,%edx
+   1621a:	44 89 f7             	mov    %r14d,%edi
+   1621d:	40 28 c7             	sub    %al,%dil
+   16220:	40 0f b6 c7          	movzbl %dil,%eax
+   16224:	0f 42 c2             	cmovb  %edx,%eax
+   16227:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   1622b:	0f b6 d0             	movzbl %al,%edx
+   1622e:	b8 02 00 00 00       	mov    $0x2,%eax
+   16233:	48 29 d3             	sub    %rdx,%rbx
+   16236:	72 77                	jb     162af <integers::base64+0x2cf>
+   16238:	4c 8d 24 16          	lea    (%rsi,%rdx,1),%r12
+   1623c:	4d 89 27             	mov    %r12,(%r15)
+   1623f:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   16243:	48 c7 04 24 00 00 00 	movq   $0x0,(%rsp)
+   1624a:	00
+   1624b:	80 3e 00             	cmpb   $0x0,(%rsi)
+   1624e:	74 5a                	je     162aa <integers::base64+0x2ca>
+   16250:	48 89 e7             	mov    %rsp,%rdi
+   16253:	48 29 d7             	sub    %rdx,%rdi
+   16256:	48 83 c7 08          	add    $0x8,%rdi
+   1625a:	ff 15 c8 1c 04 00    	call   *0x41cc8(%rip)        # 57f28 <memcpy@GLIBC_2.14>
+   16260:	48 8b 0c 24          	mov    (%rsp),%rcx
+   16264:	48 0f c9             	bswap  %rcx
+   16267:	b8 04 00 00 00       	mov    $0x4,%eax
+   1626c:	48 83 f9 38          	cmp    $0x38,%rcx
+   16270:	72 3d                	jb     162af <integers::base64+0x2cf>
+   16272:	31 c0                	xor    %eax,%eax
+   16274:	48 39 cb             	cmp    %rcx,%rbx
+   16277:	0f 93 c0             	setae  %al
+   1627a:	48 8d 04 80          	lea    (%rax,%rax,4),%rax
+   1627e:	48 83 c0 02          	add    $0x2,%rax
+   16282:	41 80 fe f7          	cmp    $0xf7,%r14b
+   16286:	77 27                	ja     162af <integers::base64+0x2cf>
+   16288:	48 29 cb             	sub    %rcx,%rbx
+   1628b:	72 22                	jb     162af <integers::base64+0x2cf>
+   1628d:	49 01 cc             	add    %rcx,%r12
+   16290:	4d 89 27             	mov    %r12,(%r15)
+   16293:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   16297:	31 c0                	xor    %eax,%eax
+   16299:	eb 14                	jmp    162af <integers::base64+0x2cf>
+   1629b:	48 83 c3 fd          	add    $0xfffffffffffffffd,%rbx
+   1629f:	48 83 c6 03          	add    $0x3,%rsi
+   162a3:	48 89 37             	mov    %rsi,(%rdi)
+   162a6:	48 89 5f 08          	mov    %rbx,0x8(%rdi)
+   162aa:	b8 01 00 00 00       	mov    $0x1,%eax
+   162af:	48 89 04 24          	mov    %rax,(%rsp)
+   162b3:	48 c7 44 24 08 00 00 	movq   $0x0,0x8(%rsp)
+   162ba:	00 00
+   162bc:	48 8d 3d 45 ef fe ff 	lea    -0x110bb(%rip),%rdi        # 5208 <__abi_tag+0x4f0c>
+   162c3:	48 8d 0d 7e fa 03 00 	lea    0x3fa7e(%rip),%rcx        # 55d48 <__frame_dummy_init_array_entry+0x38>
+   162ca:	4c 8d 05 0f fb 03 00 	lea    0x3fb0f(%rip),%r8        # 55de0 <__frame_dummy_init_array_entry+0xd0>
+   162d1:	48 89 e2             	mov    %rsp,%rdx
+   162d4:	be 2b 00 00 00       	mov    $0x2b,%esi
+   162d9:	ff 15 81 1c 04 00    	call   *0x41c81(%rip)        # 57f60 <_DYNAMIC+0x2d8>
+   162df:	48 ff cb             	dec    %rbx
+   162e2:	48 ff c6             	inc    %rsi
+   162e5:	49 89 37             	mov    %rsi,(%r15)
+   162e8:	49 89 5f 08          	mov    %rbx,0x8(%r15)
+   162ec:	41 80 c6 40          	add    $0x40,%r14b
+   162f0:	41 0f b6 c6          	movzbl %r14b,%eax
+   162f4:	31 c9                	xor    %ecx,%ecx
+   162f6:	48 39 c3             	cmp    %rax,%rbx
+   162f9:	0f 93 c1             	setae  %cl
+   162fc:	48 8d 04 89          	lea    (%rcx,%rcx,4),%rax
+   16300:	48 83 c0 02          	add    $0x2,%rax
+   16304:	eb a9                	jmp    162af <integers::base64+0x2cf>
+   16306:	b8 03 00 00 00       	mov    $0x3,%eax
+   1630b:	eb a2                	jmp    162af <integers::base64+0x2cf>
+   1630d:	31 c0                	xor    %eax,%eax
+   1630f:	eb 9e                	jmp    162af <integers::base64+0x2cf>
+   16311:	cc                   	int3
+   16312:	cc                   	int3
+   16313:	cc                   	int3
+   16314:	cc                   	int3
+   16315:	cc                   	int3
+   16316:	cc                   	int3
+   16317:	cc                   	int3
+   16318:	cc                   	int3
+   16319:	cc                   	int3
+   1631a:	cc                   	int3
+   1631b:	cc                   	int3
+   1631c:	cc                   	int3
+   1631d:	cc                   	int3
+   1631e:	cc                   	int3
+   1631f:	cc                   	int3
+
+0000000000016570 <integers::base256>:
+   16570:	41 57                	push   %r15
+   16572:	41 56                	push   %r14
+   16574:	41 55                	push   %r13
+   16576:	41 54                	push   %r12
+   16578:	53                   	push   %rbx
+   16579:	48 83 ec 20          	sub    $0x20,%rsp
+   1657d:	4c 8b 7e 08          	mov    0x8(%rsi),%r15
+   16581:	b8 02 00 00 00       	mov    $0x2,%eax
+   16586:	4d 85 ff             	test   %r15,%r15
+   16589:	0f 84 3e 02 00 00    	je     167cd <integers::base256+0x25d>
+   1658f:	48 89 f3             	mov    %rsi,%rbx
+   16592:	48 8b 36             	mov    (%rsi),%rsi
+   16595:	44 0f b6 36          	movzbl (%rsi),%r14d
+   16599:	b9 01 00 00 00       	mov    $0x1,%ecx
+   1659e:	45 84 f6             	test   %r14b,%r14b
+   165a1:	78 08                	js     165ab <integers::base256+0x3b>
+   165a3:	49 89 f4             	mov    %rsi,%r12
+   165a6:	e9 e8 00 00 00       	jmp    16693 <integers::base256+0x123>
+   165ab:	41 80 fe b8          	cmp    $0xb8,%r14b
+   165af:	73 3a                	jae    165eb <integers::base256+0x7b>
+   165b1:	49 ff cf             	dec    %r15
+   165b4:	48 ff c6             	inc    %rsi
+   165b7:	48 89 33             	mov    %rsi,(%rbx)
+   165ba:	4c 89 7b 08          	mov    %r15,0x8(%rbx)
+   165be:	41 83 e6 7f          	and    $0x7f,%r14d
+   165c2:	49 83 fe 01          	cmp    $0x1,%r14
+   165c6:	0f 85 d4 01 00 00    	jne    167a0 <integers::base256+0x230>
+   165cc:	4d 85 ff             	test   %r15,%r15
+   165cf:	0f 84 f8 01 00 00    	je     167cd <integers::base256+0x25d>
+   165d5:	80 3e 00             	cmpb   $0x0,(%rsi)
+   165d8:	49 89 f4             	mov    %rsi,%r12
+   165db:	0f 88 b2 00 00 00    	js     16693 <integers::base256+0x123>
+   165e1:	b8 03 00 00 00       	mov    $0x3,%eax
+   165e6:	e9 e2 01 00 00       	jmp    167cd <integers::base256+0x25d>
+   165eb:	41 8d 4e 08          	lea    0x8(%r14),%ecx
+   165ef:	80 f9 c8             	cmp    $0xc8,%cl
+   165f2:	0f 83 05 02 00 00    	jae    167fd <integers::base256+0x28d>
+   165f8:	41 80 fe f8          	cmp    $0xf8,%r14b
+   165fc:	0f 93 c1             	setae  %cl
+   165ff:	49 ff cf             	dec    %r15
+   16602:	48 ff c6             	inc    %rsi
+   16605:	48 89 33             	mov    %rsi,(%rbx)
+   16608:	4c 89 7b 08          	mov    %r15,0x8(%rbx)
+   1660c:	c0 e1 06             	shl    $0x6,%cl
+   1660f:	80 c9 b7             	or     $0xb7,%cl
+   16612:	31 d2                	xor    %edx,%edx
+   16614:	45 89 f0             	mov    %r14d,%r8d
+   16617:	41 28 c8             	sub    %cl,%r8b
+   1661a:	41 0f b6 c8          	movzbl %r8b,%ecx
+   1661e:	0f 42 ca             	cmovb  %edx,%ecx
+   16621:	0f b6 d1             	movzbl %cl,%edx
+   16624:	49 29 d7             	sub    %rdx,%r15
+   16627:	0f 82 a0 01 00 00    	jb     167cd <integers::base256+0x25d>
+   1662d:	4c 8d 24 16          	lea    (%rsi,%rdx,1),%r12
+   16631:	4c 89 23             	mov    %r12,(%rbx)
+   16634:	4c 89 7b 08          	mov    %r15,0x8(%rbx)
+   16638:	48 c7 04 24 00 00 00 	movq   $0x0,(%rsp)
+   1663f:	00
+   16640:	80 3e 00             	cmpb   $0x0,(%rsi)
+   16643:	0f 84 7b 01 00 00    	je     167c4 <integers::base256+0x254>
+   16649:	49 89 fd             	mov    %rdi,%r13
+   1664c:	48 89 e7             	mov    %rsp,%rdi
+   1664f:	48 29 d7             	sub    %rdx,%rdi
+   16652:	48 83 c7 08          	add    $0x8,%rdi
+   16656:	ff 15 cc 18 04 00    	call   *0x418cc(%rip)        # 57f28 <memcpy@GLIBC_2.14>
+   1665c:	48 8b 0c 24          	mov    (%rsp),%rcx
+   16660:	48 0f c9             	bswap  %rcx
+   16663:	48 83 f9 38          	cmp    $0x38,%rcx
+   16667:	0f 82 b7 01 00 00    	jb     16824 <integers::base256+0x2b4>
+   1666d:	31 c0                	xor    %eax,%eax
+   1666f:	49 39 cf             	cmp    %rcx,%r15
+   16672:	0f 93 c0             	setae  %al
+   16675:	48 8d 04 80          	lea    (%rax,%rax,4),%rax
+   16679:	48 83 c0 02          	add    $0x2,%rax
+   1667d:	41 80 fe f7          	cmp    $0xf7,%r14b
+   16681:	0f 87 46 01 00 00    	ja     167cd <integers::base256+0x25d>
+   16687:	4c 89 ef             	mov    %r13,%rdi
+   1668a:	49 39 cf             	cmp    %rcx,%r15
+   1668d:	0f 82 3a 01 00 00    	jb     167cd <integers::base256+0x25d>
+   16693:	49 29 cf             	sub    %rcx,%r15
+   16696:	49 8d 04 0c          	lea    (%r12,%rcx,1),%rax
+   1669a:	48 89 03             	mov    %rax,(%rbx)
+   1669d:	4c 89 7b 08          	mov    %r15,0x8(%rbx)
+   166a1:	4c 89 e6             	mov    %r12,%rsi
+   166a4:	49 89 ce             	mov    %rcx,%r14
+   166a7:	80 3e 00             	cmpb   $0x0,(%rsi)
+   166aa:	0f 84 14 01 00 00    	je     167c4 <integers::base256+0x254>
+   166b0:	49 83 fe 20          	cmp    $0x20,%r14
+   166b4:	0f 87 11 01 00 00    	ja     167cb <integers::base256+0x25b>
+   166ba:	75 20                	jne    166dc <integers::base256+0x16c>
+   166bc:	48 8b 46 18          	mov    0x18(%rsi),%rax
+   166c0:	48 0f c8             	bswap  %rax
+   166c3:	48 8b 4e 10          	mov    0x10(%rsi),%rcx
+   166c7:	48 0f c9             	bswap  %rcx
+   166ca:	4c 8b 06             	mov    (%rsi),%r8
+   166cd:	48 8b 56 08          	mov    0x8(%rsi),%rdx
+   166d1:	48 0f ca             	bswap  %rdx
+   166d4:	49 0f c8             	bswap  %r8
+   166d7:	e9 a7 00 00 00       	jmp    16783 <integers::base256+0x213>
+   166dc:	0f 57 c0             	xorps  %xmm0,%xmm0
+   166df:	0f 29 44 24 10       	movaps %xmm0,0x10(%rsp)
+   166e4:	0f 29 04 24          	movaps %xmm0,(%rsp)
+   166e8:	49 83 fe 01          	cmp    $0x1,%r14
+   166ec:	75 04                	jne    166f2 <integers::base256+0x182>
+   166ee:	31 c0                	xor    %eax,%eax
+   166f0:	eb 66                	jmp    16758 <integers::base256+0x1e8>
+   166f2:	44 89 f2             	mov    %r14d,%edx
+   166f5:	83 e2 3e             	and    $0x3e,%edx
+   166f8:	4d 8d 04 36          	lea    (%r14,%rsi,1),%r8
+   166fc:	49 ff c8             	dec    %r8
+   166ff:	45 31 c9             	xor    %r9d,%r9d
+   16702:	31 c0                	xor    %eax,%eax
+   16704:	66 66 66 2e 0f 1f 84 	data16 data16 cs nopw 0x0(%rax,%rax,1)
+   1670b:	00 00 00 00 00
+   16710:	45 0f b6 10          	movzbl (%r8),%r10d
+   16714:	44 89 c9             	mov    %r9d,%ecx
+   16717:	80 e1 30             	and    $0x30,%cl
+   1671a:	49 d3 e2             	shl    %cl,%r10
+   1671d:	49 89 c3             	mov    %rax,%r11
+   16720:	49 83 e3 f8          	and    $0xfffffffffffffff8,%r11
+   16724:	4e 03 14 1c          	add    (%rsp,%r11,1),%r10
+   16728:	4e 89 14 1c          	mov    %r10,(%rsp,%r11,1)
+   1672c:	48 83 c0 02          	add    $0x2,%rax
+   16730:	41 0f b6 58 ff       	movzbl -0x1(%r8),%ebx
+   16735:	80 c9 08             	or     $0x8,%cl
+   16738:	48 d3 e3             	shl    %cl,%rbx
+   1673b:	4c 01 d3             	add    %r10,%rbx
+   1673e:	4a 89 1c 1c          	mov    %rbx,(%rsp,%r11,1)
+   16742:	49 83 c1 10          	add    $0x10,%r9
+   16746:	49 83 c0 fe          	add    $0xfffffffffffffffe,%r8
+   1674a:	48 39 c2             	cmp    %rax,%rdx
+   1674d:	75 c1                	jne    16710 <integers::base256+0x1a0>
+   1674f:	41 f6 c6 01          	test   $0x1,%r14b
+   16753:	74 1b                	je     16770 <integers::base256+0x200>
+   16755:	49 29 c6             	sub    %rax,%r14
+   16758:	42 0f b6 54 36 ff    	movzbl -0x1(%rsi,%r14,1),%edx
+   1675e:	8d 0c c5 00 00 00 00 	lea    0x0(,%rax,8),%ecx
+   16765:	48 d3 e2             	shl    %cl,%rdx
+   16768:	48 83 e0 f8          	and    $0xfffffffffffffff8,%rax
+   1676c:	48 01 14 04          	add    %rdx,(%rsp,%rax,1)
+   16770:	48 8b 04 24          	mov    (%rsp),%rax
+   16774:	48 8b 4c 24 08       	mov    0x8(%rsp),%rcx
+   16779:	48 8b 54 24 10       	mov    0x10(%rsp),%rdx
+   1677e:	4c 8b 44 24 18       	mov    0x18(%rsp),%r8
+   16783:	48 89 07             	mov    %rax,(%rdi)
+   16786:	48 89 4f 08          	mov    %rcx,0x8(%rdi)
+   1678a:	48 89 57 10          	mov    %rdx,0x10(%rdi)
+   1678e:	4c 89 47 18          	mov    %r8,0x18(%rdi)
+   16792:	48 83 c4 20          	add    $0x20,%rsp
+   16796:	5b                   	pop    %rbx
+   16797:	41 5c                	pop    %r12
+   16799:	41 5d                	pop    %r13
+   1679b:	41 5e                	pop    %r14
+   1679d:	41 5f                	pop    %r15
+   1679f:	c3                   	ret
+   167a0:	4d 29 f7             	sub    %r14,%r15
+   167a3:	72 28                	jb     167cd <integers::base256+0x25d>
+   167a5:	4a 8d 04 36          	lea    (%rsi,%r14,1),%rax
+   167a9:	48 89 03             	mov    %rax,(%rbx)
+   167ac:	4c 89 7b 08          	mov    %r15,0x8(%rbx)
+   167b0:	45 84 f6             	test   %r14b,%r14b
+   167b3:	0f 85 ee fe ff ff    	jne    166a7 <integers::base256+0x137>
+   167b9:	31 c0                	xor    %eax,%eax
+   167bb:	31 c9                	xor    %ecx,%ecx
+   167bd:	31 d2                	xor    %edx,%edx
+   167bf:	45 31 c0             	xor    %r8d,%r8d
+   167c2:	eb bf                	jmp    16783 <integers::base256+0x213>
+   167c4:	b8 01 00 00 00       	mov    $0x1,%eax
+   167c9:	eb 02                	jmp    167cd <integers::base256+0x25d>
+   167cb:	31 c0                	xor    %eax,%eax
+   167cd:	48 89 04 24          	mov    %rax,(%rsp)
+   167d1:	48 c7 44 24 08 00 00 	movq   $0x0,0x8(%rsp)
+   167d8:	00 00
+   167da:	48 8d 3d 27 ea fe ff 	lea    -0x115d9(%rip),%rdi        # 5208 <__abi_tag+0x4f0c>
+   167e1:	48 8d 0d 60 f5 03 00 	lea    0x3f560(%rip),%rcx        # 55d48 <__frame_dummy_init_array_entry+0x38>
+   167e8:	4c 8d 05 39 f6 03 00 	lea    0x3f639(%rip),%r8        # 55e28 <__frame_dummy_init_array_entry+0x118>
+   167ef:	48 89 e2             	mov    %rsp,%rdx
+   167f2:	be 2b 00 00 00       	mov    $0x2b,%esi
+   167f7:	ff 15 63 17 04 00    	call   *0x41763(%rip)        # 57f60 <_DYNAMIC+0x2d8>
+   167fd:	49 ff cf             	dec    %r15
+   16800:	48 ff c6             	inc    %rsi
+   16803:	48 89 33             	mov    %rsi,(%rbx)
+   16806:	4c 89 7b 08          	mov    %r15,0x8(%rbx)
+   1680a:	41 80 c6 40          	add    $0x40,%r14b
+   1680e:	41 0f b6 c6          	movzbl %r14b,%eax
+   16812:	31 c9                	xor    %ecx,%ecx
+   16814:	49 39 c7             	cmp    %rax,%r15
+   16817:	0f 93 c1             	setae  %cl
+   1681a:	48 8d 04 89          	lea    (%rcx,%rcx,4),%rax
+   1681e:	48 83 c0 02          	add    $0x2,%rax
+   16822:	eb a9                	jmp    167cd <integers::base256+0x25d>
+   16824:	b8 04 00 00 00       	mov    $0x4,%eax
+   16829:	eb a2                	jmp    167cd <integers::base256+0x25d>
+   1682b:	cc                   	int3
+   1682c:	cc                   	int3
+   1682d:	cc                   	int3
+   1682e:	cc                   	int3
+   1682f:	cc                   	int3
