@@ -38,6 +38,7 @@ arbitrary = { workspace = true, features = ["derive"], optional = true }
 [dev-dependencies]
 serde_json.workspace = true
 bincode = "1.3"
+proptest = "1.11"
 
 [features]
 default = ["std"]
