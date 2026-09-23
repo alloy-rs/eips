@@ -17,15 +17,25 @@ pub const MAX_CODE_SIZE: usize = 24_576;
 /// Item cost for block access list.
 pub const ITEM_COST: usize = 2000;
 
-const ETHEREUM_MAINNET_SLOTS_PER_EPOCH: u64 = 32;
-
 /// Number of epochs the execution layer must retain block access lists for.
-pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 3_533;
+pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 33_024;
 
-/// Number of slots corresponding to [`BAL_RETENTION_PERIOD_EPOCHS`].
-pub const BAL_RETENTION_PERIOD_SLOTS: u64 =
-    BAL_RETENTION_PERIOD_EPOCHS * ETHEREUM_MAINNET_SLOTS_PER_EPOCH;
+/// Returns the block access list retention period in slots for the given number of slots per epoch.
+pub const fn bal_retention_period_slots(slots_per_epoch: u64) -> u64 {
+    BAL_RETENTION_PERIOD_EPOCHS * slots_per_epoch
+}
 
 /// The empty block access list hash.
 pub const EMPTY_BLOCK_ACCESS_LIST_HASH: B256 =
     b256!("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retention_period_uses_configured_slots_per_epoch() {
+        assert_eq!(bal_retention_period_slots(32), 1_056_768);
+        assert_eq!(bal_retention_period_slots(8), 264_192);
+    }
+}
