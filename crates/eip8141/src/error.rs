@@ -51,6 +51,15 @@ pub enum Eip8141Error {
         /// Address derived from the public key carried in the signature.
         derived: Address,
     },
+    /// EIP-8250 requires between one and sixteen nonce keys.
+    #[error("invalid nonce key count: {0}")]
+    InvalidNonceKeyCount(usize),
+    /// EIP-8250 nonce keys must be strictly increasing.
+    #[error("nonce keys must be strictly increasing")]
+    NonceKeysNotStrictlyIncreasing,
+    /// Nonce key zero aliases the account nonce and cannot be combined with another key.
+    #[error("nonce key zero is only valid as the sole key")]
+    ZeroNonceKeyWithMultipleKeys,
 }
 
 impl Eip8141Error {

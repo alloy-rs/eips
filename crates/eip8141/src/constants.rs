@@ -41,6 +41,33 @@ pub const EXPIRY_DATA_LENGTH: usize = 8;
 /// Maximum number of frames in a frame transaction.
 pub const MAX_FRAMES: usize = 64;
 
+/// Address of the EIP-8250 protocol-managed keyed nonce storage account.
+pub const NONCE_MANAGER: Address = Address::new(hex!("0000000000000000000000000000000000008250"));
+
+/// Canonical runtime bytecode installed at [`NONCE_MANAGER`].
+pub const NONCE_MANAGER_CODE: [u8; 5] = hex!("60006000fd");
+
+/// State gas charged when a keyed nonce storage slot is created for the first time.
+pub const KEYED_NONCE_FIRST_USE_STATE_GAS: u64 = 97_920;
+
+/// Exhausted EIP-8250 sequence value. Transactions must use a lower sequence.
+pub const MAX_NONCE_SEQ: u64 = u64::MAX;
+
+/// Maximum number of nonce keys selected by one frame transaction.
+pub const MAX_NONCE_KEYS: usize = 16;
+
+/// `TXPARAM` selector for the sender's account nonce in the transaction pre-state.
+pub const TXPARAM_LEGACY_NONCE: u8 = 0x0d;
+
+/// `TXPARAM` selector for the number of selected nonce keys.
+pub const TXPARAM_NONCE_KEY_COUNT: u8 = 0x0e;
+
+/// `TXPARAM` selector for the canonical hash of the selected nonce keys.
+pub const TXPARAM_NONCE_KEYS_HASH: u8 = 0x0f;
+
+/// `TXPARAM` selector for the first selected nonce key.
+pub const TXPARAM_NONCE_KEY_0: u8 = 0x10;
+
 /// Order of the secp256k1 curve used by EIP-8141 signatures.
 pub const SECP256K1N: U256 =
     U256::from_be_bytes(hex!("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"));
