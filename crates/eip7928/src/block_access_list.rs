@@ -2098,6 +2098,7 @@ mod tests {
         AccountChanges, BalanceChange, BlockAccessIndex, CodeChange, NonceChange, SlotChanges,
         StorageChange, constants::EMPTY_BLOCK_ACCESS_LIST_HASH,
     };
+    use alloc::vec::Vec;
     use alloy_primitives::{Address, Bytes, U256};
 
     fn sample_bal() -> Bal {
