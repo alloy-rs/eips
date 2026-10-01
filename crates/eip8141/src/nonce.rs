@@ -2,8 +2,9 @@
 
 use alloc::vec::Vec;
 use alloy_primitives::{Address, B256, U256, keccak256};
+use alloy_rlp::{Encodable, encode_list, list_length};
 
-use crate::{Eip8141Error, MAX_NONCE_KEYS};
+use crate::{Eip8141Error, MAX_NONCE_KEYS, calldata_tokens};
 
 /// Validates the canonical EIP-8250 nonce key set representation.
 ///
@@ -40,6 +41,24 @@ pub fn nonce_keys_hash(nonce_keys: &[U256]) -> B256 {
         preimage.extend_from_slice(&nonce_key.to_be_bytes::<32>());
     }
     keccak256(preimage)
+}
+
+/// Returns the standard calldata token count of `rlp(nonce_keys) || rlp(nonce_seq)`.
+///
+/// EIP-8250 prices this encoding as transaction data, like frame and signature data.
+pub fn nonce_calldata_tokens(nonce_keys: &[U256], nonce_seq: u64) -> u64 {
+    let mut encoded = Vec::with_capacity(nonce_calldata_len(nonce_keys, nonce_seq) as usize);
+    encode_list::<_, U256>(nonce_keys, &mut encoded);
+    nonce_seq.encode(&mut encoded);
+    calldata_tokens(&encoded)
+}
+
+/// Returns the byte length of `rlp(nonce_keys) || rlp(nonce_seq)`.
+///
+/// The EIP-7976 calldata floor charges every byte uniformly, so it is priced from this length
+/// rather than from [`nonce_calldata_tokens`].
+pub fn nonce_calldata_len(nonce_keys: &[U256], nonce_seq: u64) -> u64 {
+    (list_length::<_, U256>(nonce_keys) + nonce_seq.length()) as u64
 }
 
 #[cfg(test)]
@@ -89,5 +108,17 @@ mod tests {
         expected_preimage[95] = 2;
         assert_eq!(nonce_keys_hash(&keys), keccak256(expected_preimage));
         assert_ne!(nonce_keys_hash(&keys), nonce_keys_hash(&keys[..1]));
+    }
+
+    #[test]
+    fn nonce_calldata_pricing_matches_rlp_bytes() {
+        // c1 80 || 80
+        assert_eq!(nonce_calldata_len(&[U256::ZERO], 0), 3);
+        assert_eq!(nonce_calldata_tokens(&[U256::ZERO], 0), 12);
+
+        // c5 81 80 82 01 00 || 81 80
+        let keys = [U256::from(128), U256::from(256)];
+        assert_eq!(nonce_calldata_len(&keys, 128), 8);
+        assert_eq!(nonce_calldata_tokens(&keys, 128), 29);
     }
 }
