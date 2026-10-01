@@ -17,6 +17,13 @@ pub enum FrameMode {
     Verify = 1,
     /// Execute as the transaction sender.
     Sender = 2,
+    /// Execute a read-only assertion after the transaction body.
+    ///
+    /// This mode is defined by [EIP-7906] and is only valid where that EIP is active. Decoding
+    /// accepts it unconditionally, so callers must reject it otherwise.
+    ///
+    /// [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
+    PostTx = 3,
 }
 
 impl FrameMode {
@@ -35,12 +42,18 @@ impl FrameMode {
         matches!(self, Self::Sender)
     }
 
+    /// Returns true if this is an EIP-7906 post-transaction assertion frame.
+    pub const fn is_post_tx(self) -> bool {
+        matches!(self, Self::PostTx)
+    }
+
     /// Attempts to convert a raw mode byte into a [`FrameMode`].
     pub const fn try_from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(Self::Default),
             1 => Some(Self::Verify),
             2 => Some(Self::Sender),
+            3 => Some(Self::PostTx),
             _ => None,
         }
     }
@@ -188,6 +201,11 @@ impl Frame {
         self.flags & crate::ATOMIC_BATCH_FLAG != 0
     }
 
+    /// Returns true if this is an EIP-7906 post-transaction assertion frame.
+    pub const fn is_post_tx(&self) -> bool {
+        self.mode.is_post_tx()
+    }
+
     /// Returns true if any reserved flag bit is set, which makes the transaction invalid.
     pub const fn has_reserved_flags(&self) -> bool {
         self.flags & !crate::FRAME_FLAGS_MASK != 0
@@ -210,6 +228,15 @@ impl Frame {
     }
 }
 
+/// Returns true if `POST_TX` frames form a contiguous trailing suffix.
+///
+/// EIP-7906 permits any number of EIP-8141 frames before the suffix, including no
+/// `POST_TX` frames at all. Once a `POST_TX` frame occurs, every following frame must also be
+/// `POST_TX`.
+pub fn has_valid_post_tx_suffix(frames: &[Frame]) -> bool {
+    frames.iter().skip_while(|frame| !frame.is_post_tx()).all(Frame::is_post_tx)
+}
+
 /// Fee parameters carried by an EIP-8141 transaction.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
@@ -227,7 +254,7 @@ pub struct TransactionFees {
 
 #[cfg(test)]
 mod tests {
-    use super::{Frame, FrameMode};
+    use super::{Frame, FrameMode, has_valid_post_tx_suffix};
     use alloy_primitives::{Bytes, U256};
 
     #[test]
@@ -264,5 +291,18 @@ mod tests {
 
         assert!(frame.is_expiry_verifier());
         assert!(!frame.has_valid_expiry_verifier_fields());
+    }
+
+    #[test]
+    fn post_tx_frames_must_be_a_trailing_suffix() {
+        let post_tx = || Frame { mode: FrameMode::PostTx, ..Default::default() };
+        let ordinary = Frame::default;
+
+        assert!(has_valid_post_tx_suffix(&[]));
+        assert!(has_valid_post_tx_suffix(&[ordinary()]));
+        assert!(has_valid_post_tx_suffix(&[post_tx()]));
+        assert!(has_valid_post_tx_suffix(&[ordinary(), post_tx(), post_tx()]));
+        assert!(!has_valid_post_tx_suffix(&[post_tx(), ordinary()]));
+        assert!(!has_valid_post_tx_suffix(&[ordinary(), post_tx(), ordinary()]));
     }
 }

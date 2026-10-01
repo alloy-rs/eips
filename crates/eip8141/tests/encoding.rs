@@ -101,12 +101,12 @@ fn signature_messages_preserve_encoding_and_reject_invalid_values() {
 
 #[test]
 fn invalid_discriminants_and_noncanonical_rlp() {
-    for input in [&[3u8][..], &[0x81, 1][..], &[0xc0][..]] {
+    for input in [&[4u8][..], &[0x81, 1][..], &[0xc0][..]] {
         assert!(FrameMode::decode(&mut &*input).is_err());
         assert!(FrameStatus::decode(&mut &*input).is_err());
         assert!(SignatureScheme::decode(&mut &*input).is_err());
     }
-    assert_eq!(FrameMode::try_from(3), Err(Eip8141Error::InvalidMode(3)));
+    assert_eq!(FrameMode::try_from(4), Err(Eip8141Error::InvalidMode(4)));
     assert_eq!(FrameStatus::try_from(3), Err(Eip8141Error::InvalidStatus(3)));
     assert_eq!(SignatureScheme::try_from(3), Err(Eip8141Error::InvalidScheme(3)));
     assert_eq!(ApprovalScope::try_from(4), Err(Eip8141Error::InvalidScope(4)));
