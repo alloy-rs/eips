@@ -18,6 +18,11 @@ pub enum FrameMode {
     /// Execute as the transaction sender.
     Sender = 2,
     /// Execute a read-only assertion after the transaction body.
+    ///
+    /// This mode is defined by [EIP-7906] and is only valid where that EIP is active. Decoding
+    /// accepts it unconditionally, so callers must reject it otherwise.
+    ///
+    /// [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
     PostTx = 3,
 }
 
@@ -229,17 +234,7 @@ impl Frame {
 /// `POST_TX` frames at all. Once a `POST_TX` frame occurs, every following frame must also be
 /// `POST_TX`.
 pub fn has_valid_post_tx_suffix(frames: &[Frame]) -> bool {
-    let mut saw_post_tx = false;
-
-    for frame in frames {
-        if frame.is_post_tx() {
-            saw_post_tx = true;
-        } else if saw_post_tx {
-            return false;
-        }
-    }
-
-    true
+    frames.iter().skip_while(|frame| !frame.is_post_tx()).all(Frame::is_post_tx)
 }
 
 /// Fee parameters carried by an EIP-8141 transaction.
@@ -261,7 +256,6 @@ pub struct TransactionFees {
 mod tests {
     use super::{Frame, FrameMode, has_valid_post_tx_suffix};
     use alloy_primitives::{Bytes, U256};
-    use alloy_rlp::{Decodable, Encodable};
 
     #[test]
     fn approval_permissions_from_frame_flags() {
@@ -300,27 +294,15 @@ mod tests {
     }
 
     #[test]
-    fn post_tx_mode_encodes_as_eip7906_value() {
-        assert_eq!(u8::from(FrameMode::PostTx), 3);
-        assert_eq!(FrameMode::try_from_u8(3), Some(FrameMode::PostTx));
-        assert!(FrameMode::PostTx.is_post_tx());
-        assert!(!FrameMode::Sender.is_post_tx());
-
-        let mut encoded = Vec::new();
-        FrameMode::PostTx.encode(&mut encoded);
-        assert_eq!(encoded, [3]);
-        assert_eq!(FrameMode::decode(&mut encoded.as_slice()), Ok(FrameMode::PostTx));
-    }
-
-    #[test]
     fn post_tx_frames_must_be_a_trailing_suffix() {
-        let post_tx = Frame { mode: FrameMode::PostTx, ..Default::default() };
-        let ordinary = Frame::default();
+        let post_tx = || Frame { mode: FrameMode::PostTx, ..Default::default() };
+        let ordinary = Frame::default;
 
         assert!(has_valid_post_tx_suffix(&[]));
-        assert!(has_valid_post_tx_suffix(&[ordinary.clone(), post_tx.clone(), post_tx.clone()]));
-        assert!(has_valid_post_tx_suffix(&[post_tx.clone()]));
-        assert!(!has_valid_post_tx_suffix(&[post_tx.clone(), ordinary.clone()]));
-        assert!(!has_valid_post_tx_suffix(&[ordinary, post_tx, Frame::default()]));
+        assert!(has_valid_post_tx_suffix(&[ordinary()]));
+        assert!(has_valid_post_tx_suffix(&[post_tx()]));
+        assert!(has_valid_post_tx_suffix(&[ordinary(), post_tx(), post_tx()]));
+        assert!(!has_valid_post_tx_suffix(&[post_tx(), ordinary()]));
+        assert!(!has_valid_post_tx_suffix(&[ordinary(), post_tx(), ordinary()]));
     }
 }

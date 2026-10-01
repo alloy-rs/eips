@@ -39,7 +39,7 @@ fn bytes() -> impl Strategy<Value = Bytes> {
 }
 
 fn frame() -> impl Strategy<Value = Frame> {
-    (0u8..3, any::<u8>(), frame_address(), gas(), gas(), value(), bytes()).prop_map(
+    (0u8..4, any::<u8>(), frame_address(), gas(), gas(), value(), bytes()).prop_map(
         |(mode, flags, target, execution, state, value, data)| {
             Frame::new(
                 FrameMode::try_from(mode).unwrap(),
