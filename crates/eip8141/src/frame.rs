@@ -3,13 +3,6 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 use crate::FrameAddress;
 
-/// Counts frame transaction calldata tokens.
-///
-/// Zero bytes count as one token and non-zero bytes count as four tokens.
-pub fn count_frame_data_tokens(data: &[u8]) -> u64 {
-    data.iter().fold(0u64, |acc, byte| acc.saturating_add(if *byte == 0 { 1 } else { 4 }))
-}
-
 /// EIP-8141 frame execution mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(u8)]
@@ -234,14 +227,8 @@ pub struct TransactionFees {
 
 #[cfg(test)]
 mod tests {
-    use super::{Frame, FrameMode, count_frame_data_tokens};
+    use super::{Frame, FrameMode};
     use alloy_primitives::{Bytes, U256};
-
-    #[test]
-    fn calldata_tokens_charge_zero_and_nonzero_bytes() {
-        assert_eq!(count_frame_data_tokens(&[]), 0);
-        assert_eq!(count_frame_data_tokens(&[0, 1, 0xff]), 9);
-    }
 
     #[test]
     fn approval_permissions_from_frame_flags() {

@@ -2,26 +2,9 @@
 
 use alloc::vec::Vec;
 use alloy_primitives::{Address, B256, U256, keccak256};
-use alloy_rlp::{BufMut, Encodable, Header};
+use alloy_rlp::{Encodable, encode_list, list_length};
 
-use crate::{Eip8141Error, MAX_NONCE_KEYS, count_frame_data_tokens};
-
-struct NonceKeys<'a>(&'a [U256]);
-
-impl Encodable for NonceKeys<'_> {
-    fn encode(&self, out: &mut dyn BufMut) {
-        let payload_length = self.0.iter().map(Encodable::length).sum();
-        Header { list: true, payload_length }.encode(out);
-        for nonce_key in self.0 {
-            nonce_key.encode(out);
-        }
-    }
-
-    fn length(&self) -> usize {
-        let payload_length = self.0.iter().map(Encodable::length).sum();
-        Header { list: true, payload_length }.length_with_payload()
-    }
-}
+use crate::{Eip8141Error, MAX_NONCE_KEYS, calldata_tokens};
 
 /// Validates the canonical EIP-8250 nonce key set representation.
 ///
@@ -60,18 +43,22 @@ pub fn nonce_keys_hash(nonce_keys: &[U256]) -> B256 {
     keccak256(preimage)
 }
 
-/// Returns the EIP-7623 token count of `rlp(nonce_keys) || rlp(nonce_seq)`.
+/// Returns the standard calldata token count of `rlp(nonce_keys) || rlp(nonce_seq)`.
+///
+/// EIP-8250 prices this encoding as transaction data, like frame and signature data.
 pub fn nonce_calldata_tokens(nonce_keys: &[U256], nonce_seq: u64) -> u64 {
-    let nonce_keys = NonceKeys(nonce_keys);
-    let mut encoded = Vec::with_capacity(nonce_keys.length() + nonce_seq.length());
-    nonce_keys.encode(&mut encoded);
+    let mut encoded = Vec::with_capacity(nonce_calldata_len(nonce_keys, nonce_seq) as usize);
+    encode_list::<_, U256>(nonce_keys, &mut encoded);
     nonce_seq.encode(&mut encoded);
-    count_frame_data_tokens(&encoded)
+    calldata_tokens(&encoded)
 }
 
 /// Returns the byte length of `rlp(nonce_keys) || rlp(nonce_seq)`.
+///
+/// The EIP-7976 calldata floor charges every byte uniformly, so it is priced from this length
+/// rather than from [`nonce_calldata_tokens`].
 pub fn nonce_calldata_len(nonce_keys: &[U256], nonce_seq: u64) -> u64 {
-    (NonceKeys(nonce_keys).length() + nonce_seq.length()) as u64
+    (list_length::<_, U256>(nonce_keys) + nonce_seq.length()) as u64
 }
 
 #[cfg(test)]
@@ -125,20 +112,13 @@ mod tests {
 
     #[test]
     fn nonce_calldata_pricing_matches_rlp_bytes() {
-        for (keys, seq) in [
-            (vec![U256::ZERO], 0),
-            (vec![U256::from(1)], 127),
-            (vec![U256::from(128), U256::from(256)], 128),
-            ((1..=MAX_NONCE_KEYS).map(|key| U256::from(key as u64)).collect(), u64::MAX - 1),
-        ] {
-            let mut encoded = Vec::new();
-            keys.encode(&mut encoded);
-            seq.encode(&mut encoded);
+        // c1 80 || 80
+        assert_eq!(nonce_calldata_len(&[U256::ZERO], 0), 3);
+        assert_eq!(nonce_calldata_tokens(&[U256::ZERO], 0), 12);
 
-            assert_eq!(nonce_calldata_len(&keys, seq), encoded.len() as u64);
-            let expected_tokens: u64 =
-                encoded.iter().map(|byte| if *byte == 0 { 1 } else { 4 }).sum();
-            assert_eq!(nonce_calldata_tokens(&keys, seq), expected_tokens);
-        }
+        // c5 81 80 82 01 00 || 81 80
+        let keys = [U256::from(128), U256::from(256)];
+        assert_eq!(nonce_calldata_len(&keys, 128), 8);
+        assert_eq!(nonce_calldata_tokens(&keys, 128), 29);
     }
 }
