@@ -1,5 +1,5 @@
-//! [EIP-8141] frame transaction constants and types, including the [EIP-8250] keyed nonce
-//! extension and the [EIP-7906] `POST_TX` frame mode.
+//! [EIP-8141] frame transaction constants and types, including the [EIP-7906] `POST_TX`
+//! frame mode.
 //!
 //! Targets, signers, and signed messages are typed: [`FrameAddress`] distinguishes an omitted
 //! address from an explicit one and [`SignatureMessage`] distinguishes the canonical transaction
@@ -28,7 +28,6 @@
 //!
 //! [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
 //! [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
-//! [EIP-8250]: https://eips.ethereum.org/EIPS/eip-8250
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[allow(unused_imports)]
@@ -55,9 +54,6 @@ pub use constants::*;
 
 mod frame;
 pub use frame::*;
-
-mod nonce;
-pub use nonce::*;
 
 mod receipt;
 pub use receipt::*;
