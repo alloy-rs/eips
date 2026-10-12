@@ -255,7 +255,7 @@ pub struct TransactionFees {
 #[cfg(test)]
 mod tests {
     use super::{Frame, FrameMode, has_valid_post_tx_suffix};
-    use alloy_primitives::{Bytes, U256};
+    use alloy_primitives::{Bytes, U256, address};
 
     #[test]
     fn approval_permissions_from_frame_flags() {
@@ -277,6 +277,19 @@ mod tests {
             data: Bytes::from(vec![0; crate::EXPIRY_DATA_LENGTH]),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn expiry_verifier_uses_deployed_contract_address() {
+        let mut frame = Frame {
+            mode: FrameMode::Verify,
+            target: address!("81413f0cF12e9b6a49B1D0439E081c577D57FfFf").into(),
+            ..Default::default()
+        };
+        assert!(frame.is_expiry_verifier());
+
+        frame.target = address!("0000000000000000000000000000000000008141").into();
+        assert!(!frame.is_expiry_verifier());
     }
 
     #[test]
