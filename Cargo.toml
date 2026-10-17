@@ -7,7 +7,6 @@ edition = "2024"
 rust-version = "1.90"
 authors = ["Alloy Contributors"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/alloy-rs/eips"
 repository = "https://github.com/alloy-rs/eips"
 
 [workspace.lints.rust]
