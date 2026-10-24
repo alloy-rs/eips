@@ -16,7 +16,7 @@ fn roundtrip<T: Serialize + DeserializeOwned + PartialEq + core::fmt::Debug>(val
 
 #[test]
 fn discriminants_use_quantities() {
-    for (i, mode) in [FrameMode::Default, FrameMode::Verify, FrameMode::Sender, FrameMode::PostTx]
+    for (i, mode) in [FrameMode::Default, FrameMode::Verify, FrameMode::Sender, FrameMode::Assert]
         .into_iter()
         .enumerate()
     {
@@ -99,15 +99,8 @@ fn receipt_and_fee_json_fixtures() {
             "frameReceipts":[{"status":"0x2","gasUsed":{"execution":"0x0","state":"0x0"},"logs":[]}]
         })
     );
-    let fees = TransactionFees {
-        max_priority_fee_per_gas: U256::from(1),
-        max_fee_per_gas: U256::MAX,
-        max_fee_per_blob_gas: U256::ZERO,
-    };
-    assert_eq!(
-        roundtrip(fees),
-        json!({"maxPriorityFeePerGas":"0x1","maxFeePerGas":U256::MAX,"maxFeePerBlobGas":"0x0"})
-    );
+    let fees = TransactionFees { max_priority_fee_per_gas: U256::from(1), max_fee: U256::MAX };
+    assert_eq!(roundtrip(fees), json!({"maxPriorityFeePerGas":"0x1","maxFee":U256::MAX}));
     roundtrip(FrameReceipt {
         status: FrameStatus::Success,
         gas_used: FrameGasUsed::default(),
