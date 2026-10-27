@@ -236,15 +236,20 @@ impl FrameSignature {
 
     /// Returns a borrowed RLP view for the transaction's signing preimage.
     ///
-    /// The view preserves the scheme, signer, and message. It encodes an empty signature when
-    /// [`Self::signs_transaction_hash`] is true to avoid self-reference; explicit-message entries
-    /// retain their signature bytes. This does not validate or modify the entry.
+    /// The view preserves the scheme, signer, and message. When
+    /// [`Self::signs_transaction_hash`] is true, the signature is replaced by its RLP-encoded
+    /// integer byte length; explicit-message entries retain their signature bytes. All such
+    /// witness lengths must be fixed before signing. This does not validate or modify the entry.
     pub fn as_signing(&self) -> SigningFrameSignature<'_> {
         SigningFrameSignature {
             scheme: self.scheme,
             signer: self.signer,
             msg: self.msg,
-            signature: if self.signs_transaction_hash() { &[] } else { &self.signature },
+            signature: if self.signs_transaction_hash() {
+                SigningSignature::Length(self.signature.len())
+            } else {
+                SigningSignature::Bytes(&self.signature)
+            },
         }
     }
 
@@ -387,7 +392,28 @@ pub struct SigningFrameSignature<'a> {
     scheme: SignatureScheme,
     signer: FrameAddress,
     msg: SignatureMessage,
-    signature: &'a [u8],
+    signature: SigningSignature<'a>,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum SigningSignature<'a> {
+    Length(usize),
+    Bytes(&'a [u8]),
+}
+
+impl Encodable for SigningSignature<'_> {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        match self {
+            Self::Length(len) => len.encode(out),
+            Self::Bytes(bytes) => bytes.encode(out),
+        }
+    }
+    fn length(&self) -> usize {
+        match self {
+            Self::Length(len) => len.length(),
+            Self::Bytes(bytes) => bytes.length(),
+        }
+    }
 }
 
 /// Borrowed RLP view of a signature list in a transaction's signing preimage.
