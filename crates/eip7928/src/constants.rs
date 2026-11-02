@@ -17,14 +17,18 @@ pub const MAX_CODE_SIZE: usize = 24_576;
 /// Item cost for block access list.
 pub const ITEM_COST: usize = 2000;
 
-const ETHEREUM_MAINNET_SLOTS_PER_EPOCH: u64 = 32;
-
 /// Number of epochs the execution layer must retain block access lists for.
-pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 3_533;
+pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 33_024;
 
-/// Number of slots corresponding to [`BAL_RETENTION_PERIOD_EPOCHS`].
-pub const BAL_RETENTION_PERIOD_SLOTS: u64 =
-    BAL_RETENTION_PERIOD_EPOCHS * ETHEREUM_MAINNET_SLOTS_PER_EPOCH;
+/// Returns the block access list retention period in slots for a network's slots per epoch.
+pub const fn bal_retention_period_slots(slots_per_epoch: u64) -> u64 {
+    BAL_RETENTION_PERIOD_EPOCHS * slots_per_epoch
+}
+
+/// Number of slots corresponding to [`BAL_RETENTION_PERIOD_EPOCHS`] on Ethereum mainnet.
+///
+/// Use [`bal_retention_period_slots`] for networks with a different number of slots per epoch.
+pub const BAL_RETENTION_PERIOD_SLOTS: u64 = bal_retention_period_slots(32);
 
 /// The empty block access list hash.
 pub const EMPTY_BLOCK_ACCESS_LIST_HASH: B256 =
