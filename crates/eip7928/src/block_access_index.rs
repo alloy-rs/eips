@@ -12,14 +12,13 @@ use core::fmt;
 /// Stored as a `u64` internally, but wrapped as a newtype so it cannot be accidentally
 /// confused with other `u64` indices (for example, an `account_id` passed alongside it).
 ///
-/// RLP decoding enforces the EIP-7928 `uint32` wire limit. RLP encoding, borsh, and
-/// arbitrary representations are identical to the wrapped `u64`. Serde
+/// RLP decoding and arbitrary generation enforce the EIP-7928 `uint32` wire limit.
+/// RLP encoding and borsh representations are identical to the wrapped `u64`. Serde
 /// serializes as a hex `"quantity"` string (e.g. `"0x1a"`), matching the previous
 /// `BlockAccessIndex = u64` alias behavior when paired with the `crate::quantity` module.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodableWrapper))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[repr(transparent)]
 pub struct BlockAccessIndex(pub u64);
 
@@ -123,6 +122,13 @@ impl alloy_rlp::Decodable for BlockAccessIndex {
         // EIP-7928 defines the wire index as uint32, while the internal representation is u64.
         // https://eips.ethereum.org/EIPS/eip-7928#rlp-encoding
         u32::decode(buf).map(|value| Self(u64::from(value)))
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for BlockAccessIndex {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        u.arbitrary::<u32>().map(|value| Self(u64::from(value)))
     }
 }
 
@@ -233,6 +239,20 @@ mod tests {
             assert_eq!(
                 alloy_rlp::decode_exact::<BlockAccessIndex>(&encoded),
                 Err(alloy_rlp::Error::Overflow)
+            );
+        }
+    }
+
+    #[cfg(all(feature = "arbitrary", feature = "rlp"))]
+    #[test]
+    fn arbitrary_indices_rlp_roundtrip() {
+        for byte in 0..=u8::MAX {
+            let data = [byte; 8];
+            let idx = arbitrary::Unstructured::new(&data).arbitrary::<BlockAccessIndex>().unwrap();
+            assert!(idx.get() <= u64::from(u32::MAX));
+            assert_eq!(
+                alloy_rlp::decode_exact::<BlockAccessIndex>(alloy_rlp::encode(idx)),
+                Ok(idx)
             );
         }
     }
