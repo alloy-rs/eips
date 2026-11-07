@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::{Decodable, Header, RlpDecodable, RlpEncodable};
 
 use crate::FrameAddress;
 
@@ -23,7 +23,7 @@ pub enum FrameMode {
     /// accepts it unconditionally, so callers must reject it otherwise.
     ///
     /// [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
-    PostTx = 3,
+    Assert = 3,
 }
 
 impl FrameMode {
@@ -43,8 +43,8 @@ impl FrameMode {
     }
 
     /// Returns true if this is an EIP-7906 post-transaction assertion frame.
-    pub const fn is_post_tx(self) -> bool {
-        matches!(self, Self::PostTx)
+    pub const fn is_assertion(self) -> bool {
+        matches!(self, Self::Assert)
     }
 
     /// Attempts to convert a raw mode byte into a [`FrameMode`].
@@ -53,7 +53,7 @@ impl FrameMode {
             0 => Some(Self::Default),
             1 => Some(Self::Verify),
             2 => Some(Self::Sender),
-            3 => Some(Self::PostTx),
+            3 => Some(Self::Assert),
             _ => None,
         }
     }
@@ -127,7 +127,7 @@ impl ApprovalScope {
 impl_u8_discriminant!(ApprovalScope, InvalidScope);
 
 /// The independent execution and state gas budgets carried by an EIP-8141 frame.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -139,6 +139,30 @@ pub struct FrameLimits {
     /// Maximum state gas available to the frame.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub state: u64,
+}
+
+impl Decodable for FrameLimits {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let mut fields = Header::decode_bytes(buf, true)?;
+        let payload_length = fields.len();
+        let limits = Self {
+            execution: decode_bounded_integer(
+                &mut fields,
+                "invalid EIP-8141 frame format: execution gas exceeds 64 bits",
+            )?,
+            state: decode_bounded_integer(
+                &mut fields,
+                "invalid EIP-8141 frame format: state gas exceeds 64 bits",
+            )?,
+        };
+        if !fields.is_empty() {
+            return Err(alloy_rlp::Error::ListLengthMismatch {
+                expected: payload_length,
+                got: payload_length - fields.len(),
+            });
+        }
+        Ok(limits)
+    }
 }
 
 /// A single EIP-8141 transaction frame.
@@ -202,8 +226,8 @@ impl Frame {
     }
 
     /// Returns true if this is an EIP-7906 post-transaction assertion frame.
-    pub const fn is_post_tx(&self) -> bool {
-        self.mode.is_post_tx()
+    pub const fn is_assertion(&self) -> bool {
+        self.mode.is_assertion()
     }
 
     /// Returns true if any reserved flag bit is set, which makes the transaction invalid.
@@ -228,34 +252,74 @@ impl Frame {
     }
 }
 
-/// Returns true if `POST_TX` frames form a contiguous trailing suffix.
+/// Returns true if `ASSERT` frames form a contiguous trailing suffix.
 ///
 /// EIP-7906 permits any number of EIP-8141 frames before the suffix, including no
-/// `POST_TX` frames at all. Once a `POST_TX` frame occurs, every following frame must also be
-/// `POST_TX`.
-pub fn has_valid_post_tx_suffix(frames: &[Frame]) -> bool {
-    frames.iter().skip_while(|frame| !frame.is_post_tx()).all(Frame::is_post_tx)
+/// `ASSERT` frames at all. Once an `ASSERT` frame occurs, every following frame must also be
+/// `ASSERT`.
+pub fn has_valid_assertion_suffix(frames: &[Frame]) -> bool {
+    let mut saw_assertion = false;
+
+    for frame in frames {
+        if frame.is_assertion() {
+            saw_assertion = true;
+        } else if saw_assertion {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Fee parameters carried by an EIP-8141 transaction.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct TransactionFees {
+    /// Maximum total fee in wei across execution, state, and blob gas.
+    pub max_fee: U256,
     /// Maximum priority fee per gas.
     pub max_priority_fee_per_gas: U256,
-    /// Maximum total fee per gas.
-    pub max_fee_per_gas: U256,
-    /// Maximum fee per blob gas.
-    pub max_fee_per_blob_gas: U256,
+}
+
+impl Decodable for TransactionFees {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let mut fields = Header::decode_bytes(buf, true)?;
+        let payload_length = fields.len();
+        let fees = Self {
+            max_fee: decode_bounded_integer(&mut fields, "EIP-8141 max fee exceeds 256 bits")?,
+            max_priority_fee_per_gas: decode_bounded_integer(
+                &mut fields,
+                "EIP-8141 max priority fee per gas exceeds 256 bits",
+            )?,
+        };
+        if !fields.is_empty() {
+            return Err(alloy_rlp::Error::ListLengthMismatch {
+                expected: payload_length,
+                got: payload_length - fields.len(),
+            });
+        }
+        Ok(fees)
+    }
+}
+
+fn decode_bounded_integer<T: Decodable>(
+    buf: &mut &[u8],
+    exceeds_bound: &'static str,
+) -> alloy_rlp::Result<T> {
+    T::decode(buf).map_err(|err| match err {
+        alloy_rlp::Error::Overflow => alloy_rlp::Error::Custom(exceeds_bound),
+        other => other,
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Frame, FrameMode, has_valid_post_tx_suffix};
+    use super::{Frame, FrameMode, has_valid_assertion_suffix};
     use alloy_primitives::{Bytes, U256, address};
+    use alloy_rlp::{Decodable, Encodable};
 
     #[test]
     fn approval_permissions_from_frame_flags() {
@@ -307,15 +371,31 @@ mod tests {
     }
 
     #[test]
-    fn post_tx_frames_must_be_a_trailing_suffix() {
-        let post_tx = || Frame { mode: FrameMode::PostTx, ..Default::default() };
-        let ordinary = Frame::default;
+    fn assertion_mode_encodes_as_eip7906_value() {
+        assert_eq!(u8::from(FrameMode::Assert), 3);
+        assert_eq!(FrameMode::try_from_u8(3), Some(FrameMode::Assert));
+        assert!(FrameMode::Assert.is_assertion());
+        assert!(!FrameMode::Sender.is_assertion());
 
-        assert!(has_valid_post_tx_suffix(&[]));
-        assert!(has_valid_post_tx_suffix(&[ordinary()]));
-        assert!(has_valid_post_tx_suffix(&[post_tx()]));
-        assert!(has_valid_post_tx_suffix(&[ordinary(), post_tx(), post_tx()]));
-        assert!(!has_valid_post_tx_suffix(&[post_tx(), ordinary()]));
-        assert!(!has_valid_post_tx_suffix(&[ordinary(), post_tx(), ordinary()]));
+        let mut encoded = Vec::new();
+        FrameMode::Assert.encode(&mut encoded);
+        assert_eq!(encoded, [3]);
+        assert_eq!(FrameMode::decode(&mut encoded.as_slice()), Ok(FrameMode::Assert));
+    }
+
+    #[test]
+    fn assertion_frames_must_be_a_trailing_suffix() {
+        let assertion = Frame { mode: FrameMode::Assert, ..Default::default() };
+        let ordinary = Frame::default();
+
+        assert!(has_valid_assertion_suffix(&[]));
+        assert!(has_valid_assertion_suffix(&[
+            ordinary.clone(),
+            assertion.clone(),
+            assertion.clone()
+        ]));
+        assert!(has_valid_assertion_suffix(core::slice::from_ref(&assertion)));
+        assert!(!has_valid_assertion_suffix(&[assertion.clone(), ordinary.clone()]));
+        assert!(!has_valid_assertion_suffix(&[ordinary, assertion, Frame::default()]));
     }
 }
