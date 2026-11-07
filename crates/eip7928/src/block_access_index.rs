@@ -12,11 +12,12 @@ use core::fmt;
 /// Stored as a `u64` internally, but wrapped as a newtype so it cannot be accidentally
 /// confused with other `u64` indices (for example, an `account_id` passed alongside it).
 ///
-/// RLP, borsh, and arbitrary representations are identical to the wrapped `u64`. Serde
+/// RLP decoding enforces the EIP-7928 `uint32` wire limit. RLP encoding, borsh, and
+/// arbitrary representations are identical to the wrapped `u64`. Serde
 /// serializes as a hex `"quantity"` string (e.g. `"0x1a"`), matching the previous
 /// `BlockAccessIndex = u64` alias behavior when paired with the `crate::quantity` module.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodableWrapper, alloy_rlp::RlpDecodableWrapper))]
+#[cfg_attr(feature = "rlp", derive(alloy_rlp::RlpEncodableWrapper))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[repr(transparent)]
@@ -116,6 +117,15 @@ impl<'de> serde::Deserialize<'de> for BlockAccessIndex {
     }
 }
 
+#[cfg(feature = "rlp")]
+impl alloy_rlp::Decodable for BlockAccessIndex {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        // EIP-7928 defines the wire index as uint32, while the internal representation is u64.
+        // https://eips.ethereum.org/EIPS/eip-7928#rlp-encoding
+        u32::decode(buf).map(|value| Self(u64::from(value)))
+    }
+}
+
 /// Classification of a [`BlockAccessIndex`] within a block.
 ///
 /// See [`BlockAccessIndex::phase`] for how indices map to phases.
@@ -207,11 +217,23 @@ mod tests {
     #[cfg(feature = "rlp")]
     #[test]
     fn rlp_matches_raw_u64() {
-        use alloy_rlp::Decodable;
-        let idx = BlockAccessIndex::new(300);
-        let encoded = alloy_rlp::encode(idx);
-        assert_eq!(encoded, alloy_rlp::encode(300u64));
-        let decoded = BlockAccessIndex::decode(&mut encoded.as_slice()).unwrap();
-        assert_eq!(decoded, idx);
+        for value in [0, 1, 127, 128, 300, u64::from(u32::MAX)] {
+            let idx = BlockAccessIndex::new(value);
+            let encoded = alloy_rlp::encode(idx);
+            assert_eq!(encoded, alloy_rlp::encode(value));
+            assert_eq!(alloy_rlp::decode_exact::<BlockAccessIndex>(&encoded), Ok(idx));
+        }
+    }
+
+    #[cfg(feature = "rlp")]
+    #[test]
+    fn rlp_rejects_indices_above_u32() {
+        for value in [u64::from(u32::MAX) + 1, u64::MAX] {
+            let encoded = alloy_rlp::encode(value);
+            assert_eq!(
+                alloy_rlp::decode_exact::<BlockAccessIndex>(&encoded),
+                Err(alloy_rlp::Error::Overflow)
+            );
+        }
     }
 }
