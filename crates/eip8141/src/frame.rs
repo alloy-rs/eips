@@ -318,6 +318,7 @@ fn decode_bounded_integer<T: Decodable>(
 #[cfg(test)]
 mod tests {
     use super::{Frame, FrameMode, has_valid_assertion_suffix};
+    use alloc::vec::Vec;
     use alloy_primitives::{Bytes, U256, address};
     use alloy_rlp::{Decodable, Encodable};
 
