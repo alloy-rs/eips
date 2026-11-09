@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "alloy-eip7702"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
