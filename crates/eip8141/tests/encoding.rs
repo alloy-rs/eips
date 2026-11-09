@@ -44,11 +44,7 @@ fn rlp_fixtures() {
         SignatureMessage::Explicit(B256::repeat_byte(0x33)),
         Bytes::from(vec![0xa5; P256_SIGNATURE_LENGTH]),
     ));
-    roundtrip(TransactionFees {
-        max_priority_fee_per_gas: U256::MAX,
-        max_fee_per_gas: U256::MAX,
-        max_fee_per_blob_gas: U256::MAX,
-    });
+    roundtrip(TransactionFees { max_priority_fee_per_gas: U256::MAX, max_fee: U256::MAX });
 }
 
 #[test]
@@ -106,6 +102,7 @@ fn invalid_discriminants_and_noncanonical_rlp() {
         assert!(FrameStatus::decode(&mut &*input).is_err());
         assert!(SignatureScheme::decode(&mut &*input).is_err());
     }
+    assert_eq!(FrameMode::try_from(3), Ok(FrameMode::Assert));
     assert_eq!(FrameMode::try_from(4), Err(Eip8141Error::InvalidMode(4)));
     assert_eq!(FrameStatus::try_from(3), Err(Eip8141Error::InvalidStatus(3)));
     assert_eq!(SignatureScheme::try_from(3), Err(Eip8141Error::InvalidScheme(3)));
@@ -257,4 +254,10 @@ fn typed_fields_roundtrip_borsh() {
             );
         }
     }
+}
+
+#[test]
+fn fee_budget_precedes_priority_fee_in_the_wire_encoding() {
+    let fees = TransactionFees { max_fee: U256::from(1), max_priority_fee_per_gas: U256::from(2) };
+    assert_eq!(alloy_rlp::encode(fees), hex!("c20102"));
 }

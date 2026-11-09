@@ -23,7 +23,7 @@ pub enum FrameMode {
     /// accepts it unconditionally, so callers must reject it otherwise.
     ///
     /// [EIP-7906]: https://eips.ethereum.org/EIPS/eip-7906
-    PostTx = 3,
+    Assert = 3,
 }
 
 impl FrameMode {
@@ -42,9 +42,9 @@ impl FrameMode {
         matches!(self, Self::Sender)
     }
 
-    /// Returns true if this is an EIP-7906 post-transaction assertion frame.
-    pub const fn is_post_tx(self) -> bool {
-        matches!(self, Self::PostTx)
+    /// Returns true if this is [`Self::Assert`].
+    pub const fn is_assert(self) -> bool {
+        matches!(self, Self::Assert)
     }
 
     /// Attempts to convert a raw mode byte into a [`FrameMode`].
@@ -53,7 +53,7 @@ impl FrameMode {
             0 => Some(Self::Default),
             1 => Some(Self::Verify),
             2 => Some(Self::Sender),
-            3 => Some(Self::PostTx),
+            3 => Some(Self::Assert),
             _ => None,
         }
     }
@@ -201,9 +201,9 @@ impl Frame {
         self.flags & crate::ATOMIC_BATCH_FLAG != 0
     }
 
-    /// Returns true if this is an EIP-7906 post-transaction assertion frame.
-    pub const fn is_post_tx(&self) -> bool {
-        self.mode.is_post_tx()
+    /// Returns true if this is an EIP-7906 `ASSERT` frame.
+    pub const fn is_assert(&self) -> bool {
+        self.mode.is_assert()
     }
 
     /// Returns true if any reserved flag bit is set, which makes the transaction invalid.
@@ -228,13 +228,13 @@ impl Frame {
     }
 }
 
-/// Returns true if `POST_TX` frames form a contiguous trailing suffix.
+/// Returns true if `ASSERT` frames form a contiguous trailing suffix.
 ///
 /// EIP-7906 permits any number of EIP-8141 frames before the suffix, including no
-/// `POST_TX` frames at all. Once a `POST_TX` frame occurs, every following frame must also be
-/// `POST_TX`.
-pub fn has_valid_post_tx_suffix(frames: &[Frame]) -> bool {
-    frames.iter().skip_while(|frame| !frame.is_post_tx()).all(Frame::is_post_tx)
+/// `ASSERT` frames at all. Once an `ASSERT` frame occurs, every following frame must also be
+/// `ASSERT`.
+pub fn has_valid_assertion_suffix(frames: &[Frame]) -> bool {
+    frames.iter().skip_while(|frame| !frame.is_assert()).all(Frame::is_assert)
 }
 
 /// Fee parameters carried by an EIP-8141 transaction.
@@ -244,17 +244,15 @@ pub fn has_valid_post_tx_suffix(frames: &[Frame]) -> bool {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
 pub struct TransactionFees {
+    /// Maximum total fee in wei across execution, state, and blob gas.
+    pub max_fee: U256,
     /// Maximum priority fee per gas.
     pub max_priority_fee_per_gas: U256,
-    /// Maximum total fee per gas.
-    pub max_fee_per_gas: U256,
-    /// Maximum fee per blob gas.
-    pub max_fee_per_blob_gas: U256,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Frame, FrameMode, has_valid_post_tx_suffix};
+    use super::{Frame, FrameMode, has_valid_assertion_suffix};
     use alloy_primitives::{Bytes, U256, address};
 
     #[test]
@@ -307,15 +305,15 @@ mod tests {
     }
 
     #[test]
-    fn post_tx_frames_must_be_a_trailing_suffix() {
-        let post_tx = || Frame { mode: FrameMode::PostTx, ..Default::default() };
+    fn assertion_frames_must_be_a_trailing_suffix() {
+        let assertion = || Frame { mode: FrameMode::Assert, ..Default::default() };
         let ordinary = Frame::default;
 
-        assert!(has_valid_post_tx_suffix(&[]));
-        assert!(has_valid_post_tx_suffix(&[ordinary()]));
-        assert!(has_valid_post_tx_suffix(&[post_tx()]));
-        assert!(has_valid_post_tx_suffix(&[ordinary(), post_tx(), post_tx()]));
-        assert!(!has_valid_post_tx_suffix(&[post_tx(), ordinary()]));
-        assert!(!has_valid_post_tx_suffix(&[ordinary(), post_tx(), ordinary()]));
+        assert!(has_valid_assertion_suffix(&[]));
+        assert!(has_valid_assertion_suffix(&[ordinary()]));
+        assert!(has_valid_assertion_suffix(&[assertion()]));
+        assert!(has_valid_assertion_suffix(&[ordinary(), assertion(), assertion()]));
+        assert!(!has_valid_assertion_suffix(&[assertion(), ordinary()]));
+        assert!(!has_valid_assertion_suffix(&[ordinary(), assertion(), ordinary()]));
     }
 }

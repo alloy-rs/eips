@@ -1,4 +1,4 @@
-//! [EIP-8141] frame transaction constants and types, including the [EIP-7906] `POST_TX`
+//! [EIP-8141] frame transaction constants and types, including the [EIP-7906] `ASSERT`
 //! frame mode.
 //!
 //! Targets, signers, and signed messages are typed: [`FrameAddress`] distinguishes an omitted

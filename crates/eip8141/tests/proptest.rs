@@ -60,13 +60,10 @@ fn signature() -> impl Strategy<Value = FrameSignature> {
 }
 
 fn fees() -> impl Strategy<Value = TransactionFees> {
-    (value(), value(), value()).prop_map(
-        |(max_priority_fee_per_gas, max_fee_per_gas, max_fee_per_blob_gas)| TransactionFees {
-            max_priority_fee_per_gas,
-            max_fee_per_gas,
-            max_fee_per_blob_gas,
-        },
-    )
+    (value(), value()).prop_map(|(max_priority_fee_per_gas, max_fee)| TransactionFees {
+        max_priority_fee_per_gas,
+        max_fee,
+    })
 }
 
 fn receipt() -> impl Strategy<Value = FrameReceipt<Bytes>> {
@@ -115,18 +112,25 @@ proptest! {
     fn mixed_signing_lists_elide_only_transaction_hash_witnesses(
         signatures in prop::collection::vec(signature(), 0..12)
     ) {
-        let expected: Vec<_> = signatures.iter().cloned().map(|mut entry| {
-            if entry.signs_transaction_hash() {
-                entry.signature = Bytes::new();
-            }
-            entry
-        }).collect();
         let view = SigningFrameSignatures::new(&signatures);
         let encoded = alloy_rlp::encode(view);
-        let expected_encoded = alloy_rlp::encode(&expected);
         prop_assert_eq!(encoded.len(), view.length());
-        prop_assert_eq!(encoded.as_slice(), expected_encoded.as_slice());
-        prop_assert_eq!(alloy_rlp::decode_exact::<Vec<FrameSignature>>(&encoded).unwrap(), expected);
+        let mut outer = encoded.as_slice();
+        let mut entries = alloy_rlp::Header::decode_bytes(&mut outer, true).unwrap();
+        for signature in &signatures {
+            let mut entry = alloy_rlp::Header::decode_bytes(&mut entries, true).unwrap();
+            prop_assert_eq!(SignatureScheme::decode(&mut entry).unwrap(), signature.scheme);
+            prop_assert_eq!(FrameAddress::decode(&mut entry).unwrap(), signature.signer);
+            prop_assert_eq!(SignatureMessage::decode(&mut entry).unwrap(), signature.msg);
+            if signature.signs_transaction_hash() {
+                prop_assert_eq!(usize::decode(&mut entry).unwrap(), signature.signature.len());
+            } else {
+                prop_assert_eq!(Bytes::decode(&mut entry).unwrap(), signature.signature.clone());
+            }
+            prop_assert!(entry.is_empty());
+        }
+        prop_assert!(entries.is_empty());
+        prop_assert!(outer.is_empty());
     }
 
     #[test]
