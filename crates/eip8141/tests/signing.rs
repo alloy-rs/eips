@@ -29,6 +29,14 @@ fn witness_contents_are_elided_but_lengths_and_explicit_messages_are_bound() {
 }
 
 #[test]
+fn elided_witnesses_are_priced_by_length() {
+    let mut sig = FrameSignature { signature: vec![0; 65].into(), ..Default::default() };
+    assert_eq!(sig.signature_tokens(), 65 * 4);
+    sig.msg = SignatureMessage::Explicit(B256::repeat_byte(1));
+    assert_eq!(sig.signature_tokens(), 65);
+}
+
+#[test]
 fn signing_list_lengths_cover_rlp_boundaries() {
     for count in [0, 1, 11, 12, 64] {
         for len in [0, 1, 55, 56, 127, 128, 255, 256, 65_535] {

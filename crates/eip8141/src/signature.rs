@@ -381,6 +381,19 @@ impl FrameSignature {
     pub const fn verification_gas(&self) -> u64 {
         self.scheme.verification_gas()
     }
+
+    /// Returns the standard calldata token count of the raw signature bytes.
+    ///
+    /// This is EIP-8141's `signature_bytes_tokens`. Transaction-hash entries are priced at four
+    /// tokens per byte regardless of content, because the canonical signature hash commits only
+    /// to their length. Explicit-message entries use [`calldata_tokens`](crate::calldata_tokens).
+    pub fn signature_tokens(&self) -> u64 {
+        if self.signs_transaction_hash() {
+            self.signature.len() as u64 * 4
+        } else {
+            crate::calldata_tokens(&self.signature)
+        }
+    }
 }
 
 /// Borrowed RLP view of a signature entry in a transaction's signing preimage.

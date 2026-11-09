@@ -3,7 +3,11 @@
 /// Returns the standard calldata token count of `data`.
 ///
 /// This is EIP-8141's `tokens_in`: zero bytes count as one token and non-zero bytes as four. It
-/// applies to every transaction field priced as calldata, not only frame data.
+/// applies to every transaction field priced as calldata, not only frame data, except the raw
+/// signature bytes of transaction-hash entries: use [`FrameSignature::signature_tokens`] for
+/// signature bytes.
+///
+/// [`FrameSignature::signature_tokens`]: crate::FrameSignature::signature_tokens
 pub fn calldata_tokens(data: &[u8]) -> u64 {
     let zero_bytes = data.iter().filter(|byte| **byte == 0).count() as u64;
     zero_bytes + (data.len() as u64 - zero_bytes) * 4
