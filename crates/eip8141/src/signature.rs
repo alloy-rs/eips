@@ -408,6 +408,7 @@ impl Encodable for SigningSignature<'_> {
             Self::Bytes(bytes) => bytes.encode(out),
         }
     }
+
     fn length(&self) -> usize {
         match self {
             Self::Length(len) => len.length(),

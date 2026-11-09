@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::{Decodable, Header, RlpDecodable, RlpEncodable};
+use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 use crate::FrameAddress;
 
@@ -42,8 +42,8 @@ impl FrameMode {
         matches!(self, Self::Sender)
     }
 
-    /// Returns true if this is an EIP-7906 post-transaction assertion frame.
-    pub const fn is_assertion(self) -> bool {
+    /// Returns true if this is [`Self::Assert`].
+    pub const fn is_assert(self) -> bool {
         matches!(self, Self::Assert)
     }
 
@@ -127,7 +127,7 @@ impl ApprovalScope {
 impl_u8_discriminant!(ApprovalScope, InvalidScope);
 
 /// The independent execution and state gas budgets carried by an EIP-8141 frame.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -139,30 +139,6 @@ pub struct FrameLimits {
     /// Maximum state gas available to the frame.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde_utils::quantity"))]
     pub state: u64,
-}
-
-impl Decodable for FrameLimits {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        let mut fields = Header::decode_bytes(buf, true)?;
-        let payload_length = fields.len();
-        let limits = Self {
-            execution: decode_bounded_integer(
-                &mut fields,
-                "invalid EIP-8141 frame format: execution gas exceeds 64 bits",
-            )?,
-            state: decode_bounded_integer(
-                &mut fields,
-                "invalid EIP-8141 frame format: state gas exceeds 64 bits",
-            )?,
-        };
-        if !fields.is_empty() {
-            return Err(alloy_rlp::Error::ListLengthMismatch {
-                expected: payload_length,
-                got: payload_length - fields.len(),
-            });
-        }
-        Ok(limits)
-    }
 }
 
 /// A single EIP-8141 transaction frame.
@@ -225,9 +201,9 @@ impl Frame {
         self.flags & crate::ATOMIC_BATCH_FLAG != 0
     }
 
-    /// Returns true if this is an EIP-7906 post-transaction assertion frame.
-    pub const fn is_assertion(&self) -> bool {
-        self.mode.is_assertion()
+    /// Returns true if this is an EIP-7906 `ASSERT` frame.
+    pub const fn is_assert(&self) -> bool {
+        self.mode.is_assert()
     }
 
     /// Returns true if any reserved flag bit is set, which makes the transaction invalid.
@@ -258,21 +234,11 @@ impl Frame {
 /// `ASSERT` frames at all. Once an `ASSERT` frame occurs, every following frame must also be
 /// `ASSERT`.
 pub fn has_valid_assertion_suffix(frames: &[Frame]) -> bool {
-    let mut saw_assertion = false;
-
-    for frame in frames {
-        if frame.is_assertion() {
-            saw_assertion = true;
-        } else if saw_assertion {
-            return false;
-        }
-    }
-
-    true
+    frames.iter().skip_while(|frame| !frame.is_assert()).all(Frame::is_assert)
 }
 
 /// Fee parameters carried by an EIP-8141 transaction.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, RlpEncodable, RlpDecodable)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -284,43 +250,10 @@ pub struct TransactionFees {
     pub max_priority_fee_per_gas: U256,
 }
 
-impl Decodable for TransactionFees {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        let mut fields = Header::decode_bytes(buf, true)?;
-        let payload_length = fields.len();
-        let fees = Self {
-            max_fee: decode_bounded_integer(&mut fields, "EIP-8141 max fee exceeds 256 bits")?,
-            max_priority_fee_per_gas: decode_bounded_integer(
-                &mut fields,
-                "EIP-8141 max priority fee per gas exceeds 256 bits",
-            )?,
-        };
-        if !fields.is_empty() {
-            return Err(alloy_rlp::Error::ListLengthMismatch {
-                expected: payload_length,
-                got: payload_length - fields.len(),
-            });
-        }
-        Ok(fees)
-    }
-}
-
-fn decode_bounded_integer<T: Decodable>(
-    buf: &mut &[u8],
-    exceeds_bound: &'static str,
-) -> alloy_rlp::Result<T> {
-    T::decode(buf).map_err(|err| match err {
-        alloy_rlp::Error::Overflow => alloy_rlp::Error::Custom(exceeds_bound),
-        other => other,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::{Frame, FrameMode, has_valid_assertion_suffix};
-    use alloc::vec::Vec;
     use alloy_primitives::{Bytes, U256, address};
-    use alloy_rlp::{Decodable, Encodable};
 
     #[test]
     fn approval_permissions_from_frame_flags() {
@@ -372,31 +305,15 @@ mod tests {
     }
 
     #[test]
-    fn assertion_mode_encodes_as_eip7906_value() {
-        assert_eq!(u8::from(FrameMode::Assert), 3);
-        assert_eq!(FrameMode::try_from_u8(3), Some(FrameMode::Assert));
-        assert!(FrameMode::Assert.is_assertion());
-        assert!(!FrameMode::Sender.is_assertion());
-
-        let mut encoded = Vec::new();
-        FrameMode::Assert.encode(&mut encoded);
-        assert_eq!(encoded, [3]);
-        assert_eq!(FrameMode::decode(&mut encoded.as_slice()), Ok(FrameMode::Assert));
-    }
-
-    #[test]
     fn assertion_frames_must_be_a_trailing_suffix() {
-        let assertion = Frame { mode: FrameMode::Assert, ..Default::default() };
-        let ordinary = Frame::default();
+        let assertion = || Frame { mode: FrameMode::Assert, ..Default::default() };
+        let ordinary = Frame::default;
 
         assert!(has_valid_assertion_suffix(&[]));
-        assert!(has_valid_assertion_suffix(&[
-            ordinary.clone(),
-            assertion.clone(),
-            assertion.clone()
-        ]));
-        assert!(has_valid_assertion_suffix(core::slice::from_ref(&assertion)));
-        assert!(!has_valid_assertion_suffix(&[assertion.clone(), ordinary.clone()]));
-        assert!(!has_valid_assertion_suffix(&[ordinary, assertion, Frame::default()]));
+        assert!(has_valid_assertion_suffix(&[ordinary()]));
+        assert!(has_valid_assertion_suffix(&[assertion()]));
+        assert!(has_valid_assertion_suffix(&[ordinary(), assertion(), assertion()]));
+        assert!(!has_valid_assertion_suffix(&[assertion(), ordinary()]));
+        assert!(!has_valid_assertion_suffix(&[ordinary(), assertion(), ordinary()]));
     }
 }

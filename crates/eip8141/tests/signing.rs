@@ -1,4 +1,5 @@
 //! Signature lengths are committed without committing to circular witness bytes.
+
 use alloy_eip8141::{FrameSignature, SignatureMessage, SigningFrameSignatures};
 use alloy_primitives::{B256, hex};
 use alloy_rlp::Encodable;
