@@ -56,7 +56,7 @@ pub const SECP256K1_SIGNATURE_LENGTH: usize = 65;
 pub const P256_SIGNATURE_LENGTH: usize = 128;
 
 /// Maximum validation work for public mempool admission.
-pub const MAX_VERIFY_GAS: u64 = 100_000;
+pub const MAX_VERIFY_GAS: u64 = 300_000;
 
 /// Maximum state gas budget across a public-mempool validation prefix.
 pub const MAX_VERIFY_STATE_GAS: u64 = 500_000;
