@@ -293,15 +293,17 @@ impl Deref for SignedAuthorization {
 #[cfg(all(any(test, feature = "arbitrary"), feature = "k256"))]
 impl<'a> arbitrary::Arbitrary<'a> for SignedAuthorization {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        use k256::{
-            NonZeroScalar,
-            ecdsa::{SigningKey, signature::hazmat::PrehashSigner},
-        };
-        use rand::{SeedableRng, rngs::StdRng};
+        use k256::ecdsa::{SigningKey, signature::hazmat::PrehashSigner};
+        use rand::{RngExt, SeedableRng, rngs::StdRng};
 
         let rng_seed = u.arbitrary::<[u8; 32]>()?;
         let mut rand_gen = StdRng::from_seed(rng_seed);
-        let signing_key: SigningKey = NonZeroScalar::random(&mut rand_gen).into();
+        // k256 uses an older rand_core, so draw the scalar bytes here and retry until valid.
+        let signing_key = loop {
+            if let Ok(key) = SigningKey::from_slice(&rand_gen.random::<[u8; 32]>()) {
+                break key;
+            }
+        };
 
         let inner = u.arbitrary::<Authorization>()?;
         let signature_hash = inner.signature_hash();
@@ -510,7 +512,7 @@ pub(super) mod serde_bincode_compat {
     #[cfg(all(test, feature = "k256"))]
     mod tests {
         use arbitrary::Arbitrary;
-        use rand::Rng;
+        use rand::RngExt;
         use serde::{Deserialize, Serialize};
         use serde_with::serde_as;
 
@@ -526,7 +528,7 @@ pub(super) mod serde_bincode_compat {
             }
 
             let mut bytes = [0u8; 1024];
-            rand::thread_rng().fill(bytes.as_mut_slice());
+            rand::rng().fill(bytes.as_mut_slice());
             let data = Data {
                 authorization: SignedAuthorization::arbitrary(&mut arbitrary::Unstructured::new(
                     &bytes,
