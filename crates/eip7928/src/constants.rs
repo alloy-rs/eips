@@ -19,8 +19,9 @@ pub const ITEM_COST: usize = 2000;
 
 const ETHEREUM_MAINNET_SLOTS_PER_EPOCH: u64 = 32;
 
-/// Number of epochs the execution layer must retain block access lists for.
-pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 3_533;
+/// Number of epochs the execution layer must retain block access lists for, the EIP-4444
+/// `HISTORY_PRUNE_EPOCHS` block body retention window.
+pub const BAL_RETENTION_PERIOD_EPOCHS: u64 = 14_299;
 
 /// Number of slots corresponding to [`BAL_RETENTION_PERIOD_EPOCHS`].
 pub const BAL_RETENTION_PERIOD_SLOTS: u64 =
