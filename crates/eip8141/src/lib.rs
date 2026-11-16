@@ -63,6 +63,3 @@ pub use signature::*;
 
 mod signer;
 pub use signer::{FrameSigner, ResolvedFrameSigner};
-
-mod lean_sphincs;
-pub use lean_sphincs::verify_lean_sphincs;

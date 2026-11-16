@@ -130,13 +130,3 @@ pub enum ResolvedFrameSigner {
     /// The full public key for a leanSPHINCS signature.
     LeanSphincs(B256),
 }
-
-impl ResolvedFrameSigner {
-    /// Returns the word exposed by `SIGPARAM`.
-    pub fn into_word(self) -> B256 {
-        match self {
-            Self::Address(address) => address.into_word(),
-            Self::LeanSphincs(key) => key,
-        }
-    }
-}

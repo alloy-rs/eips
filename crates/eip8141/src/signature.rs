@@ -312,9 +312,8 @@ impl FrameSignature {
 
     /// Checks the signer, signature length, parity, and canonical scalar bounds.
     ///
-    /// For leanSPHINCS, use [`Self::verify_lean_sphincs`] for cryptographic verification. The
-    /// elliptic-curve schemes still require a cryptographic backend. Decoding a signature entry
-    /// does not imply that these checks have passed.
+    /// For leanSPHINCS, this checks the signer, message, and signature length. Protocol
+    /// signatures still require cryptographic verification by the caller.
     pub fn validate_structure(&self) -> Result<(), Eip8141Error> {
         const SECP256K1_HALF_ORDER: U256 = crate::SECP256K1N.wrapping_shr(1);
         const P256_HALF_ORDER: U256 = crate::SECP256R1N.wrapping_shr(1);
@@ -425,20 +424,6 @@ impl FrameSignature {
         };
         entry.validate_structure()?;
         Ok(entry)
-    }
-
-    /// Verifies a leanSPHINCS entry against the message designated by the entry.
-    ///
-    /// `transaction_hash` is the canonical EIP-8141 signature hash. An explicit message takes
-    /// precedence when present. Returns false for other schemes or an invalid leanSPHINCS entry.
-    pub fn verify_lean_sphincs(&self, transaction_hash: &B256) -> bool {
-        let Some(key) = self.lean_sphincs_public_key() else { return false };
-        let message = match &self.msg {
-            SignatureMessage::TransactionHash => transaction_hash,
-            SignatureMessage::Explicit(digest) if !digest.is_zero() => digest,
-            SignatureMessage::Explicit(_) => return false,
-        };
-        crate::verify_lean_sphincs(key, message, &self.signature)
     }
 
     /// Creates a structurally checked secp256k1 entry using EIP-8141's `v || r || s` layout.
