@@ -1,0 +1,3 @@
+# Configuration for cargo-release: https://github.com/crate-ci/cargo-release/blob/master/docs/reference.md
+# cargo-release bumps, commits and tags; .github/workflows/publish.yml publishes to crates.io.
+publish = false
