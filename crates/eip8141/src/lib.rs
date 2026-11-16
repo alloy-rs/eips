@@ -1,14 +1,14 @@
 //! [EIP-8141] frame transaction constants and types, including the [EIP-7906] `ASSERT`
 //! frame mode.
 //!
-//! Targets, signers, and signed messages are typed: [`FrameAddress`] distinguishes an omitted
-//! address from an explicit one and [`SignatureMessage`] distinguishes the canonical transaction
+//! [`FrameAddress`] distinguishes an omitted target from an explicit address. [`FrameSigner`]
+//! represents signer metadata. [`SignatureMessage`] distinguishes the canonical transaction
 //! hash from an explicit digest. Decoding rejects malformed lengths and the reserved zero digest
 //! but not the remaining signature constraints: call [`FrameSignature::validate_structure`] or
 //! [`FrameSignature::validate_structure_with_sender`] before cryptographic verification.
 //!
 //! The `serde` feature encodes protocol discriminants and gas counters as hex quantities, and
-//! optional addresses and signature messages as hex byte strings (empty values are `"0x"`).
+//! targets, signer metadata, and signature messages as hex byte strings (empty values are `"0x"`).
 //!
 //! ```
 //! use alloy_eip8141::{FrameAddress, FrameSignature, SignatureMessage};
@@ -60,3 +60,6 @@ pub use receipt::*;
 
 mod signature;
 pub use signature::*;
+
+mod signer;
+pub use signer::{FrameSigner, ResolvedFrameSigner};
