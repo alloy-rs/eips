@@ -46,7 +46,6 @@ jobs:
         id: packages
         env:
           TAG: ${{ github.ref_name }}
-          LOCKSTEP: "false"
         run: .github/scripts/release-packages.sh "$TAG" >> "$GITHUB_OUTPUT"
       - uses: tempoxyz/gh-actions/actions/cargo-publish@763efe11a9d8333bcbf0bb2f5ab80f21961c48fd # 2026-11-02T08-44-18Z-763efe11
         with:
@@ -57,6 +56,9 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # The release environment's required reviewers are what stop an unauthorized publish:
+    # GitHub runs publish.yml from the tagged commit, so anyone who can push a tag can drop
+    # the checks in this file. Approve only a commit that is on main.
     environment: release
     permissions:
       contents: read
