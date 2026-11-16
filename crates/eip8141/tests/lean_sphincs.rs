@@ -1,15 +1,18 @@
 //! Wire-format and structural validation tests for EIP-8141 leanSPHINCS entries.
 
 use alloy_eip8141::*;
-use alloy_primitives::{Address, B256, Bytes};
+use alloy_primitives::{Address, B256, Bytes, b256};
 use alloy_rlp::Encodable;
+
+// Public key from EthLib's verify_valid_known_answer fixture at
+// 0143e5a817ed2dddfeab77ac1b70cae597f05a6c, in PK.seed || PK.root order.
+const PUBLIC_KEY: B256 = b256!("e316da87de2d05b3ccd0a39c30bfda68303b3741edeb4da5f028855bcd31b9ee");
 
 #[test]
 fn scheme_binding_and_signing_encoding() {
-    let key = B256::repeat_byte(0x42);
     let sender = Address::repeat_byte(0x41);
     let mut entry = FrameSignature::from_lean_sphincs(
-        key,
+        PUBLIC_KEY,
         SignatureMessage::TransactionHash,
         vec![0; LEAN_SPHINCS_SIGNATURE_LENGTH].into(),
     )
@@ -20,19 +23,22 @@ fn scheme_binding_and_signing_encoding() {
     assert_eq!(entry.verification_gas(), 12_600);
     assert_eq!(entry.scheme.signature_length(), Some(7_740));
     assert_eq!(entry.signature_tokens(), 7_740 * 4);
-    assert_eq!(entry.lean_sphincs_public_key(), Some(&key));
+    assert_eq!(entry.lean_sphincs_public_key(), Some(&PUBLIC_KEY));
     assert_eq!(entry.signer_address(), None);
-    assert_eq!(entry.resolved_signer(sender), Ok(Some(ResolvedFrameSigner::LeanSphincs(key))));
+    assert_eq!(
+        entry.resolved_signer(sender),
+        Ok(Some(ResolvedFrameSigner::LeanSphincs(PUBLIC_KEY)))
+    );
     assert_eq!(entry.validate_structure_with_sender(sender), Ok(()));
 
     let encoded = alloy_rlp::encode(&entry);
     assert_eq!(encoded.len(), entry.length());
     assert_eq!(&encoded[..5], &[0xf9, 0x1e, 0x62, 3, 0xa0]);
-    assert_eq!(&encoded[5..37], key.as_slice());
+    assert_eq!(&encoded[5..37], PUBLIC_KEY.as_slice());
     assert_eq!(&encoded[37..41], &[0x80, 0xb9, 0x1e, 0x3c]);
     assert_eq!(alloy_rlp::decode_exact::<FrameSignature>(&encoded).unwrap(), entry);
     let mut signing = vec![0xe6, 3, 0xa0];
-    signing.extend_from_slice(key.as_slice());
+    signing.extend_from_slice(PUBLIC_KEY.as_slice());
     signing.extend_from_slice(&[0x80, 0x82, 0x1e, 0x3c]);
     assert_eq!(alloy_rlp::encode(entry.as_signing()), signing);
     entry.signature = vec![0xff; 7_740].into();
@@ -97,8 +103,36 @@ fn signer_discriminants_preserve_legacy_borsh_encoding() {
             borsh::to_vec(&address).unwrap()
         );
     }
-    let signer = FrameSigner::LeanSphincs(B256::repeat_byte(0x42));
+    let signer = FrameSigner::LeanSphincs(PUBLIC_KEY);
     let bytes = borsh::to_vec(&signer).unwrap();
     assert_eq!(bytes[0], 2);
+    assert_eq!(&bytes[1..], PUBLIC_KEY.as_slice());
     assert_eq!(borsh::from_slice::<FrameSigner>(&bytes).unwrap(), signer);
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn serde_preserves_public_key_byte_order() {
+    use serde_json::json;
+
+    let entry = FrameSignature::from_lean_sphincs(
+        PUBLIC_KEY,
+        SignatureMessage::TransactionHash,
+        vec![0; LEAN_SPHINCS_SIGNATURE_LENGTH].into(),
+    )
+    .unwrap();
+    let json = serde_json::to_value(&entry).unwrap();
+    assert_eq!(json["scheme"], "0x3");
+    assert_eq!(json["signer"], PUBLIC_KEY.to_string());
+    assert_eq!(serde_json::from_value::<FrameSignature>(json).unwrap(), entry);
+
+    let binary = bincode::serialize(&entry).unwrap();
+    assert_eq!(bincode::deserialize::<FrameSignature>(&binary).unwrap(), entry);
+    assert_eq!(
+        serde_json::from_value::<FrameSigner>(json!(PUBLIC_KEY.as_slice())).unwrap(),
+        FrameSigner::LeanSphincs(PUBLIC_KEY)
+    );
+    for len in [1, 19, 21, 31, 33] {
+        assert!(serde_json::from_value::<FrameSigner>(json!(vec![1; len])).is_err());
+    }
 }

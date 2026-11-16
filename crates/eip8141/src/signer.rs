@@ -15,7 +15,9 @@ pub enum FrameSigner {
     Empty,
     /// An explicit Ethereum address.
     Address(Address),
-    /// The full leanSPHINCS public key, encoded as a 16-byte root and 16-byte public parameter.
+    /// The full leanSPHINCS public key, `PK.seed || PK.root` in EthLib's FIPS 205 layout.
+    ///
+    /// Both halves are 16 bytes. See [`LEAN_SPHINCS_PUBLIC_KEY_LENGTH`] for the layout revisions.
     LeanSphincs(B256),
 }
 

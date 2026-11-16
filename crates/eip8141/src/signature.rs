@@ -58,6 +58,13 @@ impl SignatureScheme {
     }
 
     /// Returns the protocol signature verification gas cost.
+    ///
+    /// The leanSPHINCS cost follows the [draft EIP-8141 amendment], which prices 492
+    /// `Keccak-f[1600]` permutations. [EthLib's FIPS 205 revision] uses 515 permutations and
+    /// needs an upstream pricing decision.
+    ///
+    /// [draft EIP-8141 amendment]: https://github.com/ethereum/EIPs/blob/c8c0e3f855b8c8711fa9b33ae0bd7548a019bdd5/EIPS/eip-8141.md
+    /// [EthLib's FIPS 205 revision]: https://github.com/ethereum/EthLib/blob/0143e5a817ed2dddfeab77ac1b70cae597f05a6c/EthLib/Cryptography/Sphincs/README.md
     pub const fn verification_gas(self) -> u64 {
         match self {
             Self::Arbitrary => 100,
@@ -315,10 +322,7 @@ impl FrameSignature {
     /// For leanSPHINCS, this checks the signer, message, and signature length. Protocol
     /// signatures still require cryptographic verification by the caller.
     pub fn validate_structure(&self) -> Result<(), Eip8141Error> {
-        const SECP256K1_HALF_ORDER: U256 = crate::SECP256K1N.wrapping_shr(1);
-        const P256_HALF_ORDER: U256 = crate::SECP256R1N.wrapping_shr(1);
-
-        let (expected, order, half_order) = match self.scheme {
+        let (expected, order) = match self.scheme {
             SignatureScheme::Arbitrary => {
                 return if self.signer.is_empty() {
                     Ok(())
@@ -326,10 +330,8 @@ impl FrameSignature {
                     Err(Eip8141Error::UnexpectedSigner)
                 };
             }
-            SignatureScheme::Secp256k1 => {
-                (SECP256K1_SIGNATURE_LENGTH, crate::SECP256K1N, SECP256K1_HALF_ORDER)
-            }
-            SignatureScheme::P256 => (P256_SIGNATURE_LENGTH, crate::SECP256R1N, P256_HALF_ORDER),
+            SignatureScheme::Secp256k1 => (SECP256K1_SIGNATURE_LENGTH, crate::SECP256K1N),
+            SignatureScheme::P256 => (P256_SIGNATURE_LENGTH, crate::SECP256R1N),
             SignatureScheme::LeanSphincs => {
                 if self.lean_sphincs_public_key().is_none() {
                     return Err(Eip8141Error::InvalidSignerLength(self.signer.as_bytes().len()));
@@ -352,9 +354,9 @@ impl FrameSignature {
         } else {
             0
         };
-        let r = U256::from_be_bytes(*self.signature[offset..].first_chunk::<32>().unwrap());
-        let s = U256::from_be_bytes(*self.signature[offset + 32..].first_chunk::<32>().unwrap());
-        if r.is_zero() || r >= order || s.is_zero() || s > half_order {
+        let r = U256::from_be_slice(&self.signature[offset..offset + 32]);
+        let s = U256::from_be_slice(&self.signature[offset + 32..offset + 64]);
+        if r.is_zero() || r >= order || s.is_zero() || s > order >> 1 {
             return Err(Eip8141Error::InvalidSignatureScalar);
         }
         Ok(())

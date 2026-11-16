@@ -184,24 +184,3 @@ fn receipt_with_logs_roundtrips_json() {
     assert_eq!(value["logs"][0]["data"], json!("0x0304"));
     assert_eq!(serde_json::from_value::<FrameReceipt>(value).unwrap(), receipt);
 }
-
-#[test]
-fn lean_sphincs_uses_full_public_key_byte_string() {
-    let key = B256::repeat_byte(0xa1);
-    let entry = FrameSignature::from_lean_sphincs(
-        key,
-        SignatureMessage::TransactionHash,
-        vec![0; LEAN_SPHINCS_SIGNATURE_LENGTH].into(),
-    )
-    .unwrap();
-    let json = roundtrip(entry);
-    assert_eq!(json["scheme"], "0x3");
-    assert_eq!(json["signer"], key.to_string());
-    assert_eq!(
-        serde_json::from_value::<FrameSigner>(json!(vec![0xa1; 32])).unwrap(),
-        FrameSigner::LeanSphincs(key)
-    );
-    for len in [1, 19, 21, 31, 33] {
-        assert!(serde_json::from_value::<FrameSigner>(json!(vec![1; len])).is_err());
-    }
-}
