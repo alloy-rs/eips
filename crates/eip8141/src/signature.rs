@@ -1,7 +1,11 @@
 use alloy_primitives::{Address, B256, Bytes, Signature, U256};
 use alloy_rlp::{Decodable, Encodable, Header, RlpDecodable, RlpEncodable};
 
-use crate::{Eip8141Error, FrameAddress, P256_SIGNATURE_LENGTH, SECP256K1_SIGNATURE_LENGTH};
+use crate::{
+    Eip8141Error, FrameAddress, FrameSigner, LEAN_SPHINCS_PUBLIC_KEY_LENGTH,
+    LEAN_SPHINCS_SIGNATURE_LENGTH, P256_SIGNATURE_LENGTH, ResolvedFrameSigner,
+    SECP256K1_SIGNATURE_LENGTH,
+};
 
 /// EIP-8141 transaction signature scheme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -17,6 +21,8 @@ pub enum SignatureScheme {
     Secp256k1 = 0x01,
     /// P-256 signature.
     P256 = 0x02,
+    /// Stateless Keccak-256 based leanSPHINCS signature.
+    LeanSphincs = 0x03,
 }
 
 impl SignatureScheme {
@@ -35,12 +41,18 @@ impl SignatureScheme {
         matches!(self, Self::P256)
     }
 
+    /// Returns true if this is [`Self::LeanSphincs`].
+    pub const fn is_lean_sphincs(self) -> bool {
+        matches!(self, Self::LeanSphincs)
+    }
+
     /// Attempts to convert a raw scheme byte into a [`SignatureScheme`].
     pub const fn try_from_u8(value: u8) -> Option<Self> {
         match value {
             0x00 => Some(Self::Arbitrary),
             0x01 => Some(Self::Secp256k1),
             0x02 => Some(Self::P256),
+            0x03 => Some(Self::LeanSphincs),
             _ => None,
         }
     }
@@ -51,6 +63,7 @@ impl SignatureScheme {
             Self::Arbitrary => 100,
             Self::Secp256k1 => 2_800,
             Self::P256 => 6_700,
+            Self::LeanSphincs => 12_600,
         }
     }
 
@@ -62,6 +75,7 @@ impl SignatureScheme {
             Self::Arbitrary => None,
             Self::Secp256k1 => Some(SECP256K1_SIGNATURE_LENGTH),
             Self::P256 => Some(P256_SIGNATURE_LENGTH),
+            Self::LeanSphincs => Some(LEAN_SPHINCS_SIGNATURE_LENGTH),
         }
     }
 }
@@ -203,7 +217,7 @@ pub struct FrameSignature {
     /// Signature scheme identifier.
     pub scheme: SignatureScheme,
     /// Scheme-dependent signer metadata. For `ARBITRARY`, this must be empty.
-    pub signer: FrameAddress,
+    pub signer: FrameSigner,
     /// The signed message: the canonical transaction signature hash or an explicit digest.
     pub msg: SignatureMessage,
     /// Raw signature bytes.
@@ -211,7 +225,7 @@ pub struct FrameSignature {
 }
 
 impl FrameSignature {
-    /// Creates a new frame signature from raw field values.
+    /// Creates a new frame signature entry with an optional Ethereum address.
     ///
     /// Call [`Self::validate_structure`] before using an untrusted entry, then perform the
     /// scheme-specific cryptographic verification. This constructor does not validate the fields.
@@ -221,7 +235,7 @@ impl FrameSignature {
         msg: SignatureMessage,
         signature: Bytes,
     ) -> Self {
-        Self { scheme, signer, msg, signature }
+        Self { scheme, signer: FrameSigner::from_address(signer), msg, signature }
     }
 
     /// Returns true if this signature signs the canonical transaction signature hash.
@@ -243,8 +257,8 @@ impl FrameSignature {
     pub fn as_signing(&self) -> SigningFrameSignature<'_> {
         SigningFrameSignature {
             scheme: self.scheme,
-            signer: self.signer,
-            msg: self.msg,
+            signer: &self.signer,
+            msg: &self.msg,
             signature: if self.signs_transaction_hash() {
                 SigningSignature::Length(self.signature.len())
             } else {
@@ -253,39 +267,59 @@ impl FrameSignature {
         }
     }
 
-    /// Returns the explicit signer address of a protocol-validated scheme.
+    /// Returns the explicit signer address of a secp256k1 or P-256 entry, if present.
     ///
-    /// Returns `None` for an empty signer, which resolves to the transaction sender, and for
-    /// arbitrary signatures, which have no signer. Use [`Self::resolved_signer`] when the
-    /// transaction sender is available.
+    /// An empty signer resolves to the transaction sender for these schemes. Use
+    /// [`Self::resolved_signer`] when the transaction sender is available.
     pub const fn signer_address(&self) -> Option<Address> {
         match self.scheme {
-            SignatureScheme::Arbitrary => None,
-            _ => self.signer.address(),
+            SignatureScheme::Secp256k1 | SignatureScheme::P256 => self.signer.address(),
+            _ => None,
         }
     }
 
-    /// Resolves the signer, rejecting a nonempty signer on an arbitrary signature.
-    pub const fn resolved_signer(&self, sender: Address) -> Result<Option<Address>, Eip8141Error> {
-        match self.scheme {
-            SignatureScheme::Arbitrary => {
-                if self.signer.is_empty() {
-                    Ok(None)
-                } else {
-                    Err(Eip8141Error::UnexpectedSigner)
-                }
+    /// Returns the full public key of a leanSPHINCS entry.
+    pub const fn lean_sphincs_public_key(&self) -> Option<&B256> {
+        match (&self.signer, self.scheme) {
+            (FrameSigner::LeanSphincs(key), SignatureScheme::LeanSphincs) => Some(key),
+            _ => None,
+        }
+    }
+
+    /// Resolves the signer according to the signature scheme.
+    ///
+    /// A valid arbitrary entry has no resolved signer. An empty signer resolves to the transaction
+    /// sender for secp256k1 and P-256, while leanSPHINCS always resolves to its full public key.
+    pub const fn resolved_signer(
+        &self,
+        sender: Address,
+    ) -> Result<Option<ResolvedFrameSigner>, Eip8141Error> {
+        match (self.scheme, self.signer) {
+            (SignatureScheme::Arbitrary, FrameSigner::Empty) => Ok(None),
+            (SignatureScheme::Arbitrary, _) => Err(Eip8141Error::UnexpectedSigner),
+            (SignatureScheme::LeanSphincs, FrameSigner::LeanSphincs(key)) => {
+                Ok(Some(ResolvedFrameSigner::LeanSphincs(key)))
             }
-            _ => Ok(Some(self.signer.resolve(sender))),
+            (SignatureScheme::Secp256k1 | SignatureScheme::P256, FrameSigner::Empty) => {
+                Ok(Some(ResolvedFrameSigner::Address(sender)))
+            }
+            (SignatureScheme::Secp256k1 | SignatureScheme::P256, FrameSigner::Address(address)) => {
+                Ok(Some(ResolvedFrameSigner::Address(address)))
+            }
+            _ => Err(Eip8141Error::InvalidSignerLength(self.signer.as_bytes().len())),
         }
     }
 
     /// Checks the signer, signature length, parity, and canonical scalar bounds.
     ///
-    /// This does not perform cryptographic verification: callers must still recover the secp256k1
-    /// signer or verify the P-256 signature against the resolved signer and message. Decoding a
-    /// signature entry does not imply that these checks have passed.
+    /// For leanSPHINCS, use [`Self::verify_lean_sphincs`] for cryptographic verification. The
+    /// elliptic-curve schemes still require a cryptographic backend. Decoding a signature entry
+    /// does not imply that these checks have passed.
     pub fn validate_structure(&self) -> Result<(), Eip8141Error> {
-        let (expected, order) = match self.scheme {
+        const SECP256K1_HALF_ORDER: U256 = crate::SECP256K1N.wrapping_shr(1);
+        const P256_HALF_ORDER: U256 = crate::SECP256R1N.wrapping_shr(1);
+
+        let (expected, order, half_order) = match self.scheme {
             SignatureScheme::Arbitrary => {
                 return if self.signer.is_empty() {
                     Ok(())
@@ -293,15 +327,24 @@ impl FrameSignature {
                     Err(Eip8141Error::UnexpectedSigner)
                 };
             }
-            SignatureScheme::Secp256k1 => (SECP256K1_SIGNATURE_LENGTH, crate::SECP256K1N),
-            SignatureScheme::P256 => (P256_SIGNATURE_LENGTH, crate::SECP256R1N),
+            SignatureScheme::Secp256k1 => {
+                (SECP256K1_SIGNATURE_LENGTH, crate::SECP256K1N, SECP256K1_HALF_ORDER)
+            }
+            SignatureScheme::P256 => (P256_SIGNATURE_LENGTH, crate::SECP256R1N, P256_HALF_ORDER),
+            SignatureScheme::LeanSphincs => {
+                if self.lean_sphincs_public_key().is_none() {
+                    return Err(Eip8141Error::InvalidSignerLength(self.signer.as_bytes().len()));
+                }
+                if matches!(self.msg, SignatureMessage::Explicit(digest) if digest.is_zero()) {
+                    return Err(Eip8141Error::ZeroMessage);
+                }
+                return self.check_signature_length(LEAN_SPHINCS_SIGNATURE_LENGTH);
+            }
         };
-        if self.signature.len() != expected {
-            return Err(Eip8141Error::InvalidSignatureLength {
-                expected,
-                actual: self.signature.len(),
-            });
+        if matches!(self.signer, FrameSigner::LeanSphincs(_)) {
+            return Err(Eip8141Error::InvalidSignerLength(LEAN_SPHINCS_PUBLIC_KEY_LENGTH));
         }
+        self.check_signature_length(expected)?;
         let offset = if self.scheme == SignatureScheme::Secp256k1 {
             if self.signature[0] > 1 {
                 return Err(Eip8141Error::InvalidParity(self.signature[0]));
@@ -310,10 +353,18 @@ impl FrameSignature {
         } else {
             0
         };
-        let r = U256::from_be_slice(&self.signature[offset..offset + 32]);
-        let s = U256::from_be_slice(&self.signature[offset + 32..offset + 64]);
-        if r.is_zero() || r >= order || s.is_zero() || s > order >> 1 {
+        let r = U256::from_be_bytes(*self.signature[offset..].first_chunk::<32>().unwrap());
+        let s = U256::from_be_bytes(*self.signature[offset + 32..].first_chunk::<32>().unwrap());
+        if r.is_zero() || r >= order || s.is_zero() || s > half_order {
             return Err(Eip8141Error::InvalidSignatureScalar);
+        }
+        Ok(())
+    }
+
+    fn check_signature_length(&self, expected: usize) -> Result<(), Eip8141Error> {
+        let actual = self.signature.len();
+        if actual != expected {
+            return Err(Eip8141Error::InvalidSignatureLength { expected, actual });
         }
         Ok(())
     }
@@ -326,7 +377,7 @@ impl FrameSignature {
     pub fn validate_structure_with_sender(&self, sender: Address) -> Result<(), Eip8141Error> {
         self.validate_structure()?;
         if let Some(derived) = self.p256_signer_address() {
-            let expected = self.signer.resolve(sender);
+            let expected = self.signer_address().unwrap_or(sender);
             if derived != expected {
                 return Err(Eip8141Error::P256SignerMismatch { expected, derived });
             }
@@ -358,6 +409,36 @@ impl FrameSignature {
     pub fn p256_signer_address(&self) -> Option<Address> {
         (self.scheme == SignatureScheme::P256 && self.signature.len() == P256_SIGNATURE_LENGTH)
             .then(|| Address::from_raw_public_key(&self.signature[64..]))
+    }
+
+    /// Creates a structurally checked leanSPHINCS entry from a public key and raw signature bytes.
+    pub fn from_lean_sphincs(
+        public_key: B256,
+        msg: SignatureMessage,
+        signature: Bytes,
+    ) -> Result<Self, Eip8141Error> {
+        let entry = Self {
+            scheme: SignatureScheme::LeanSphincs,
+            signer: FrameSigner::LeanSphincs(public_key),
+            msg,
+            signature,
+        };
+        entry.validate_structure()?;
+        Ok(entry)
+    }
+
+    /// Verifies a leanSPHINCS entry against the message designated by the entry.
+    ///
+    /// `transaction_hash` is the canonical EIP-8141 signature hash. An explicit message takes
+    /// precedence when present. Returns false for other schemes or an invalid leanSPHINCS entry.
+    pub fn verify_lean_sphincs(&self, transaction_hash: &B256) -> bool {
+        let Some(key) = self.lean_sphincs_public_key() else { return false };
+        let message = match &self.msg {
+            SignatureMessage::TransactionHash => transaction_hash,
+            SignatureMessage::Explicit(digest) if !digest.is_zero() => digest,
+            SignatureMessage::Explicit(_) => return false,
+        };
+        crate::verify_lean_sphincs(key, message, &self.signature)
     }
 
     /// Creates a structurally checked secp256k1 entry using EIP-8141's `v || r || s` layout.
@@ -403,8 +484,8 @@ impl FrameSignature {
 #[derive(Clone, Copy, Debug, RlpEncodable)]
 pub struct SigningFrameSignature<'a> {
     scheme: SignatureScheme,
-    signer: FrameAddress,
-    msg: SignatureMessage,
+    signer: &'a FrameSigner,
+    msg: &'a SignatureMessage,
     signature: SigningSignature<'a>,
 }
 

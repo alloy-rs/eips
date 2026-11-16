@@ -55,6 +55,12 @@ pub const SECP256K1_SIGNATURE_LENGTH: usize = 65;
 /// Byte length of a P-256 signature entry: `r || s || qx || qy`.
 pub const P256_SIGNATURE_LENGTH: usize = 128;
 
+/// Byte length of a leanSPHINCS public key: root followed by public parameter.
+pub const LEAN_SPHINCS_PUBLIC_KEY_LENGTH: usize = 32;
+
+/// Byte length of a bare leanSPHINCS signature entry.
+pub const LEAN_SPHINCS_SIGNATURE_LENGTH: usize = 7_740;
+
 /// Maximum validation work for public mempool admission.
 pub const MAX_VERIFY_GAS: u64 = 300_000;
 

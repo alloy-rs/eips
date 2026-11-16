@@ -29,6 +29,9 @@ pub enum Eip8141Error {
     /// Arbitrary signatures must not specify a signer.
     #[error("arbitrary signature must have an empty signer")]
     UnexpectedSigner,
+    /// The signer field has an incorrect length for the signature scheme or wire format.
+    #[error("invalid signature signer length: {0}")]
+    InvalidSignerLength(usize),
     /// A protocol signature has an incorrect byte length.
     #[error("invalid signature length: expected {expected}, got {actual}")]
     InvalidSignatureLength {
