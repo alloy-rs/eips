@@ -54,8 +54,17 @@ fn frame() -> impl Strategy<Value = Frame> {
 }
 
 fn signature() -> impl Strategy<Value = FrameSignature> {
-    (0u8..3, frame_address(), message(), bytes()).prop_map(|(scheme, signer, msg, signature)| {
-        FrameSignature::new(SignatureScheme::try_from(scheme).unwrap(), signer, msg, signature)
+    let signer = prop_oneof![
+        frame_address().prop_map(FrameSigner::from),
+        any::<[u8; 32]>().prop_map(|key| FrameSigner::LeanSphincs(B256::from(key))),
+    ];
+    (0u8..4, signer, message(), bytes()).prop_map(|(scheme, signer, msg, signature)| {
+        FrameSignature {
+            scheme: SignatureScheme::try_from(scheme).unwrap(),
+            signer,
+            msg,
+            signature,
+        }
     })
 }
 
@@ -120,7 +129,7 @@ proptest! {
         for signature in &signatures {
             let mut entry = alloy_rlp::Header::decode_bytes(&mut entries, true).unwrap();
             prop_assert_eq!(SignatureScheme::decode(&mut entry).unwrap(), signature.scheme);
-            prop_assert_eq!(FrameAddress::decode(&mut entry).unwrap(), signature.signer);
+            prop_assert_eq!(FrameSigner::decode(&mut entry).unwrap(), signature.signer);
             prop_assert_eq!(SignatureMessage::decode(&mut entry).unwrap(), signature.msg);
             if signature.signs_transaction_hash() {
                 prop_assert_eq!(usize::decode(&mut entry).unwrap(), signature.signature.len());

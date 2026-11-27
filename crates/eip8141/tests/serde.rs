@@ -28,10 +28,14 @@ fn discriminants_use_quantities() {
     {
         assert_eq!(roundtrip(status), json!(format!("0x{i:x}")));
     }
-    for (i, scheme) in
-        [SignatureScheme::Arbitrary, SignatureScheme::Secp256k1, SignatureScheme::P256]
-            .into_iter()
-            .enumerate()
+    for (i, scheme) in [
+        SignatureScheme::Arbitrary,
+        SignatureScheme::Secp256k1,
+        SignatureScheme::P256,
+        SignatureScheme::LeanSphincs,
+    ]
+    .into_iter()
+    .enumerate()
     {
         assert_eq!(roundtrip(scheme), json!(format!("0x{i:x}")));
     }
@@ -52,7 +56,6 @@ fn discriminants_use_quantities() {
         assert!(serde_json::from_value::<SignatureScheme>(value).is_err());
     }
     assert!(serde_json::from_value::<FrameStatus>(json!("0x3")).is_err());
-    assert!(serde_json::from_value::<SignatureScheme>(json!("0x3")).is_err());
     assert!(serde_json::from_value::<ApprovalScope>(json!("0x4")).is_err());
 }
 

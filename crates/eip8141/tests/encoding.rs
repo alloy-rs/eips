@@ -105,7 +105,7 @@ fn invalid_discriminants_and_noncanonical_rlp() {
     assert_eq!(FrameMode::try_from(3), Ok(FrameMode::Assert));
     assert_eq!(FrameMode::try_from(4), Err(Eip8141Error::InvalidMode(4)));
     assert_eq!(FrameStatus::try_from(3), Err(Eip8141Error::InvalidStatus(3)));
-    assert_eq!(SignatureScheme::try_from(3), Err(Eip8141Error::InvalidScheme(3)));
+    assert_eq!(SignatureScheme::try_from(3), Ok(SignatureScheme::LeanSphincs));
     assert_eq!(ApprovalScope::try_from(4), Err(Eip8141Error::InvalidScope(4)));
     for flags in 0..=u8::MAX {
         let frame = Frame { flags, ..Default::default() };
@@ -133,10 +133,13 @@ fn target_and_signer_resolution() {
         sig.scheme = scheme;
         sig.signer = Address::ZERO.into();
         assert_eq!(sig.signer_address(), Some(Address::ZERO));
-        assert_eq!(sig.resolved_signer(sender), Ok(Some(Address::ZERO)));
-        sig.signer = FrameAddress::Empty;
+        assert_eq!(
+            sig.resolved_signer(sender),
+            Ok(Some(ResolvedFrameSigner::Address(Address::ZERO)))
+        );
+        sig.signer = FrameSigner::Empty;
         assert_eq!(sig.signer_address(), None);
-        assert_eq!(sig.resolved_signer(sender), Ok(Some(sender)));
+        assert_eq!(sig.resolved_signer(sender), Ok(Some(ResolvedFrameSigner::Address(sender))));
     }
 }
 
@@ -247,7 +250,7 @@ fn typed_fields_roundtrip_borsh() {
         for msg in
             [SignatureMessage::TransactionHash, SignatureMessage::Explicit(B256::repeat_byte(1))]
         {
-            let signature = FrameSignature { signer: address, msg, ..Default::default() };
+            let signature = FrameSignature { signer: address.into(), msg, ..Default::default() };
             assert_eq!(
                 borsh::from_slice::<FrameSignature>(&borsh::to_vec(&signature).unwrap()).unwrap(),
                 signature

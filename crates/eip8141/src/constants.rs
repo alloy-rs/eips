@@ -55,6 +55,19 @@ pub const SECP256K1_SIGNATURE_LENGTH: usize = 65;
 /// Byte length of a P-256 signature entry: `r || s || qx || qy`.
 pub const P256_SIGNATURE_LENGTH: usize = 128;
 
+/// Byte length of a leanSPHINCS public key.
+///
+/// [EthLib's FIPS 205 layout] is `PK.seed || PK.root`, with 16 bytes per field. The [draft
+/// EIP-8141 amendment] still pins the earlier root-first layout. Both layouts have this length,
+/// and the wire type preserves the supplied bytes in order.
+///
+/// [EthLib's FIPS 205 layout]: https://github.com/ethereum/EthLib/blob/0143e5a817ed2dddfeab77ac1b70cae597f05a6c/EthLib/Cryptography/Sphincs/README.md
+/// [draft EIP-8141 amendment]: https://github.com/ethereum/EIPs/blob/c8c0e3f855b8c8711fa9b33ae0bd7548a019bdd5/EIPS/eip-8141.md
+pub const LEAN_SPHINCS_PUBLIC_KEY_LENGTH: usize = 32;
+
+/// Byte length of a bare leanSPHINCS signature entry.
+pub const LEAN_SPHINCS_SIGNATURE_LENGTH: usize = 7_740;
+
 /// Maximum validation work for public mempool admission.
 pub const MAX_VERIFY_GAS: u64 = 300_000;
 

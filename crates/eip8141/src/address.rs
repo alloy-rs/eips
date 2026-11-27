@@ -5,9 +5,8 @@ use crate::Eip8141Error;
 
 /// An empty or explicit address in a frame transaction.
 ///
-/// Empty targets resolve to the transaction sender. Empty signature signers resolve to the sender
-/// for protocol-validated schemes and represent no signer for arbitrary signatures.
-/// RLP encodes the empty case as an empty byte string, preserving the EIP-8141 wire format.
+/// Empty targets resolve to the transaction sender. See [`crate::FrameSigner`] for the signer
+/// field. RLP encodes the empty case as an empty byte string, preserving the EIP-8141 wire format.
 /// JSON uses hex byte strings, including `"0x"` for the empty case; `null` also deserializes as
 /// empty.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
