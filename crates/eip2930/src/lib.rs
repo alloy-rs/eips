@@ -162,11 +162,6 @@ impl AccessList {
         })
     }
 
-    /// Returns the position of the given address in the access list, if present.
-    fn index_of_address(&self, address: Address) -> Option<usize> {
-        self.iter().position(|item| item.address == address)
-    }
-
     /// Returns the total number of storage keys in this access list.
     pub fn storage_keys_count(&self) -> usize {
         self.iter().map(|i| i.storage_keys.len()).sum::<usize>()
@@ -176,19 +171,19 @@ impl AccessList {
     ///
     /// Returns a tuple with flags for the presence of the account and the slot.
     pub fn contains_storage(&self, address: Address, slot: B256) -> (bool, bool) {
-        self.index_of_address(address)
-            .map_or((false, false), |idx| (true, self.contains_storage_key_at_index(slot, idx)))
+        let mut contains_address = false;
+        for item in self.iter().filter(|item| item.address == address) {
+            if item.storage_keys.contains(&slot) {
+                return (true, true);
+            }
+            contains_address = true;
+        }
+        (contains_address, false)
     }
 
     /// Checks if the access list contains the specified address.
     pub fn contains_address(&self, address: Address) -> bool {
         self.iter().any(|item| item.address == address)
-    }
-
-    /// Checks if the storage keys at the given index within an account are present in the access
-    /// list.
-    fn contains_storage_key_at_index(&self, slot: B256, index: usize) -> bool {
-        self.get(index).is_some_and(|entry| entry.storage_keys.contains(&slot))
     }
 
     /// Adds an address to the access list and returns `true` if the operation results in a change,
@@ -294,6 +289,22 @@ mod tests {
         let decoded = AccessList::decode(&mut buf.as_ref()).unwrap();
         assert_eq!(buf.len(), list.length());
         assert_eq!(decoded, list);
+    }
+
+    #[test]
+    fn access_list_contains_storage_with_duplicate_addresses() {
+        let address = Address::with_last_byte(1);
+        let slot_1 = B256::with_last_byte(1);
+        let slot_2 = B256::with_last_byte(2);
+        let list = AccessList(vec![
+            AccessListItem { address, storage_keys: vec![slot_1] },
+            AccessListItem { address, storage_keys: vec![slot_2] },
+        ]);
+
+        assert_eq!(list.contains_storage(address, slot_1), (true, true));
+        assert_eq!(list.contains_storage(address, slot_2), (true, true));
+        assert_eq!(list.contains_storage(address, B256::with_last_byte(3)), (true, false));
+        assert_eq!(list.contains_storage(Address::with_last_byte(2), slot_1), (false, false));
     }
 
     #[test]
